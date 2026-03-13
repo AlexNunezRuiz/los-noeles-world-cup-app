@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Flag } from "@/components/ui/flag";
 import { useToast } from "@/components/ui/use-toast";
 import { Trash2, Plus } from "lucide-react";
 
@@ -111,7 +112,7 @@ export default function AdminJugadoresPage() {
                 <SelectContent>
                   {teams.map((t) => (
                     <SelectItem key={t.id} value={t.id.toString()}>
-                      {t.flag_emoji} {t.name}
+                      <span className="flex items-center gap-1"><Flag emoji={t.flag_emoji} size={16} />{t.name}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -141,7 +142,7 @@ export default function AdminJugadoresPage() {
               return (
                 <div key={p.id} className="flex items-center justify-between px-4 py-2">
                   <div className="flex items-center gap-2">
-                    <span>{team?.flag_emoji || "🏳️"}</span>
+                    <Flag emoji={team?.flag_emoji || ""} size={18} />
                     <span className="font-medium text-sm">{p.name}</span>
                     {p.position && (
                       <Badge variant="secondary" className="text-xs">{p.position}</Badge>

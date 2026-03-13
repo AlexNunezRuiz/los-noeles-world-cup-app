@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { TeamStanding } from "@/lib/tournament/standings";
+import { Flag } from "@/components/ui/flag";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
 interface Team {
@@ -64,7 +65,7 @@ export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, o
                 </td>
                 <td className="py-2 px-1">
                   <div className="flex items-center gap-1.5">
-                    <span>{team?.flag_emoji}</span>
+                    <Flag emoji={team?.flag_emoji || ""} size={18} />
                     <span className="font-medium truncate">{team?.name}</span>
                   </div>
                 </td>

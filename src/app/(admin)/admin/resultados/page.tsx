@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Flag } from "@/components/ui/flag";
 import { useToast } from "@/components/ui/use-toast";
 import { recalculateAllScores } from "@/lib/scoring/calculator";
 
@@ -155,8 +156,8 @@ export default function AdminResultadosPage() {
                       <CardContent className="p-3 flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-muted-foreground w-8">P{match.match_number}</span>
 
-                        <span className="text-sm flex-1 min-w-0 truncate">
-                          {home ? `${home.flag_emoji} ${home.code}` : match.home_placeholder || "TBD"}
+                        <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1">
+                          {home ? <><Flag emoji={home.flag_emoji} size={16} />{home.code}</> : match.home_placeholder || "TBD"}
                         </span>
 
                         <Input
@@ -183,8 +184,8 @@ export default function AdminResultadosPage() {
                           }
                         />
 
-                        <span className="text-sm flex-1 min-w-0 truncate text-right">
-                          {away ? `${away.code} ${away.flag_emoji}` : match.away_placeholder || "TBD"}
+                        <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end">
+                          {away ? <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></> : match.away_placeholder || "TBD"}
                         </span>
 
                         {match.is_finished ? (

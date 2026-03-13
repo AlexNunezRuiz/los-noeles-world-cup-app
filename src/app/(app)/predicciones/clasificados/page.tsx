@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Flag } from "@/components/ui/flag";
 import Link from "next/link";
 
 interface Team {
@@ -118,7 +119,7 @@ export default function ClasificadosPage() {
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold w-4">{i + 1}º</span>
-                        <span>{team?.flag_emoji}</span>
+                        <Flag emoji={team?.flag_emoji || ""} size={18} />
                         <span className="text-sm">{team?.name}</span>
                       </div>
                       {qualifies && (
@@ -145,7 +146,7 @@ export default function ClasificadosPage() {
               const team = teamsMap.get(s.team_id);
               return (
                 <Badge key={s.team_id} variant="outline" className="text-sm py-1 px-2">
-                  {team?.flag_emoji} {team?.name}
+                  <Flag emoji={team?.flag_emoji || ""} size={16} className="mr-1" />{team?.name}
                 </Badge>
               );
             })}

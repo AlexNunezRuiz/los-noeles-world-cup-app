@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
 
 interface Team {
@@ -73,7 +74,7 @@ export function KnockoutBracket({ matches, teams, isLocked, onScoreChange, onPen
                       {/* Home */}
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="text-lg">{homeTeam?.flag_emoji || "❓"}</span>
+                          <Flag emoji={homeTeam?.flag_emoji || ""} size={20} />
                           <span className="text-sm font-medium truncate">
                             {homeTeam?.name || match.home_placeholder || "TBD"}
                           </span>
@@ -98,7 +99,7 @@ export function KnockoutBracket({ matches, teams, isLocked, onScoreChange, onPen
                       {/* Away */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="text-lg">{awayTeam?.flag_emoji || "❓"}</span>
+                          <Flag emoji={awayTeam?.flag_emoji || ""} size={20} />
                           <span className="text-sm font-medium truncate">
                             {awayTeam?.name || match.away_placeholder || "TBD"}
                           </span>
@@ -132,7 +133,7 @@ export function KnockoutBracket({ matches, teams, isLocked, onScoreChange, onPen
                               onClick={() => onPenaltyWinner(match.match_number, "home")}
                               disabled={isLocked}
                             >
-                              {homeTeam?.flag_emoji} {homeTeam?.code}
+                              <Flag emoji={homeTeam?.flag_emoji || ""} size={14} className="mr-1" />{homeTeam?.code}
                             </Button>
                             <Button
                               size="sm"
@@ -141,7 +142,7 @@ export function KnockoutBracket({ matches, teams, isLocked, onScoreChange, onPen
                               onClick={() => onPenaltyWinner(match.match_number, "away")}
                               disabled={isLocked}
                             >
-                              {awayTeam?.flag_emoji} {awayTeam?.code}
+                              <Flag emoji={awayTeam?.flag_emoji || ""} size={14} className="mr-1" />{awayTeam?.code}
                             </Button>
                           </div>
                         </div>
