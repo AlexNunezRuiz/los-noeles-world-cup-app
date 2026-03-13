@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 140 20% 8%;
+    --foreground: 60 10% 95%;
+    --card: 140 15% 12%;
+    --card-foreground: 60 10% 95%;
+    --popover: 140 15% 12%;
+    --popover-foreground: 60 10% 95%;
+    --primary: 142 70% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 140 15% 18%;
+    --secondary-foreground: 60 10% 95%;
+    --muted: 140 10% 20%;
+    --muted-foreground: 140 5% 60%;
+    --accent: 140 15% 22%;
+    --accent-foreground: 60 10% 95%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 140 10% 22%;
+    --input: 140 10% 22%;
+    --ring: 142 70% 45%;
+    --radius: 0.75rem;
+    --field: 142 60% 30%;
+    --gold: 45 90% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
