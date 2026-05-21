@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { GroupMatchCard } from "@/components/predictions/GroupMatchCard";
-import { GroupStandingsTable } from "@/components/predictions/GroupStandingsTable";
-import { calculateGroupStandings, findTiedTeams, type TeamStanding } from "@/lib/tournament/standings";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { GroupStandingsTable } from "@/components/predictions/GroupStandingsTable";
+import { MatchCard } from "@/components/predictions/match-card";
+import { ScorePad } from "@/components/predictions/score-pad";
+import { StageBar } from "@/components/porra/stage-bar";
+import { GroupChips } from "@/components/porra/group-chips";
+import { Flag } from "@/components/ui/flag";
+import { Button } from "@/components/ui/button";
+import { calculateGroupStandings, findTiedTeams, type TeamStanding } from "@/lib/tournament/standings";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Team {
   id: number;
@@ -46,6 +47,8 @@ export default function GruposPage() {
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [hasShownBizum, setHasShownBizum] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string>("A");
+  const [editing, setEditing] = useState<{ matchId: number; side: "home" | "away" } | null>(null);
   const saveTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
   const supabase = createClient();
@@ -230,106 +233,206 @@ export default function GruposPage() {
 
   const completedGroups = GROUPS.filter((g) => {
     const groupMatches = matches.filter((m) => m.group_letter === g);
-    return groupMatches.every((m) => predictions.has(m.id));
+    return groupMatches.length > 0 && groupMatches.every((m) => predictions.has(m.id));
   });
 
+  const groupsPct = Math.round(predictions.size / 72 * 100);
+
+  // Current group data
+  const groupMatches = matches
+    .filter((m) => m.group_letter === selectedGroup)
+    .sort((a, b) => a.match_number - b.match_number);
+  const gs = standings.get(selectedGroup) || [];
+  const tiedTeams = findTiedTeams(gs).flat();
+
+  const groupIndex = GROUPS.indexOf(selectedGroup);
+  const prevGroup = groupIndex > 0 ? GROUPS[groupIndex - 1] : null;
+  const nextGroup = groupIndex < GROUPS.length - 1 ? GROUPS[groupIndex + 1] : null;
+
+  const groupPredCount = groupMatches.filter((m) => predictions.has(m.id)).length;
+
+  // Derive editing team + flag for ScorePad
+  const editingMatch = editing ? matches.find((m) => m.id === editing.matchId) : null;
+  const editingTeamId = editingMatch
+    ? editing?.side === "home"
+      ? editingMatch.home_team_id
+      : editingMatch.away_team_id
+    : null;
+  const editingTeam = editingTeamId ? teamsMap.get(editingTeamId) : null;
+
+  const handleTileTap = useCallback(
+    (matchId: number, side: "home" | "away") => {
+      if (isLocked) return;
+      setEditing({ matchId, side });
+    },
+    [isLocked]
+  );
+
+  const handleDigit = useCallback(
+    (n: number) => {
+      if (!editing) return;
+      const { matchId, side } = editing;
+      const pred = predictions.get(matchId);
+      const currentHome = pred?.home_score ?? 0;
+      const currentAway = pred?.away_score ?? 0;
+      const newHome = side === "home" ? n : currentHome;
+      const newAway = side === "away" ? n : currentAway;
+      handleScoreChange(matchId, newHome, newAway);
+
+      // Auto-advance
+      if (side === "home") {
+        setEditing({ matchId, side: "away" });
+      } else {
+        // Move to next match in group
+        const currentIdx = groupMatches.findIndex((m) => m.id === matchId);
+        const nextMatch = currentIdx >= 0 && currentIdx < groupMatches.length - 1
+          ? groupMatches[currentIdx + 1]
+          : null;
+        if (nextMatch) {
+          setEditing({ matchId: nextMatch.id, side: "home" });
+        } else {
+          setEditing(null);
+        }
+      }
+    },
+    [editing, predictions, handleScoreChange, groupMatches]
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Fase de Grupos</h1>
-          <p className="text-muted-foreground text-sm">
-            Rellena los resultados de los 72 partidos
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {saving && <Badge variant="secondary">Guardando...</Badge>}
-          <Badge variant="outline">{completedGroups.length}/12 grupos</Badge>
-        </div>
+    <div className={editing !== null ? "pb-44" : "pb-8"}>
+      {/* Stage progress bar */}
+      <StageBar progress={{ grupos: groupsPct }} />
+
+      {/* Header */}
+      <div className="px-4 pt-3 pb-1">
+        <h1 className="font-marcador text-3xl uppercase text-ink leading-none">
+          Grupo {selectedGroup}
+        </h1>
+        <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
+          Grupo {groupIndex + 1} de {GROUPS.length} · {groupPredCount} de {groupMatches.length} partidos
+          {saving && " · guardando…"}
+        </p>
       </div>
 
+      {/* Group chips */}
+      <div className="px-3 pb-2">
+        <GroupChips
+          current={selectedGroup}
+          done={completedGroups}
+          onSelect={(g) => {
+            setSelectedGroup(g);
+            setEditing(null);
+          }}
+        />
+      </div>
+
+      {/* Locked notice */}
       {isLocked && (
-        <Card className="border-destructive/50 bg-destructive/10">
-          <CardContent className="pt-6">
-            <p className="text-destructive font-medium">Las predicciones están bloqueadas.</p>
-          </CardContent>
-        </Card>
+        <div className="mx-4 mb-3 rounded-xl border border-red/30 bg-red/8 px-3 py-2">
+          <p className="text-sm font-semibold text-red">Las predicciones están bloqueadas.</p>
+        </div>
       )}
 
-      <Tabs defaultValue="A">
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0">
-          {GROUPS.map((g) => (
-            <TabsTrigger
-              key={g}
-              value={g}
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              Grupo {g}
-              {completedGroups.includes(g) && <span className="ml-1 text-xs">✓</span>}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {/* Match list */}
+      <div className="flex flex-col gap-2 px-4">
+        {groupMatches.map((match) => {
+          const pred = predictions.get(match.id);
+          const homeTeam = teamsMap.get(match.home_team_id);
+          const awayTeam = teamsMap.get(match.away_team_id);
+          if (!homeTeam || !awayTeam) return null;
 
-        {GROUPS.map((group) => {
-          const groupMatches = matches.filter((m) => m.group_letter === group);
-          const gs = standings.get(group) || [];
-          const tiedTeams = findTiedTeams(gs).flat();
+          const isActive = editing?.matchId === match.id;
+          const focusedSide = isActive ? editing?.side ?? null : null;
 
           return (
-            <TabsContent key={group} value={group} className="space-y-4">
-              {/* Matches */}
-              <div className="space-y-2">
-                {groupMatches.map((match) => {
-                  const pred = predictions.get(match.id);
-                  const homeTeam = teamsMap.get(match.home_team_id);
-                  const awayTeam = teamsMap.get(match.away_team_id);
-                  if (!homeTeam || !awayTeam) return null;
-
-                  return (
-                    <GroupMatchCard
-                      key={match.id}
-                      matchId={match.id}
-                      matchNumber={match.match_number}
-                      homeTeam={homeTeam}
-                      awayTeam={awayTeam}
-                      homeScore={pred?.home_score ?? 0}
-                      awayScore={pred?.away_score ?? 0}
-                      isLocked={isLocked}
-                      matchDate={match.match_date}
-                      onScoreChange={handleScoreChange}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Standings */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Clasificación Grupo {group}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <GroupStandingsTable
-                    standings={gs}
-                    teams={teamsMap}
-                    tiedTeamIds={tiedTeams}
-                    isLocked={isLocked}
-                    onMoveTeam={(teamId, dir) => handleMoveTeam(group, teamId, dir)}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
+            <MatchCard
+              key={match.id}
+              matchNumber={match.match_number}
+              matchDate={match.match_date}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              homeScore={pred !== undefined ? pred.home_score : null}
+              awayScore={pred !== undefined ? pred.away_score : null}
+              saved={predictions.has(match.id)}
+              active={isActive}
+              focusedSide={focusedSide}
+              onTileTap={(side) => handleTileTap(match.id, side)}
+            />
           );
         })}
-      </Tabs>
-
-      <div className="flex justify-between items-center">
-        <Button onClick={saveStandings} disabled={isLocked || saving}>
-          Guardar Clasificaciones
-        </Button>
-        <Link href="/predicciones/clasificados">
-          <Button variant="outline">Ver Clasificados →</Button>
-        </Link>
       </div>
+
+      {/* Group standings */}
+      <div className="mx-4 mt-4 rounded-xl border border-border bg-surface p-3">
+        <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-ink-muted">
+          Clasificación Grupo {selectedGroup}
+        </p>
+        <GroupStandingsTable
+          standings={gs}
+          teams={teamsMap}
+          tiedTeamIds={tiedTeams}
+          isLocked={isLocked}
+          onMoveTeam={(teamId, dir) => handleMoveTeam(selectedGroup, teamId, dir)}
+        />
+      </div>
+
+      {/* Save standings + qualify cross-link */}
+      <div className="mx-4 mt-3 rounded-xl border border-blue/25 bg-blue/8 p-3">
+        <p className="text-xs text-ink-muted">
+          Los 2 primeros del Grupo {selectedGroup} pasan a Eliminatorias.
+          Guarda la clasificación cuando estés seguro.
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={saveStandings}
+            disabled={isLocked || saving}
+          >
+            Guardar clasificación
+          </Button>
+          <Link href="/predicciones/eliminatorias">
+            <Button size="sm" variant="default">Ver el Cuadro →</Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Prev / Next group navigation */}
+      <div className="mx-4 mt-4 flex justify-between gap-3">
+        <Button
+          variant="outline"
+          disabled={!prevGroup}
+          onClick={() => {
+            if (prevGroup) {
+              setSelectedGroup(prevGroup);
+              setEditing(null);
+            }
+          }}
+        >
+          ‹ Grupo {prevGroup ?? "–"}
+        </Button>
+        <Button
+          variant="default"
+          disabled={!nextGroup}
+          onClick={() => {
+            if (nextGroup) {
+              setSelectedGroup(nextGroup);
+              setEditing(null);
+            }
+          }}
+        >
+          Grupo {nextGroup ?? "–"} ›
+        </Button>
+      </div>
+
+      {/* Score pad (docked) */}
+      <ScorePad
+        open={editing !== null}
+        teamName={editingTeam?.name ?? ""}
+        flag={<Flag emoji={editingTeam?.flag_emoji ?? ""} size={18} />}
+        onDigit={handleDigit}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }
