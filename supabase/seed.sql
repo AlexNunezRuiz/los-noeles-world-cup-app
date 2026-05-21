@@ -18,87 +18,87 @@ INSERT INTO tournament_config (key, value) VALUES
 
 -- Grupo A
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Marruecos', 'MAR', '🇲🇦', 'A'),
-  ('Perú', 'PER', '🇵🇪', 'A'),
-  ('Canadá', 'CAN', '🇨🇦', 'A'),
-  ('Australia', 'AUS', '🇦🇺', 'A');
+  ('México', 'MEX', '🇲🇽', 'A'),
+  ('Sudáfrica', 'RSA', '🇿🇦', 'A'),
+  ('Corea del Sur', 'KOR', '🇰🇷', 'A'),
+  ('Chequia', 'CZE', '🇨🇿', 'A');
 
 -- Grupo B
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('España', 'ESP', '🇪🇸', 'B'),
-  ('Bolivia', 'BOL', '🇧🇴', 'B'),
-  ('Croacia', 'CRO', '🇭🇷', 'B'),
-  ('Nueva Zelanda', 'NZL', '🇳🇿', 'B');
+  ('Canadá', 'CAN', '🇨🇦', 'B'),
+  ('Bosnia y Herzegovina', 'BIH', '🇧🇦', 'B'),
+  ('Catar', 'QAT', '🇶🇦', 'B'),
+  ('Suiza', 'SUI', '🇨🇭', 'B');
 
 -- Grupo C
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Francia', 'FRA', '🇫🇷', 'C'),
-  ('Colombia', 'COL', '🇨🇴', 'C'),
-  ('Arabia Saudita', 'KSA', '🇸🇦', 'C'),
-  ('Corea del Sur', 'KOR', '🇰🇷', 'C');
+  ('Brasil', 'BRA', '🇧🇷', 'C'),
+  ('Marruecos', 'MAR', '🇲🇦', 'C'),
+  ('Haití', 'HAI', '🇭🇹', 'C'),
+  ('Escocia', 'SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'C');
 
 -- Grupo D
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Japón', 'JPN', '🇯🇵', 'D'),
-  ('Serbia', 'SRB', '🇷🇸', 'D'),
-  ('Costa Rica', 'CRC', '🇨🇷', 'D'),
-  ('Irán', 'IRN', '🇮🇷', 'D');
+  ('Estados Unidos', 'USA', '🇺🇸', 'D'),
+  ('Paraguay', 'PAR', '🇵🇾', 'D'),
+  ('Australia', 'AUS', '🇦🇺', 'D'),
+  ('Turquía', 'TUR', '🇹🇷', 'D');
 
 -- Grupo E
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Brasil', 'BRA', '🇧🇷', 'E'),
-  ('Ecuador', 'ECU', '🇪🇨', 'E'),
-  ('Nigeria', 'NGA', '🇳🇬', 'E'),
-  ('Turquía', 'TUR', '🇹🇷', 'E');
+  ('Alemania', 'GER', '🇩🇪', 'E'),
+  ('Curazao', 'CUW', '🇨🇼', 'E'),
+  ('Costa de Marfil', 'CIV', '🇨🇮', 'E'),
+  ('Ecuador', 'ECU', '🇪🇨', 'E');
 
 -- Grupo F
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('México', 'MEX', '🇲🇽', 'F'),
-  ('Honduras', 'HON', '🇭🇳', 'F'),
-  ('Senegal', 'SEN', '🇸🇳', 'F'),
-  ('Uruguay', 'URU', '🇺🇾', 'F');
+  ('Países Bajos', 'NED', '🇳🇱', 'F'),
+  ('Japón', 'JPN', '🇯🇵', 'F'),
+  ('Suecia', 'SWE', '🇸🇪', 'F'),
+  ('Túnez', 'TUN', '🇹🇳', 'F');
 
 -- Grupo G
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Argentina', 'ARG', '🇦🇷', 'G'),
-  ('Chile', 'CHI', '🇨🇱', 'G'),
-  ('Uzbekistán', 'UZB', '🇺🇿', 'G'),
-  ('Dinamarca', 'DEN', '🇩🇰', 'G');
+  ('Bélgica', 'BEL', '🇧🇪', 'G'),
+  ('Egipto', 'EGY', '🇪🇬', 'G'),
+  ('Irán', 'IRN', '🇮🇷', 'G'),
+  ('Nueva Zelanda', 'NZL', '🇳🇿', 'G');
 
 -- Grupo H
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('EE.UU.', 'USA', '🇺🇸', 'H'),
-  ('Gales', 'WAL', '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'H'),
-  ('Panamá', 'PAN', '🇵🇦', 'H'),
-  ('Camerún', 'CMR', '🇨🇲', 'H');
+  ('España', 'ESP', '🇪🇸', 'H'),
+  ('Cabo Verde', 'CPV', '🇨🇻', 'H'),
+  ('Arabia Saudita', 'KSA', '🇸🇦', 'H'),
+  ('Uruguay', 'URU', '🇺🇾', 'H');
 
 -- Grupo I
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Portugal', 'POR', '🇵🇹', 'I'),
-  ('Guatemala', 'GUA', '🇬🇹', 'I'),
-  ('Alemania', 'GER', '🇩🇪', 'I'),
-  ('Suiza', 'SUI', '🇨🇭', 'I');
+  ('Francia', 'FRA', '🇫🇷', 'I'),
+  ('Senegal', 'SEN', '🇸🇳', 'I'),
+  ('Irak', 'IRQ', '🇮🇶', 'I'),
+  ('Noruega', 'NOR', '🇳🇴', 'I');
 
 -- Grupo J
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Países Bajos', 'NED', '🇳🇱', 'J'),
-  ('Ghana', 'GHA', '🇬🇭', 'J'),
-  ('Paraguay', 'PAR', '🇵🇾', 'J'),
-  ('Egipto', 'EGY', '🇪🇬', 'J');
+  ('Argentina', 'ARG', '🇦🇷', 'J'),
+  ('Argelia', 'ALG', '🇩🇿', 'J'),
+  ('Austria', 'AUT', '🇦🇹', 'J'),
+  ('Jordania', 'JOR', '🇯🇴', 'J');
 
 -- Grupo K
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Inglaterra', 'ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'K'),
-  ('Bélgica', 'BEL', '🇧🇪', 'K'),
-  ('Jamaica', 'JAM', '🇯🇲', 'K'),
-  ('Argelia', 'ALG', '🇩🇿', 'K');
+  ('Portugal', 'POR', '🇵🇹', 'K'),
+  ('R.D. del Congo', 'COD', '🇨🇩', 'K'),
+  ('Uzbekistán', 'UZB', '🇺🇿', 'K'),
+  ('Colombia', 'COL', '🇨🇴', 'K');
 
 -- Grupo L
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Italia', 'ITA', '🇮🇹', 'L'),
-  ('Albania', 'ALB', '🇦🇱', 'L'),
-  ('R.P. del Congo', 'COD', '🇨🇩', 'L'),
-  ('Bahréin', 'BHR', '🇧🇭', 'L');
+  ('Inglaterra', 'ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'L'),
+  ('Croacia', 'CRO', '🇭🇷', 'L'),
+  ('Ghana', 'GHA', '🇬🇭', 'L'),
+  ('Panamá', 'PAN', '🇵🇦', 'L');
 
 -- ============================================================
 -- GROUP STAGE MATCHES (72 partidos: 12 grupos × 6 partidos)

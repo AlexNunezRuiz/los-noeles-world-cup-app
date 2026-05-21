@@ -32,30 +32,42 @@ const nowIso = () => new Date().toISOString();
 // TEAMS (48) — from seed.sql
 // ---------------------------------------------------------------
 const TEAM_DEFS: [string, string, string, string][] = [
-  ["Marruecos", "MAR", "🇲🇦", "A"], ["Perú", "PER", "🇵🇪", "A"],
-  ["Canadá", "CAN", "🇨🇦", "A"], ["Australia", "AUS", "🇦🇺", "A"],
-  ["España", "ESP", "🇪🇸", "B"], ["Bolivia", "BOL", "🇧🇴", "B"],
-  ["Croacia", "CRO", "🇭🇷", "B"], ["Nueva Zelanda", "NZL", "🇳🇿", "B"],
-  ["Francia", "FRA", "🇫🇷", "C"], ["Colombia", "COL", "🇨🇴", "C"],
-  ["Arabia Saudita", "KSA", "🇸🇦", "C"], ["Corea del Sur", "KOR", "🇰🇷", "C"],
-  ["Japón", "JPN", "🇯🇵", "D"], ["Serbia", "SRB", "🇷🇸", "D"],
-  ["Costa Rica", "CRC", "🇨🇷", "D"], ["Irán", "IRN", "🇮🇷", "D"],
-  ["Brasil", "BRA", "🇧🇷", "E"], ["Ecuador", "ECU", "🇪🇨", "E"],
-  ["Nigeria", "NGA", "🇳🇬", "E"], ["Turquía", "TUR", "🇹🇷", "E"],
-  ["México", "MEX", "🇲🇽", "F"], ["Honduras", "HON", "🇭🇳", "F"],
-  ["Senegal", "SEN", "🇸🇳", "F"], ["Uruguay", "URU", "🇺🇾", "F"],
-  ["Argentina", "ARG", "🇦🇷", "G"], ["Chile", "CHI", "🇨🇱", "G"],
-  ["Uzbekistán", "UZB", "🇺🇿", "G"], ["Dinamarca", "DEN", "🇩🇰", "G"],
-  ["EE.UU.", "USA", "🇺🇸", "H"], ["Gales", "WAL", "🏴󠁧󠁢󠁷󠁬󠁳󠁿", "H"],
-  ["Panamá", "PAN", "🇵🇦", "H"], ["Camerún", "CMR", "🇨🇲", "H"],
-  ["Portugal", "POR", "🇵🇹", "I"], ["Guatemala", "GUA", "🇬🇹", "I"],
-  ["Alemania", "GER", "🇩🇪", "I"], ["Suiza", "SUI", "🇨🇭", "I"],
-  ["Países Bajos", "NED", "🇳🇱", "J"], ["Ghana", "GHA", "🇬🇭", "J"],
-  ["Paraguay", "PAR", "🇵🇾", "J"], ["Egipto", "EGY", "🇪🇬", "J"],
-  ["Inglaterra", "ENG", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "K"], ["Bélgica", "BEL", "🇧🇪", "K"],
-  ["Jamaica", "JAM", "🇯🇲", "K"], ["Argelia", "ALG", "🇩🇿", "K"],
-  ["Italia", "ITA", "🇮🇹", "L"], ["Albania", "ALB", "🇦🇱", "L"],
-  ["R.P. del Congo", "COD", "🇨🇩", "L"], ["Bahréin", "BHR", "🇧🇭", "L"],
+  // Group A (ids 1-4)
+  ["México", "MEX", "🇲🇽", "A"], ["Sudáfrica", "RSA", "🇿🇦", "A"],
+  ["Corea del Sur", "KOR", "🇰🇷", "A"], ["Chequia", "CZE", "🇨🇿", "A"],
+  // Group B (ids 5-8)
+  ["Canadá", "CAN", "🇨🇦", "B"], ["Bosnia y Herzegovina", "BIH", "🇧🇦", "B"],
+  ["Catar", "QAT", "🇶🇦", "B"], ["Suiza", "SUI", "🇨🇭", "B"],
+  // Group C (ids 9-12)
+  ["Brasil", "BRA", "🇧🇷", "C"], ["Marruecos", "MAR", "🇲🇦", "C"],
+  ["Haití", "HAI", "🇭🇹", "C"], ["Escocia", "SCO", "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "C"],
+  // Group D (ids 13-16)
+  ["Estados Unidos", "USA", "🇺🇸", "D"], ["Paraguay", "PAR", "🇵🇾", "D"],
+  ["Australia", "AUS", "🇦🇺", "D"], ["Turquía", "TUR", "🇹🇷", "D"],
+  // Group E (ids 17-20)
+  ["Alemania", "GER", "🇩🇪", "E"], ["Curazao", "CUW", "🇨🇼", "E"],
+  ["Costa de Marfil", "CIV", "🇨🇮", "E"], ["Ecuador", "ECU", "🇪🇨", "E"],
+  // Group F (ids 21-24)
+  ["Países Bajos", "NED", "🇳🇱", "F"], ["Japón", "JPN", "🇯🇵", "F"],
+  ["Suecia", "SWE", "🇸🇪", "F"], ["Túnez", "TUN", "🇹🇳", "F"],
+  // Group G (ids 25-28)
+  ["Bélgica", "BEL", "🇧🇪", "G"], ["Egipto", "EGY", "🇪🇬", "G"],
+  ["Irán", "IRN", "🇮🇷", "G"], ["Nueva Zelanda", "NZL", "🇳🇿", "G"],
+  // Group H (ids 29-32)
+  ["España", "ESP", "🇪🇸", "H"], ["Cabo Verde", "CPV", "🇨🇻", "H"],
+  ["Arabia Saudita", "KSA", "🇸🇦", "H"], ["Uruguay", "URU", "🇺🇾", "H"],
+  // Group I (ids 33-36)
+  ["Francia", "FRA", "🇫🇷", "I"], ["Senegal", "SEN", "🇸🇳", "I"],
+  ["Irak", "IRQ", "🇮🇶", "I"], ["Noruega", "NOR", "🇳🇴", "I"],
+  // Group J (ids 37-40)
+  ["Argentina", "ARG", "🇦🇷", "J"], ["Argelia", "ALG", "🇩🇿", "J"],
+  ["Austria", "AUT", "🇦🇹", "J"], ["Jordania", "JOR", "🇯🇴", "J"],
+  // Group K (ids 41-44)
+  ["Portugal", "POR", "🇵🇹", "K"], ["R.D. del Congo", "COD", "🇨🇩", "K"],
+  ["Uzbekistán", "UZB", "🇺🇿", "K"], ["Colombia", "COL", "🇨🇴", "K"],
+  // Group L (ids 45-48)
+  ["Inglaterra", "ENG", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "L"], ["Croacia", "CRO", "🇭🇷", "L"],
+  ["Ghana", "GHA", "🇬🇭", "L"], ["Panamá", "PAN", "🇵🇦", "L"],
 ];
 
 function buildTeams(): Row[] {
@@ -313,14 +325,23 @@ function buildScoringRules(): Row[] {
 // PLAYERS — sample squad for the awards (premios) screens
 // ---------------------------------------------------------------
 const PLAYER_DEFS: [string, number, string][] = [
-  ["Lamine Yamal", 5, "Delantero"], ["Pedri", 5, "Centrocampista"],
-  ["Unai Simón", 5, "Portero"], ["Kylian Mbappé", 9, "Delantero"],
-  ["Antoine Griezmann", 9, "Delantero"], ["Mike Maignan", 9, "Portero"],
-  ["Vinícius Jr.", 17, "Delantero"], ["Rodrygo", 17, "Delantero"],
-  ["Alisson", 17, "Portero"], ["Lionel Messi", 25, "Delantero"],
-  ["Julián Álvarez", 25, "Delantero"], ["Emiliano Martínez", 25, "Portero"],
-  ["Harry Kane", 41, "Delantero"], ["Jude Bellingham", 41, "Centrocampista"],
-  ["Jordan Pickford", 41, "Portero"], ["Cristiano Ronaldo", 33, "Delantero"],
+  // España (id 29)
+  ["Lamine Yamal", 29, "Delantero"], ["Pedri", 29, "Centrocampista"],
+  ["Unai Simón", 29, "Portero"],
+  // Francia (id 33)
+  ["Kylian Mbappé", 33, "Delantero"], ["Antoine Griezmann", 33, "Delantero"],
+  ["Mike Maignan", 33, "Portero"],
+  // Brasil (id 9)
+  ["Vinícius Jr.", 9, "Delantero"], ["Rodrygo", 9, "Delantero"],
+  ["Alisson", 9, "Portero"],
+  // Argentina (id 37)
+  ["Lionel Messi", 37, "Delantero"], ["Julián Álvarez", 37, "Delantero"],
+  ["Emiliano Martínez", 37, "Portero"],
+  // Inglaterra (id 45)
+  ["Harry Kane", 45, "Delantero"], ["Jude Bellingham", 45, "Centrocampista"],
+  ["Jordan Pickford", 45, "Portero"],
+  // Portugal (id 41)
+  ["Cristiano Ronaldo", 41, "Delantero"],
 ];
 
 function buildPlayers(): Row[] {
