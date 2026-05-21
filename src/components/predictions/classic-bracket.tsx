@@ -547,10 +547,10 @@ export function ClassicBracket({
             {/* Final — gold-accented */}
             {finalMatch ? (
               <div className="flex flex-col items-center gap-1">
-                <span className="text-[9px] font-marcador uppercase tracking-widest text-amber-500">
+                <span className="text-[9px] font-marcador uppercase tracking-widest text-gold">
                   Final
                 </span>
-                <div className="rounded-lg border-2 border-amber-400/60 shadow-sm shadow-amber-400/20">
+                <div className="rounded-lg border-2 border-gold/60 shadow-sm shadow-gold/20">
                   <MatchNode
                     match={finalMatch}
                     prediction={predictions.get(FINAL_NUM)}
