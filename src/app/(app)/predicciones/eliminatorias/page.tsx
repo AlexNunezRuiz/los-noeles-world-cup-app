@@ -7,6 +7,8 @@ import { getBestThirds, type TeamStanding } from "@/lib/tournament/standings";
 import { StageBar } from "@/components/porra/stage-bar";
 import { TieCard } from "@/components/predictions/tie-card";
 import { ScorePad } from "@/components/predictions/score-pad";
+import { ClassicBracket, type BracketMatchView } from "@/components/predictions/classic-bracket";
+import { MatchResultDialog } from "@/components/predictions/match-result-dialog";
 import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
 
@@ -104,6 +106,8 @@ export default function EliminatoriasPage() {
   const [matchIdMap, setMatchIdMap] = useState<Map<number, number>>(new Map());
   const [activeRound, setActiveRound] = useState<RoundKey>("round_of_32");
   const [editing, setEditing] = useState<{ matchNum: number; side: "home" | "away" } | null>(null);
+  const [viewMode, setViewMode] = useState<"rondas" | "cuadro">("rondas");
+  const [cuadroSelectedMatch, setCuadroSelectedMatch] = useState<number | null>(null);
   const saveTimeout = useRef<NodeJS.Timeout>();
   const supabase = createClient();
 
@@ -396,6 +400,51 @@ export default function EliminatoriasPage() {
     : null;
   const editingTeam = editingTeamId ? teamsMap.get(editingTeamId) : null;
 
+  // ── Classic bracket derived data ─────────────────────────────────────────
+
+  const bracketMatchViews: BracketMatchView[] = bracketMatches.map((m) => {
+    const homeBp = bpMap.get(`${m.match_number}:home`);
+    const awayBp = bpMap.get(`${m.match_number}:away`);
+    return {
+      match_number: m.match_number,
+      stage: m.stage,
+      homeTeam: m.home_team_id ? (teamsMap.get(m.home_team_id) ? { name: teamsMap.get(m.home_team_id)!.name, flag_emoji: teamsMap.get(m.home_team_id)!.flag_emoji } : null) : null,
+      awayTeam: m.away_team_id ? (teamsMap.get(m.away_team_id) ? { name: teamsMap.get(m.away_team_id)!.name, flag_emoji: teamsMap.get(m.away_team_id)!.flag_emoji } : null) : null,
+      homeSourceLabel: buildSourceLabel(homeBp, m.home_placeholder),
+      awaySourceLabel: buildSourceLabel(awayBp, m.away_placeholder),
+    };
+  });
+
+  const cuadroSelectedMatchData = cuadroSelectedMatch !== null
+    ? bracketMatchViews.find((m) => m.match_number === cuadroSelectedMatch) ?? null
+    : null;
+
+  const cuadroSelectedPred = cuadroSelectedMatch !== null
+    ? predictions.get(cuadroSelectedMatch)
+    : undefined;
+
+  const handleCuadroSave = async (
+    matchNumber: number,
+    home: number,
+    away: number,
+    penaltyWinner?: "home" | "away"
+  ) => {
+    // Update local state first
+    setPredictions((prev) => {
+      const next = new Map(prev);
+      const existing = prev.get(matchNumber);
+      next.set(matchNumber, {
+        match_id: matchIdMap.get(matchNumber) ?? 0,
+        match_number: matchNumber,
+        home_score: home,
+        away_score: away,
+        penalty_winner: penaltyWinner ?? existing?.penalty_winner,
+      });
+      return next;
+    });
+    await savePredictionFull(matchNumber, home, away, penaltyWinner);
+  };
+
   // ── Empty state ───────────────────────────────────────────────────────────
 
   if (bracketMatches.length === 0) {
@@ -441,141 +490,205 @@ export default function EliminatoriasPage() {
         </div>
       )}
 
-      {/* Round selector */}
-      <div className="flex gap-1.5 overflow-x-auto px-4 pb-3 pt-1 no-scrollbar">
-        {ROUND_TABS.map((tab) => (
+      {/* View toggle: Rondas / Cuadro */}
+      <div className="px-4 pb-3">
+        <div className="bg-surface-sunken rounded-lg p-1 flex">
           <button
-            key={tab.key}
             type="button"
             onClick={() => {
-              setActiveRound(tab.key);
+              setViewMode("rondas");
               setEditing(null);
             }}
             className={cn(
-              "shrink-0 rounded-lg px-3 py-1.5 font-marcador text-xs font-bold uppercase transition-colors",
-              activeRound === tab.key
-                ? "bg-red text-white"
-                : "border border-border bg-surface text-ink-muted"
+              "flex-1 text-center py-2 rounded-md font-marcador uppercase text-xs tracking-wider transition-all",
+              viewMode === "rondas" ? "bg-surface text-ink shadow" : "text-ink-muted"
             )}
           >
-            {tab.label}
+            Rondas
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("cuadro");
+              setEditing(null);
+            }}
+            className={cn(
+              "flex-1 text-center py-2 rounded-md font-marcador uppercase text-xs tracking-wider transition-all",
+              viewMode === "cuadro" ? "bg-surface text-ink shadow" : "text-ink-muted"
+            )}
+          >
+            Cuadro
+          </button>
+        </div>
       </div>
 
-      {/* Tie cards */}
-      <div className="flex flex-col gap-2 px-4">
-        {activeRoundMatches.map((match) => {
-          const homeBp = bpMap.get(`${match.match_number}:home`);
-          const awayBp = bpMap.get(`${match.match_number}:away`);
-
-          const homeTeam = match.home_team_id ? teamsMap.get(match.home_team_id) ?? null : null;
-          const awayTeam = match.away_team_id ? teamsMap.get(match.away_team_id) ?? null : null;
-
-          const homeSourceLabel = buildSourceLabel(homeBp, match.home_placeholder);
-          const awaySourceLabel = buildSourceLabel(awayBp, match.away_placeholder);
-
-          const pred = predictions.get(match.match_number);
-          const homeScore = pred !== undefined ? pred.home_score : null;
-          const awayScore = pred !== undefined ? pred.away_score : null;
-
-          const isSelected = editing?.matchNum === match.match_number;
-          const focusedSide = isSelected ? editing?.side ?? null : null;
-
-          const roundLabel = ROUND_LABELS[match.stage] ?? match.stage;
-
-          return (
-            <TieCard
-              key={match.match_number}
-              matchNumber={match.match_number}
-              roundLabel={roundLabel}
-              home={{
-                sourceLabel: homeSourceLabel,
-                team: homeTeam
-                  ? { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji }
-                  : null,
-              }}
-              away={{
-                sourceLabel: awaySourceLabel,
-                team: awayTeam
-                  ? { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji }
-                  : null,
-              }}
-              homeScore={homeScore}
-              awayScore={awayScore}
-              selected={isSelected}
-              focusedSide={focusedSide}
-              onTileTap={(side) => handleTileTap(match.match_number, side)}
-            />
-          );
-        })}
-
-        {activeRoundMatches.length === 0 && (
-          <p className="py-8 text-center text-sm text-ink-muted">
-            No hay partidos en esta ronda todavía.
-          </p>
-        )}
-      </div>
-
-      {/* Penalty winner (draw case) — shown inline below selected card */}
-      {editing && (() => {
-        const match = bracketMatches.find((m) => m.match_number === editing.matchNum);
-        if (!match) return null;
-        const pred = predictions.get(match.match_number);
-        const isDraw =
-          pred !== undefined &&
-          pred.home_score !== null &&
-          pred.away_score !== null &&
-          pred.home_score === pred.away_score;
-        if (!isDraw) return null;
-        const homeTeam = match.home_team_id ? teamsMap.get(match.home_team_id) : undefined;
-        const awayTeam = match.away_team_id ? teamsMap.get(match.away_team_id) : undefined;
-        if (!homeTeam || !awayTeam) return null;
-        return (
-          <div className="mx-4 mt-2 rounded-xl border border-border bg-surface p-3">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
-              Desempate penaltis
-            </p>
-            <div className="flex gap-2">
+      {viewMode === "rondas" && (
+        <>
+          {/* Round selector */}
+          <div className="flex gap-1.5 overflow-x-auto px-4 pb-3 pt-1 no-scrollbar">
+            {ROUND_TABS.map((tab) => (
               <button
+                key={tab.key}
                 type="button"
-                onClick={() => handlePenaltyWinner(editing.matchNum, "home")}
+                onClick={() => {
+                  setActiveRound(tab.key);
+                  setEditing(null);
+                }}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
-                  pred?.penalty_winner === "home"
-                    ? "border-red bg-red text-white"
-                    : "border-border bg-surface text-ink"
+                  "shrink-0 rounded-lg px-3 py-1.5 font-marcador text-xs font-bold uppercase transition-colors",
+                  activeRound === tab.key
+                    ? "bg-red text-white"
+                    : "border border-border bg-surface text-ink-muted"
                 )}
               >
-                <Flag emoji={homeTeam.flag_emoji} size={14} />
-                {homeTeam.code}
+                {tab.label}
               </button>
-              <button
-                type="button"
-                onClick={() => handlePenaltyWinner(editing.matchNum, "away")}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
-                  pred?.penalty_winner === "away"
-                    ? "border-red bg-red text-white"
-                    : "border-border bg-surface text-ink"
-                )}
-              >
-                <Flag emoji={awayTeam.flag_emoji} size={14} />
-                {awayTeam.code}
-              </button>
-            </div>
+            ))}
           </div>
-        );
-      })()}
 
-      {/* Score pad (docked) */}
-      <ScorePad
-        open={editing !== null}
-        teamName={editingTeam?.name ?? "Por decidir"}
-        flag={<Flag emoji={editingTeam?.flag_emoji ?? ""} size={18} />}
-        onDigit={handleDigit}
-        onClose={() => setEditing(null)}
-      />
+          {/* Tie cards */}
+          <div className="flex flex-col gap-2 px-4">
+            {activeRoundMatches.map((match) => {
+              const homeBp = bpMap.get(`${match.match_number}:home`);
+              const awayBp = bpMap.get(`${match.match_number}:away`);
+
+              const homeTeam = match.home_team_id ? teamsMap.get(match.home_team_id) ?? null : null;
+              const awayTeam = match.away_team_id ? teamsMap.get(match.away_team_id) ?? null : null;
+
+              const homeSourceLabel = buildSourceLabel(homeBp, match.home_placeholder);
+              const awaySourceLabel = buildSourceLabel(awayBp, match.away_placeholder);
+
+              const pred = predictions.get(match.match_number);
+              const homeScore = pred !== undefined ? pred.home_score : null;
+              const awayScore = pred !== undefined ? pred.away_score : null;
+
+              const isSelected = editing?.matchNum === match.match_number;
+              const focusedSide = isSelected ? editing?.side ?? null : null;
+
+              const roundLabel = ROUND_LABELS[match.stage] ?? match.stage;
+
+              return (
+                <TieCard
+                  key={match.match_number}
+                  matchNumber={match.match_number}
+                  roundLabel={roundLabel}
+                  home={{
+                    sourceLabel: homeSourceLabel,
+                    team: homeTeam
+                      ? { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji }
+                      : null,
+                  }}
+                  away={{
+                    sourceLabel: awaySourceLabel,
+                    team: awayTeam
+                      ? { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji }
+                      : null,
+                  }}
+                  homeScore={homeScore}
+                  awayScore={awayScore}
+                  selected={isSelected}
+                  focusedSide={focusedSide}
+                  onTileTap={(side) => handleTileTap(match.match_number, side)}
+                />
+              );
+            })}
+
+            {activeRoundMatches.length === 0 && (
+              <p className="py-8 text-center text-sm text-ink-muted">
+                No hay partidos en esta ronda todavía.
+              </p>
+            )}
+          </div>
+
+          {/* Penalty winner (draw case) — shown inline below selected card */}
+          {editing && (() => {
+            const match = bracketMatches.find((m) => m.match_number === editing.matchNum);
+            if (!match) return null;
+            const pred = predictions.get(match.match_number);
+            const isDraw =
+              pred !== undefined &&
+              pred.home_score !== null &&
+              pred.away_score !== null &&
+              pred.home_score === pred.away_score;
+            if (!isDraw) return null;
+            const homeTeam = match.home_team_id ? teamsMap.get(match.home_team_id) : undefined;
+            const awayTeam = match.away_team_id ? teamsMap.get(match.away_team_id) : undefined;
+            if (!homeTeam || !awayTeam) return null;
+            return (
+              <div className="mx-4 mt-2 rounded-xl border border-border bg-surface p-3">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
+                  Desempate penaltis
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePenaltyWinner(editing.matchNum, "home")}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
+                      pred?.penalty_winner === "home"
+                        ? "border-red bg-red text-white"
+                        : "border-border bg-surface text-ink"
+                    )}
+                  >
+                    <Flag emoji={homeTeam.flag_emoji} size={14} />
+                    {homeTeam.code}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePenaltyWinner(editing.matchNum, "away")}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
+                      pred?.penalty_winner === "away"
+                        ? "border-red bg-red text-white"
+                        : "border-border bg-surface text-ink"
+                    )}
+                  >
+                    <Flag emoji={awayTeam.flag_emoji} size={14} />
+                    {awayTeam.code}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Score pad (docked) */}
+          <ScorePad
+            open={editing !== null}
+            teamName={editingTeam?.name ?? "Por decidir"}
+            flag={<Flag emoji={editingTeam?.flag_emoji ?? ""} size={18} />}
+            onDigit={handleDigit}
+            onClose={() => setEditing(null)}
+          />
+        </>
+      )}
+
+      {viewMode === "cuadro" && (
+        <>
+          <ClassicBracket
+            matches={bracketMatchViews}
+            predictions={predictions}
+            onSelectMatch={(matchNumber) => setCuadroSelectedMatch(matchNumber)}
+          />
+
+          {cuadroSelectedMatchData && (
+            <MatchResultDialog
+              open={cuadroSelectedMatch !== null}
+              onClose={() => setCuadroSelectedMatch(null)}
+              matchNumber={cuadroSelectedMatchData.match_number}
+              roundLabel={ROUND_LABELS[cuadroSelectedMatchData.stage] ?? cuadroSelectedMatchData.stage}
+              homeTeam={cuadroSelectedMatchData.homeTeam}
+              awayTeam={cuadroSelectedMatchData.awayTeam}
+              homeSourceLabel={cuadroSelectedMatchData.homeSourceLabel}
+              awaySourceLabel={cuadroSelectedMatchData.awaySourceLabel}
+              homeScore={cuadroSelectedPred?.home_score ?? null}
+              awayScore={cuadroSelectedPred?.away_score ?? null}
+              penaltyWinner={cuadroSelectedPred?.penalty_winner ?? null}
+              isLocked={isLocked}
+              onSave={handleCuadroSave}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
