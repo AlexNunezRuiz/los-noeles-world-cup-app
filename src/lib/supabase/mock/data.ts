@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // ============================================================
 // MOCK DATA — Porra del Mundial 2026
 // In-memory seed used when NEXT_PUBLIC_MOCK=true so the app
