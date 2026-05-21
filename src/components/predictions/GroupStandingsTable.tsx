@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { TeamStanding } from "@/lib/tournament/standings";
 import { Flag } from "@/components/ui/flag";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 interface Team {
   id: number;
@@ -22,20 +22,20 @@ interface Props {
 
 export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, onMoveTeam }: Props) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs text-muted-foreground border-b">
-            <th className="text-left py-2 px-1">#</th>
-            <th className="text-left py-2 px-1">Equipo</th>
-            <th className="text-center py-2 px-1">PJ</th>
-            <th className="text-center py-2 px-1">G</th>
-            <th className="text-center py-2 px-1">E</th>
-            <th className="text-center py-2 px-1">P</th>
-            <th className="text-center py-2 px-1">GF</th>
-            <th className="text-center py-2 px-1">GC</th>
-            <th className="text-center py-2 px-1">DG</th>
-            <th className="text-center py-2 px-1 font-bold">Pts</th>
+          <tr className="bg-surface-sunken border-b border-border">
+            <th className="text-left py-2 px-2 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">#</th>
+            <th className="text-left py-2 px-2 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">Equipo</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">PJ</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">G</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">E</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">P</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">GF</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">GC</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">DG</th>
+            <th className="text-center py-2 px-1 font-marcador font-semibold text-[10px] uppercase tracking-wide text-ink-faint">Pts</th>
             {!isLocked && tiedTeamIds.length > 0 && <th className="w-16"></th>}
           </tr>
         </thead>
@@ -49,51 +49,50 @@ export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, o
               <tr
                 key={s.team_id}
                 className={cn(
-                  "border-b border-border/50",
-                  isTied && "bg-[hsl(var(--gold))]/10",
-                  qualifies && "bg-primary/5"
+                  "border-b border-border text-ink last:border-b-0",
+                  isTied && "bg-amber/[0.08] border-l-2 border-l-amber",
+                  !isTied && qualifies && "border-l-2 border-l-green"
                 )}
               >
-                <td className="py-2 px-1">
+                <td className="py-2 px-2">
                   <span className={cn(
-                    "inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold",
-                    s.position <= 2 && "bg-primary/20 text-primary",
-                    s.position === 3 && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
+                    "font-marcador font-bold text-sm",
+                    qualifies ? "text-green" : "text-ink-faint"
                   )}>
                     {s.position}
                   </span>
                 </td>
-                <td className="py-2 px-1">
+                <td className="py-2 px-2">
                   <div className="flex items-center gap-1.5">
                     <Flag emoji={team?.flag_emoji || ""} size={18} />
-                    <span className="font-medium truncate">{team?.name}</span>
+                    <span className="font-sans font-medium truncate text-ink">{team?.name}</span>
                   </div>
                 </td>
-                <td className="text-center py-2 px-1">{s.played}</td>
-                <td className="text-center py-2 px-1">{s.won}</td>
-                <td className="text-center py-2 px-1">{s.drawn}</td>
-                <td className="text-center py-2 px-1">{s.lost}</td>
-                <td className="text-center py-2 px-1">{s.goals_for}</td>
-                <td className="text-center py-2 px-1">{s.goals_against}</td>
-                <td className="text-center py-2 px-1">{s.goal_difference > 0 ? `+${s.goal_difference}` : s.goal_difference}</td>
-                <td className="text-center py-2 px-1 font-bold">{s.points}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.played}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.won}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.drawn}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.lost}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.goals_for}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.goals_against}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.goal_difference > 0 ? `+${s.goal_difference}` : s.goal_difference}</td>
+                <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.points}</td>
                 {!isLocked && tiedTeamIds.length > 0 && (
                   <td className="py-2 px-1">
                     {isTied && onMoveTeam && (
                       <div className="flex gap-0.5">
                         <button
                           onClick={() => onMoveTeam(s.team_id, "up")}
-                          className="p-0.5 hover:text-primary"
+                          className="p-0.5 text-ink-muted hover:text-ink transition-colors"
                           disabled={s.position === 1}
                         >
-                          <ArrowUp className="h-3.5 w-3.5" />
+                          <ChevronUp className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => onMoveTeam(s.team_id, "down")}
-                          className="p-0.5 hover:text-primary"
+                          className="p-0.5 text-ink-muted hover:text-ink transition-colors"
                           disabled={s.position === 4}
                         >
-                          <ArrowDown className="h-3.5 w-3.5" />
+                          <ChevronDown className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )}
@@ -105,7 +104,7 @@ export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, o
         </tbody>
       </table>
       {tiedTeamIds.length > 0 && !isLocked && (
-        <p className="text-xs text-[hsl(var(--gold))] mt-2">
+        <p className="text-xs text-amber px-3 py-2">
           Hay equipos empatados. Usa las flechas para definir el orden.
         </p>
       )}
