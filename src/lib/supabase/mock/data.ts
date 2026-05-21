@@ -105,6 +105,13 @@ function knockoutStage(mn: number): string {
   return "final";
 }
 
+// Sample played results — group matches 1..8 are finished (so the
+// Resultados screen has real content). [home_score, away_score].
+const GROUP_RESULTS: Record<number, [number, number]> = {
+  1: [2, 0], 2: [1, 1], 3: [3, 1], 4: [0, 2],
+  5: [1, 0], 6: [2, 2], 7: [0, 1], 8: [3, 0],
+};
+
 function buildMatches(): Row[] {
   const matches: Row[] = [];
   const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -127,10 +134,10 @@ function buildMatches(): Row[] {
         away_placeholder: null,
         match_date: `2026-06-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00+00:00`,
         venue: null,
-        home_score: null,
-        away_score: null,
+        home_score: GROUP_RESULTS[mn]?.[0] ?? null,
+        away_score: GROUP_RESULTS[mn]?.[1] ?? null,
         penalty_winner_team_id: null,
-        is_finished: false,
+        is_finished: GROUP_RESULTS[mn] !== undefined,
         created_at: "2026-01-01T00:00:00Z",
         updated_at: "2026-01-01T00:00:00Z",
       });
@@ -324,6 +331,27 @@ function buildUserScores(): Row[] {
 }
 
 // ---------------------------------------------------------------
+// MATCH PREDICTIONS — the mock user's picks for the played matches
+// (matches 1..7; match 8 left unpredicted on purpose for variety)
+// ---------------------------------------------------------------
+const USER_PICKS: Record<number, [number, number]> = {
+  1: [2, 0], 2: [1, 1], 3: [2, 1], 4: [1, 1], 5: [1, 0], 6: [0, 0], 7: [2, 0],
+};
+
+function buildMatchPredictions(): Row[] {
+  return Object.entries(USER_PICKS).map(([mn, [home, away]], i) => ({
+    id: uid(300 + i),
+    user_id: MOCK_USER_ID,
+    match_id: Number(mn),
+    home_score: home,
+    away_score: away,
+    penalty_winner: null,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  }));
+}
+
+// ---------------------------------------------------------------
 // CHAT MESSAGES — a little conversation to style against
 // ---------------------------------------------------------------
 function buildChatMessages(): Row[] {
@@ -354,7 +382,7 @@ export function createDb(): Db {
     players: buildPlayers(),
     matches: buildMatches(),
     knockout_bracket_positions: buildBracketPositions(),
-    match_predictions: [],
+    match_predictions: buildMatchPredictions(),
     predicted_group_standings: [],
     award_predictions: [],
     actual_awards: [],
