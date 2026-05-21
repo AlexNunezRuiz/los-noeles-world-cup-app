@@ -28,19 +28,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!profile?.is_admin) redirect("/dashboard");
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-cream">
       {/* Admin top bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center border-b bg-card/95 backdrop-blur px-4 gap-4">
-        <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center border-b border-border bg-surface/95 backdrop-blur px-4 gap-4">
+        <Link href="/dashboard" className="text-ink-muted hover:text-ink transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <span className="font-bold text-primary">Admin Panel</span>
+        <span className="font-marcador font-bold uppercase tracking-wide text-ink text-base">Panel Admin</span>
         <div className="flex items-center gap-1 flex-1 overflow-x-auto">
           {adminNav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs whitespace-nowrap font-sans text-ink-muted hover:text-ink hover:bg-surface-sunken transition-colors"
             >
               <item.icon className="h-3.5 w-3.5" />
               {item.label}

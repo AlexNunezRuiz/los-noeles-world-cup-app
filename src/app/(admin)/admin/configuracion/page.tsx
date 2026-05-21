@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ScoringRule {
@@ -69,7 +68,7 @@ export default function AdminConfigPage() {
 
   return (
     <div className="space-y-6 max-w-lg">
-      <h1 className="text-2xl font-bold">Configuración</h1>
+      <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Configuración</h1>
 
       {/* Lock predictions */}
       <Card>
@@ -79,8 +78,8 @@ export default function AdminConfigPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label>Bloquear predicciones</Label>
-              <p className="text-xs text-muted-foreground">
+              <Label className="text-ink">Bloquear predicciones</Label>
+              <p className="text-xs text-ink-muted mt-0.5">
                 Impide que los usuarios editen sus pronósticos
               </p>
             </div>
@@ -92,7 +91,7 @@ export default function AdminConfigPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label>Fecha límite</Label>
+            <Label className="text-ink">Fecha límite</Label>
             <Input
               type="datetime-local"
               value={config.lock_datetime ? new Date(config.lock_datetime).toISOString().slice(0, 16) : ""}
@@ -111,14 +110,14 @@ export default function AdminConfigPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Teléfono</Label>
+            <Label className="text-ink">Teléfono</Label>
             <Input
               value={config.bizum_phone || ""}
               onChange={(e) => setConfig((prev) => ({ ...prev, bizum_phone: e.target.value }))}
             />
           </div>
           <div className="space-y-2">
-            <Label>Cantidad (€)</Label>
+            <Label className="text-ink">Cantidad (€)</Label>
             <Input
               value={config.bizum_amount || ""}
               onChange={(e) => setConfig((prev) => ({ ...prev, bizum_amount: e.target.value }))}
@@ -131,7 +130,7 @@ export default function AdminConfigPage() {
         Guardar Configuración
       </Button>
 
-      <Separator />
+      <div className="border-t border-border" />
 
       {/* Scoring rules */}
       <Card>
@@ -140,14 +139,14 @@ export default function AdminConfigPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {scoringRules.map((rule) => (
-            <div key={rule.id} className="flex items-center justify-between gap-2">
+            <div key={rule.id} className="flex items-center justify-between gap-2 py-1 border-b border-border/40 last:border-0">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{rule.description}</p>
-                <p className="text-xs text-muted-foreground">{rule.rule_key}</p>
+                <p className="text-sm font-medium text-ink truncate">{rule.description}</p>
+                <p className="text-xs text-ink-faint">{rule.rule_key}</p>
               </div>
               <Input
                 type="number"
-                className="w-20 h-8 text-center text-sm"
+                className="w-20 h-8 text-center text-sm font-marcador"
                 value={rule.points}
                 onChange={(e) =>
                   setScoringRules((prev) =>
