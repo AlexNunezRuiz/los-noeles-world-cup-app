@@ -70,13 +70,13 @@ export default function AdminPremiosPage() {
 
   return (
     <div className="space-y-6 max-w-lg">
-      <h1 className="text-2xl font-bold">Premios Reales</h1>
+      <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Premios Reales</h1>
 
       {AWARDS.map(({ type, label, icon: Icon }) => (
-        <Card key={type}>
+        <Card key={type} className="bg-surface border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Icon className="h-5 w-5 text-[hsl(var(--gold))]" />
+            <CardTitle className="text-lg font-marcador uppercase tracking-wide flex items-center gap-2 text-ink">
+              <Icon className="h-5 w-5 text-gold" />
               {label}
             </CardTitle>
           </CardHeader>
@@ -105,7 +105,7 @@ export default function AdminPremiosPage() {
               </Select>
             ) : (
               <div className="space-y-2">
-                <Label>Nombre del ganador</Label>
+                <Label className="text-ink-muted">Nombre del ganador</Label>
                 <Input
                   value={awards[type]?.player_name || ""}
                   onChange={(e) =>

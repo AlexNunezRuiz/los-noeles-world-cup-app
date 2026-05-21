@@ -122,7 +122,7 @@ export default function AdminResultadosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Resultados</h1>
+        <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Resultados</h1>
         <Button onClick={handleRecalculate} disabled={recalculating} variant="default">
           {recalculating ? "Recalculando..." : "Recalcular Puntuaciones"}
         </Button>
@@ -131,7 +131,7 @@ export default function AdminResultadosPage() {
       <Tabs defaultValue="group">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0">
           {stages.map((s) => (
-            <TabsTrigger key={s} value={s} className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger key={s} value={s} className="text-xs">
               {STAGE_LABELS[s]}
             </TabsTrigger>
           ))}
@@ -141,7 +141,7 @@ export default function AdminResultadosPage() {
           const stageMatches = matches.filter((m) => m.stage === stage);
           return (
             <TabsContent key={stage} value={stage}>
-              <div className="space-y-2">
+              <div className="space-y-2 mt-3">
                 {stageMatches.map((match) => {
                   const home = teamsMap.get(match.home_team_id);
                   const away = teamsMap.get(match.away_team_id);
@@ -152,17 +152,17 @@ export default function AdminResultadosPage() {
                   };
 
                   return (
-                    <Card key={match.id} className={match.is_finished ? "border-primary/30" : ""}>
+                    <Card key={match.id} className={match.is_finished ? "border-green/30 bg-surface" : "bg-surface"}>
                       <CardContent className="p-3 flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground w-8">P{match.match_number}</span>
+                        <span className="font-marcador text-xs text-ink-faint w-8">P{match.match_number}</span>
 
-                        <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1">
+                        <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1 text-ink font-sans">
                           {home ? <><Flag emoji={home.flag_emoji} size={16} />{home.code}</> : match.home_placeholder || "TBD"}
                         </span>
 
                         <Input
                           type="number"
-                          className="w-14 h-8 text-center text-sm p-0"
+                          className="w-14 h-8 text-center text-sm p-0 font-marcador"
                           value={edit.home}
                           onChange={(e) =>
                             setEditing((prev) => ({
@@ -171,10 +171,10 @@ export default function AdminResultadosPage() {
                             }))
                           }
                         />
-                        <span className="text-muted-foreground">-</span>
+                        <span className="text-ink-muted font-marcador">-</span>
                         <Input
                           type="number"
-                          className="w-14 h-8 text-center text-sm p-0"
+                          className="w-14 h-8 text-center text-sm p-0 font-marcador"
                           value={edit.away}
                           onChange={(e) =>
                             setEditing((prev) => ({
@@ -184,12 +184,12 @@ export default function AdminResultadosPage() {
                           }
                         />
 
-                        <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end">
+                        <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end text-ink font-sans">
                           {away ? <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></> : match.away_placeholder || "TBD"}
                         </span>
 
                         {match.is_finished ? (
-                          <Badge variant="default" className="text-xs">Final</Badge>
+                          <Badge variant="success-soft" className="text-xs">Final</Badge>
                         ) : (
                           <Button
                             size="sm"
@@ -203,6 +203,11 @@ export default function AdminResultadosPage() {
                     </Card>
                   );
                 })}
+                {stageMatches.length === 0 && (
+                  <p className="text-center text-ink-muted py-8 font-sans text-sm">
+                    No hay partidos en esta fase.
+                  </p>
+                )}
               </div>
             </TabsContent>
           );

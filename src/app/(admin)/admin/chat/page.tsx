@@ -66,27 +66,39 @@ export default function AdminChatPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Moderación Chat</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Moderación Chat</h1>
+        <Badge variant="outline">
+          <span className="font-marcador">{messages.length}</span>&nbsp;mensajes
+        </Badge>
+      </div>
 
       <div className="space-y-2">
         {messages.map((msg) => (
-          <Card key={msg.id} className={msg.is_deleted ? "opacity-40" : ""}>
+          <Card
+            key={msg.id}
+            className={`bg-surface border-border transition-opacity ${msg.is_deleted ? "opacity-40" : ""}`}
+          >
             <CardContent className="p-3 flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-medium">{profiles.get(msg.user_id) || "?"}</span>
-                  <span className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className="text-xs font-medium text-ink">
+                    {profiles.get(msg.user_id) || "?"}
+                  </span>
+                  <span className="text-xs text-ink-faint font-marcador">
                     {new Date(msg.created_at).toLocaleString("es-ES")}
                   </span>
-                  {msg.is_deleted && <Badge variant="destructive" className="text-xs">Eliminado</Badge>}
+                  {msg.is_deleted && (
+                    <Badge variant="destructive" className="text-xs">Eliminado</Badge>
+                  )}
                 </div>
-                <p className="text-sm truncate">{msg.message}</p>
+                <p className="text-sm truncate text-ink-muted font-sans">{msg.message}</p>
               </div>
               {!msg.is_deleted && (
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  className="shrink-0 text-ink-faint hover:text-red hover:bg-red/10 transition-colors"
                   onClick={() => handleDelete(msg.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -95,6 +107,11 @@ export default function AdminChatPage() {
             </CardContent>
           </Card>
         ))}
+        {messages.length === 0 && (
+          <p className="text-center text-ink-muted py-8 font-sans text-sm">
+            No hay mensajes.
+          </p>
+        )}
       </div>
     </div>
   );
