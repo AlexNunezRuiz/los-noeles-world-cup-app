@@ -77,22 +77,63 @@ const GROUP_PATTERN: [number, number][] = [
   [1, 2], [3, 4], [1, 3], [2, 4], [1, 4], [2, 3],
 ];
 
-// R32 home (group winner) / away (group runner-up) — matches 73..84
-const R32_GROUPS: [string, string][] = [
-  ["A", "C"], ["B", "D"], ["C", "B"], ["D", "F"], ["E", "H"], ["F", "E"],
-  ["G", "I"], ["H", "J"], ["I", "G"], ["J", "L"], ["K", "A"], ["L", "K"],
+// Official 2026 FIFA World Cup R32 per-match definitions (matches 73..88)
+// Each entry: [home_source_type, home_ref, away_source_type, away_ref]
+// source types: "W" = group_winner, "R" = group_runner_up, "T" = best_third pool string
+type R32Slot = { type: "W" | "R" | "T"; ref: string };
+const R32_MATCHES: [R32Slot, R32Slot][] = [
+  // 73: R:A vs R:B
+  [{ type: "R", ref: "A" }, { type: "R", ref: "B" }],
+  // 74: W:E vs T:A,B,C,D,F
+  [{ type: "W", ref: "E" }, { type: "T", ref: "A,B,C,D,F" }],
+  // 75: W:F vs R:C
+  [{ type: "W", ref: "F" }, { type: "R", ref: "C" }],
+  // 76: W:C vs R:F
+  [{ type: "W", ref: "C" }, { type: "R", ref: "F" }],
+  // 77: W:I vs T:C,D,F,G,H
+  [{ type: "W", ref: "I" }, { type: "T", ref: "C,D,F,G,H" }],
+  // 78: R:E vs R:I
+  [{ type: "R", ref: "E" }, { type: "R", ref: "I" }],
+  // 79: W:A vs T:C,E,F,H,I
+  [{ type: "W", ref: "A" }, { type: "T", ref: "C,E,F,H,I" }],
+  // 80: W:L vs T:E,H,I,J,K
+  [{ type: "W", ref: "L" }, { type: "T", ref: "E,H,I,J,K" }],
+  // 81: W:D vs T:B,E,F,I,J
+  [{ type: "W", ref: "D" }, { type: "T", ref: "B,E,F,I,J" }],
+  // 82: W:G vs T:A,E,H,I,J
+  [{ type: "W", ref: "G" }, { type: "T", ref: "A,E,H,I,J" }],
+  // 83: R:K vs R:L
+  [{ type: "R", ref: "K" }, { type: "R", ref: "L" }],
+  // 84: W:H vs R:J
+  [{ type: "W", ref: "H" }, { type: "R", ref: "J" }],
+  // 85: W:B vs T:E,F,G,I,J
+  [{ type: "W", ref: "B" }, { type: "T", ref: "E,F,G,I,J" }],
+  // 86: W:J vs R:H
+  [{ type: "W", ref: "J" }, { type: "R", ref: "H" }],
+  // 87: W:K vs T:D,E,I,J,L
+  [{ type: "W", ref: "K" }, { type: "T", ref: "D,E,I,J,L" }],
+  // 88: R:D vs R:G
+  [{ type: "R", ref: "D" }, { type: "R", ref: "G" }],
 ];
 
-// Best-third pools — matches 85..88
-const BEST_THIRD: [string, string][] = [
-  ["A,B,C", "D,E,F"], ["G,H,I", "J,K,L"], ["A,B,C", "D,E,F"], ["G,H,I", "J,K,L"],
-];
+// Placeholder label helper
+function r32Label(slot: R32Slot): string {
+  if (slot.type === "W") return `1${slot.ref}`;
+  if (slot.type === "R") return `2${slot.ref}`;
+  // best_third
+  return `3º ${slot.ref.replace(/,/g, "/")}`;
+}
 
 // Matches 89..104 fed by winners (and 103 by losers) of earlier matches
+// Official feeds:
+// R16: 89:[74,77] 90:[73,75] 91:[76,78] 92:[79,80] 93:[83,84] 94:[81,82] 95:[86,88] 96:[85,87]
+// QF:  97:[89,90] 98:[93,94] 99:[91,92] 100:[95,96]
+// SF:  101:[97,98] 102:[99,100]
+// 3rd: 103:[101,102] (losers)  Final: 104:[101,102] (winners)
 const FEEDS: Record<number, [number, number]> = {
-  89: [73, 74], 90: [75, 76], 91: [77, 78], 92: [79, 80],
-  93: [81, 82], 94: [83, 84], 95: [85, 86], 96: [87, 88],
-  97: [89, 90], 98: [91, 92], 99: [93, 94], 100: [95, 96],
+  89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+  93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],
+  97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],
   101: [97, 98], 102: [99, 100], 103: [101, 102], 104: [101, 102],
 };
 
@@ -148,14 +189,10 @@ function buildMatches(): Row[] {
   for (let mn = 73; mn <= 104; mn++) {
     let home_placeholder = "";
     let away_placeholder = "";
-    if (mn <= 84) {
-      const [hg, ag] = R32_GROUPS[mn - 73];
-      home_placeholder = `1${hg}`;
-      away_placeholder = `2${ag}`;
-    } else if (mn <= 88) {
-      const [hp, ap] = BEST_THIRD[mn - 85];
-      home_placeholder = `3º (${hp})`;
-      away_placeholder = `3º (${ap})`;
+    if (mn <= 88) {
+      const [hs, as_] = R32_MATCHES[mn - 73];
+      home_placeholder = r32Label(hs);
+      away_placeholder = r32Label(as_);
     } else {
       const [h, a] = FEEDS[mn];
       const prefix = mn === 103 ? "L" : "W";
@@ -189,21 +226,39 @@ function buildMatches(): Row[] {
 // ---------------------------------------------------------------
 // KNOCKOUT BRACKET POSITIONS — how group results feed knockout
 // ---------------------------------------------------------------
+function slotSourceType(s: R32Slot): string {
+  if (s.type === "W") return "group_winner";
+  if (s.type === "R") return "group_runner_up";
+  return "best_third";
+}
+
 function buildBracketPositions(): Row[] {
   const rows: Row[] = [];
   let id = 1;
   const add = (r: Row) => rows.push({ id: id++, ...r });
 
-  R32_GROUPS.forEach(([hg, ag], i) => {
+  R32_MATCHES.forEach(([hs, as_], i) => {
     const mn = 73 + i;
-    add({ match_number: mn, slot: "home", source_type: "group_winner", source_group: hg, source_match_number: null, best_third_pool: null, description: `1º${hg}` });
-    add({ match_number: mn, slot: "away", source_type: "group_runner_up", source_group: ag, source_match_number: null, best_third_pool: null, description: `2º${ag}` });
-  });
-
-  BEST_THIRD.forEach(([hp, ap], i) => {
-    const mn = 85 + i;
-    add({ match_number: mn, slot: "home", source_type: "best_third", source_group: null, source_match_number: null, best_third_pool: hp, description: `3º mejor (${hp})` });
-    add({ match_number: mn, slot: "away", source_type: "best_third", source_group: null, source_match_number: null, best_third_pool: ap, description: `3º mejor (${ap})` });
+    const addSlot = (slot: "home" | "away", s: R32Slot) => {
+      const source_type = slotSourceType(s);
+      if (source_type === "best_third") {
+        add({
+          match_number: mn, slot, source_type,
+          source_group: null, source_match_number: null,
+          best_third_pool: s.ref,
+          description: `3º mejor (${s.ref})`,
+        });
+      } else {
+        add({
+          match_number: mn, slot, source_type,
+          source_group: s.ref, source_match_number: null,
+          best_third_pool: null,
+          description: `${s.type === "W" ? "1º" : "2º"}${s.ref}`,
+        });
+      }
+    };
+    addSlot("home", hs);
+    addSlot("away", as_);
   });
 
   for (let mn = 89; mn <= 104; mn++) {

@@ -47,6 +47,54 @@ export function getMatchLoser(
   return winner === homeTeamId ? awayTeamId : homeTeamId;
 }
 
+// Build a map from team_id -> group letter using the group standings
+function buildTeamGroupMap(groupStandings: Map<string, TeamStanding[]>): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const [group, standings] of Array.from(groupStandings.entries())) {
+    for (const s of standings) {
+      map.set(s.team_id, group);
+    }
+  }
+  return map;
+}
+
+// Assign best-third-placed teams to bracket slots with pool constraints.
+// Each slot has a pool string like "A,B,C,D,F" — the assigned team's group
+// must appear in that pool. Uses a greedy approach (ranked by performance)
+// with fallback to any remaining unassigned team if no pool match exists.
+function assignBestThirds(
+  bestThirds: TeamStanding[],
+  slots: Array<{ pool: string }>,
+  teamGroupMap: Map<number, string>
+): (number | undefined)[] {
+  const remaining = [...bestThirds];
+  const assigned: (number | undefined)[] = new Array(slots.length).fill(undefined);
+
+  for (let i = 0; i < slots.length; i++) {
+    const poolGroups = new Set(slots[i].pool.split(",").map((g) => g.trim()));
+    // Find the best remaining team whose group is in this pool
+    const idx = remaining.findIndex((t) => {
+      const grp = teamGroupMap.get(t.team_id);
+      return grp !== undefined && poolGroups.has(grp);
+    });
+    if (idx !== -1) {
+      assigned[i] = remaining[idx].team_id;
+      remaining.splice(idx, 1);
+    }
+  }
+
+  // Fallback: fill still-empty slots with remaining teams in order
+  let fallbackIdx = 0;
+  for (let i = 0; i < slots.length; i++) {
+    if (assigned[i] === undefined && fallbackIdx < remaining.length) {
+      assigned[i] = remaining[fallbackIdx].team_id;
+      fallbackIdx++;
+    }
+  }
+
+  return assigned;
+}
+
 export function populateKnockoutBracket(
   groupStandings: Map<string, TeamStanding[]>,
   bestThirds: TeamStanding[],
@@ -66,9 +114,20 @@ export function populateKnockoutBracket(
     matchMap.set(m.match_number, { ...m });
   }
 
-  // Track best thirds assigned
-  const bestThirdsCopy = [...bestThirds];
-  let bestThirdIndex = 0;
+  // Build team->group lookup for pool-aware best-third assignment
+  const teamGroupMap = buildTeamGroupMap(groupStandings);
+
+  // Collect all best_third slots in bracket order
+  const bestThirdSlots = bracketPositions
+    .filter((bp) => bp.source_type === "best_third" && bp.best_third_pool)
+    .map((bp) => ({ matchNumber: bp.match_number, slot: bp.slot, pool: bp.best_third_pool! }));
+
+  // Assign best thirds to slots respecting pools
+  const bestThirdAssignments = assignBestThirds(bestThirds, bestThirdSlots, teamGroupMap);
+  const bestThirdMap = new Map<string, number | undefined>();
+  bestThirdSlots.forEach((s, i) => {
+    bestThirdMap.set(`${s.matchNumber}:${s.slot}`, bestThirdAssignments[i]);
+  });
 
   // First pass: populate from group results
   for (const bp of bracketPositions) {
@@ -84,10 +143,7 @@ export function populateKnockoutBracket(
       const gs = groupStandings.get(bp.source_group);
       teamId = gs?.find((s) => s.position === 2)?.team_id;
     } else if (bp.source_type === "best_third") {
-      if (bestThirdIndex < bestThirdsCopy.length) {
-        teamId = bestThirdsCopy[bestThirdIndex]?.team_id;
-        bestThirdIndex++;
-      }
+      teamId = bestThirdMap.get(`${bp.match_number}:${bp.slot}`);
     }
 
     if (teamId !== undefined) {
