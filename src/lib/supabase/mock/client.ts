@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 // ============================================================
 // MOCK SUPABASE CLIENT — used when NEXT_PUBLIC_MOCK=true
 // Implements the subset of the supabase-js API the app uses:
