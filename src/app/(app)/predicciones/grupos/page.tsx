@@ -30,13 +30,19 @@ interface Match {
   match_date: string;
 }
 
+/** A side is `null` until the user actually types a value for it. */
 interface Prediction {
   match_id: number;
-  home_score: number;
-  away_score: number;
+  home_score: number | null;
+  away_score: number | null;
 }
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+
+/** A prediction only counts once BOTH scores have been entered. */
+function isComplete(p: Prediction | undefined): boolean {
+  return p !== undefined && p.home_score !== null && p.away_score !== null;
+}
 
 export default function GruposPage() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -46,7 +52,6 @@ export default function GruposPage() {
   const [isLocked, setIsLocked] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
-  const [hasShownBizum, setHasShownBizum] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>("A");
   const [editing, setEditing] = useState<{ matchId: number; side: "home" | "away" } | null>(null);
   const saveTimeout = useRef<NodeJS.Timeout>();
@@ -82,7 +87,7 @@ export default function GruposPage() {
       setPredictions(predMap);
     }
     load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recalculate standings when predictions change
   useEffect(() => {
@@ -91,9 +96,9 @@ export default function GruposPage() {
     const newStandings = new Map<string, TeamStanding[]>();
     for (const group of GROUPS) {
       const groupTeams = teams.filter((t) => t.group_letter === group);
-      const groupMatches = matches.filter((m) => m.group_letter === group);
+      const groupMatchList = matches.filter((m) => m.group_letter === group);
 
-      const matchResults = groupMatches.map((m) => {
+      const matchResults = groupMatchList.map((m) => {
         const pred = predictions.get(m.id);
         return {
           home_team_id: m.home_team_id,
@@ -103,65 +108,36 @@ export default function GruposPage() {
         };
       });
 
-      const gs = calculateGroupStandings(
+      const computed = calculateGroupStandings(
         groupTeams.map((t) => t.id),
         matchResults
       );
-      newStandings.set(group, gs);
+      newStandings.set(group, computed);
     }
     setStandings(newStandings);
   }, [teams, matches, predictions]);
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
-  const handleScoreChange = useCallback(
-    (matchId: number, homeScore: number, awayScore: number) => {
-      setPredictions((prev) => {
-        const next = new Map(prev);
-        next.set(matchId, { match_id: matchId, home_score: homeScore, away_score: awayScore });
-        return next;
-      });
-
-      // Debounced save
-      if (saveTimeout.current) clearTimeout(saveTimeout.current);
-      saveTimeout.current = setTimeout(() => {
-        savePrediction(matchId, homeScore, awayScore);
-      }, 800);
-    },
-    [userId]
-  );
-
-  const savePrediction = async (matchId: number, homeScore: number, awayScore: number) => {
+  async function savePrediction(matchId: number, homeScore: number, awayScore: number) {
     if (!userId || isLocked) return;
     setSaving(true);
 
-    const { error } = await supabase
-      .from("match_predictions")
-      .upsert(
-        {
-          user_id: userId,
-          match_id: matchId,
-          home_score: homeScore,
-          away_score: awayScore,
-        },
-        { onConflict: "user_id,match_id" }
-      );
+    const { error } = await supabase.from("match_predictions").upsert(
+      {
+        user_id: userId,
+        match_id: matchId,
+        home_score: homeScore,
+        away_score: awayScore,
+      },
+      { onConflict: "user_id,match_id" }
+    );
 
     setSaving(false);
-
     if (error) {
       toast({ title: "Error al guardar", description: error.message, variant: "destructive" });
     }
-
-    // Show Bizum reminder on first prediction
-    if (!hasShownBizum) {
-      setHasShownBizum(true);
-      toast({
-        title: "Recuerda enviar el Bizum",
-        description: "Para validar tu participación, envía un Bizum al +34627151087",
-      });
-    }
-  };
+  }
 
   const handleMoveTeam = useCallback(
     (group: string, teamId: number, direction: "up" | "down") => {
@@ -174,7 +150,6 @@ export default function GruposPage() {
         const swapIdx = direction === "up" ? idx - 1 : idx + 1;
         if (swapIdx < 0 || swapIdx >= gs.length) return prev;
 
-        // Swap positions
         const tmpPos = gs[idx].position;
         gs[idx] = { ...gs[idx], position: gs[swapIdx].position };
         gs[swapIdx] = { ...gs[swapIdx], position: tmpPos };
@@ -187,7 +162,7 @@ export default function GruposPage() {
     []
   );
 
-  const saveStandings = async () => {
+  async function saveStandings() {
     if (!userId || isLocked) return;
     setSaving(true);
 
@@ -219,7 +194,6 @@ export default function GruposPage() {
       }
     }
 
-    // Delete existing and insert new
     await supabase.from("predicted_group_standings").delete().eq("user_id", userId);
     const { error } = await supabase.from("predicted_group_standings").insert(rows);
 
@@ -229,14 +203,15 @@ export default function GruposPage() {
     } else {
       toast({ title: "Clasificaciones guardadas" });
     }
-  };
+  }
 
   const completedGroups = GROUPS.filter((g) => {
-    const groupMatches = matches.filter((m) => m.group_letter === g);
-    return groupMatches.length > 0 && groupMatches.every((m) => predictions.has(m.id));
+    const groupMatchList = matches.filter((m) => m.group_letter === g);
+    return groupMatchList.length > 0 && groupMatchList.every((m) => isComplete(predictions.get(m.id)));
   });
 
-  const groupsPct = Math.round(predictions.size / 72 * 100);
+  const completedCount = Array.from(predictions.values()).filter(isComplete).length;
+  const groupsPct = Math.round((completedCount / 72) * 100);
 
   // Current group data
   const groupMatches = matches
@@ -249,9 +224,9 @@ export default function GruposPage() {
   const prevGroup = groupIndex > 0 ? GROUPS[groupIndex - 1] : null;
   const nextGroup = groupIndex < GROUPS.length - 1 ? GROUPS[groupIndex + 1] : null;
 
-  const groupPredCount = groupMatches.filter((m) => predictions.has(m.id)).length;
+  const groupPredCount = groupMatches.filter((m) => isComplete(predictions.get(m.id))).length;
 
-  // Derive editing team + flag for ScorePad
+  // Derive editing team + flag for the ScorePad
   const editingMatch = editing ? matches.find((m) => m.id === editing.matchId) : null;
   const editingTeamId = editingMatch
     ? editing?.side === "home"
@@ -260,47 +235,46 @@ export default function GruposPage() {
     : null;
   const editingTeam = editingTeamId ? teamsMap.get(editingTeamId) : null;
 
-  const handleTileTap = useCallback(
-    (matchId: number, side: "home" | "away") => {
-      if (isLocked) return;
-      setEditing({ matchId, side });
-    },
-    [isLocked]
-  );
+  function handleTileTap(matchId: number, side: "home" | "away") {
+    if (isLocked) return;
+    setEditing({ matchId, side });
+  }
 
-  const handleDigit = useCallback(
-    (n: number) => {
-      if (!editing) return;
-      const { matchId, side } = editing;
-      const pred = predictions.get(matchId);
-      const currentHome = pred?.home_score ?? 0;
-      const currentAway = pred?.away_score ?? 0;
-      const newHome = side === "home" ? n : currentHome;
-      const newAway = side === "away" ? n : currentAway;
-      handleScoreChange(matchId, newHome, newAway);
+  function handleDigit(n: number) {
+    if (!editing) return;
+    const { matchId, side } = editing;
+    const pred = predictions.get(matchId);
+    const newHome = side === "home" ? n : pred?.home_score ?? null;
+    const newAway = side === "away" ? n : pred?.away_score ?? null;
 
-      // Auto-advance
-      if (side === "home") {
-        setEditing({ matchId, side: "away" });
-      } else {
-        // Move to next match in group
-        const currentIdx = groupMatches.findIndex((m) => m.id === matchId);
-        const nextMatch = currentIdx >= 0 && currentIdx < groupMatches.length - 1
+    setPredictions((prev) => {
+      const next = new Map(prev);
+      next.set(matchId, { match_id: matchId, home_score: newHome, away_score: newAway });
+      return next;
+    });
+
+    // Persist only once both sides have a value — a half-filled match is not
+    // a prediction yet, so nothing is written and no empty 0 is stored.
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    if (newHome !== null && newAway !== null) {
+      saveTimeout.current = setTimeout(() => savePrediction(matchId, newHome, newAway), 800);
+    }
+
+    // Auto-advance: home → away → next match's home
+    if (side === "home") {
+      setEditing({ matchId, side: "away" });
+    } else {
+      const currentIdx = groupMatches.findIndex((m) => m.id === matchId);
+      const nextMatch =
+        currentIdx >= 0 && currentIdx < groupMatches.length - 1
           ? groupMatches[currentIdx + 1]
           : null;
-        if (nextMatch) {
-          setEditing({ matchId: nextMatch.id, side: "home" });
-        } else {
-          setEditing(null);
-        }
-      }
-    },
-    [editing, predictions, handleScoreChange, groupMatches]
-  );
+      setEditing(nextMatch ? { matchId: nextMatch.id, side: "home" } : null);
+    }
+  }
 
   return (
     <div className={editing !== null ? "pb-44" : "pb-8"}>
-      {/* Stage progress bar */}
       <StageBar progress={{ grupos: groupsPct }} />
 
       {/* Header */}
@@ -351,9 +325,9 @@ export default function GruposPage() {
               matchDate={match.match_date}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
-              homeScore={pred !== undefined ? pred.home_score : null}
-              awayScore={pred !== undefined ? pred.away_score : null}
-              saved={predictions.has(match.id)}
+              homeScore={pred?.home_score ?? null}
+              awayScore={pred?.away_score ?? null}
+              saved={isComplete(pred)}
               active={isActive}
               focusedSide={focusedSide}
               onTileTap={(side) => handleTileTap(match.id, side)}
@@ -383,12 +357,7 @@ export default function GruposPage() {
           Guarda la clasificación cuando estés seguro.
         </p>
         <div className="mt-2 flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={saveStandings}
-            disabled={isLocked || saving}
-          >
+          <Button size="sm" variant="outline" onClick={saveStandings} disabled={isLocked || saving}>
             Guardar clasificación
           </Button>
           <Link href="/predicciones/eliminatorias">

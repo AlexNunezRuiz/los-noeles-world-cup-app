@@ -28,6 +28,20 @@ interface BracketPosition {
   best_third_pool?: string;
 }
 
+/** Page-local prediction: a side is `null` until the user types its value. */
+interface KoPrediction {
+  match_id: number;
+  match_number: number;
+  home_score: number | null;
+  away_score: number | null;
+  penalty_winner?: "home" | "away" | null;
+}
+
+/** A prediction only counts once BOTH scores have been entered. */
+function isKoComplete(p: KoPrediction | undefined): boolean {
+  return p !== undefined && p.home_score !== null && p.away_score !== null;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -82,7 +96,7 @@ function buildSourceLabel(
 export default function EliminatoriasPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([]);
-  const [predictions, setPredictions] = useState<Map<number, KnockoutPrediction>>(new Map());
+  const [predictions, setPredictions] = useState<Map<number, KoPrediction>>(new Map());
   const [bracketPositions, setBracketPositions] = useState<BracketPosition[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -171,7 +185,8 @@ export default function EliminatoriasPage() {
           });
         }
       }
-      setPredictions(predMap);
+      // Loaded predictions come from the DB with both scores set.
+      setPredictions(predMap as Map<number, KoPrediction>);
 
       // Build knockout matches
       const knockoutMatches: BracketMatch[] = (matchesRes.data || []).map((m: {
@@ -275,29 +290,6 @@ export default function EliminatoriasPage() {
     [matchIdMap, userId, isLocked, supabase]
   );
 
-  const handleScoreChange = useCallback(
-    (matchNumber: number, homeScore: number, awayScore: number) => {
-      setPredictions((prev) => {
-        const next = new Map(prev);
-        const existing = prev.get(matchNumber);
-        next.set(matchNumber, {
-          match_id: matchIdMap.get(matchNumber) || 0,
-          match_number: matchNumber,
-          home_score: homeScore,
-          away_score: awayScore,
-          penalty_winner: existing?.penalty_winner,
-        });
-        return next;
-      });
-
-      if (saveTimeout.current) clearTimeout(saveTimeout.current);
-      saveTimeout.current = setTimeout(() => {
-        savePrediction(matchNumber, homeScore, awayScore);
-      }, 800);
-    },
-    [matchIdMap, savePrediction]
-  );
-
   const handlePenaltyWinner = useCallback(
     (matchNumber: number, winner: "home" | "away") => {
       setPredictions((prev) => {
@@ -309,7 +301,7 @@ export default function EliminatoriasPage() {
         return next;
       });
       const pred = predictions.get(matchNumber);
-      if (pred) {
+      if (pred && pred.home_score !== null && pred.away_score !== null) {
         savePredictionFull(matchNumber, pred.home_score, pred.away_score, winner);
       }
     },
@@ -338,11 +330,27 @@ export default function EliminatoriasPage() {
       if (!editing) return;
       const { matchNum, side } = editing;
       const pred = predictions.get(matchNum);
-      const currentHome = pred?.home_score ?? 0;
-      const currentAway = pred?.away_score ?? 0;
-      const newHome = side === "home" ? n : currentHome;
-      const newAway = side === "away" ? n : currentAway;
-      handleScoreChange(matchNum, newHome, newAway);
+      const newHome = side === "home" ? n : pred?.home_score ?? null;
+      const newAway = side === "away" ? n : pred?.away_score ?? null;
+
+      setPredictions((prev) => {
+        const next = new Map(prev);
+        const existing = prev.get(matchNum);
+        next.set(matchNum, {
+          match_id: matchIdMap.get(matchNum) || 0,
+          match_number: matchNum,
+          home_score: newHome,
+          away_score: newAway,
+          penalty_winner: existing?.penalty_winner,
+        });
+        return next;
+      });
+
+      // Persist only once both sides have a value.
+      if (saveTimeout.current) clearTimeout(saveTimeout.current);
+      if (newHome !== null && newAway !== null) {
+        saveTimeout.current = setTimeout(() => savePrediction(matchNum, newHome, newAway), 800);
+      }
 
       // Auto-advance
       if (side === "home") {
@@ -360,14 +368,15 @@ export default function EliminatoriasPage() {
         }
       }
     },
-    [editing, predictions, handleScoreChange, activeRoundMatches]
+    [editing, predictions, matchIdMap, savePrediction, activeRoundMatches]
   );
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
-  const elimPct = Math.round((predictions.size / 32) * 100);
+  const completedCount = Array.from(predictions.values()).filter(isKoComplete).length;
+  const elimPct = Math.round((completedCount / 32) * 100);
 
   // Build a lookup: match_number + slot -> BracketPosition
   const bpMap = new Map<string, BracketPosition>();
@@ -420,7 +429,7 @@ export default function EliminatoriasPage() {
       <div className="px-4 pt-3 pb-1">
         <h1 className="font-marcador text-3xl uppercase text-ink leading-none">Cuadro</h1>
         <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
-          Eliminatorias · {predictions.size} de 32 partidos
+          Eliminatorias · {completedCount} de 32 partidos
           {saving && " · guardando…"}
         </p>
       </div>
@@ -515,6 +524,8 @@ export default function EliminatoriasPage() {
         const pred = predictions.get(match.match_number);
         const isDraw =
           pred !== undefined &&
+          pred.home_score !== null &&
+          pred.away_score !== null &&
           pred.home_score === pred.away_score;
         if (!isDraw) return null;
         const homeTeam = match.home_team_id ? teamsMap.get(match.home_team_id) : undefined;
