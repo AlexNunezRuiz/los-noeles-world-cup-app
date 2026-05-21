@@ -13,8 +13,15 @@ interface ScorePadProps {
 export function ScorePad({ open, teamName, flag, onDigit, onClose }: ScorePadProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50">
-      <div className="mx-auto max-w-[680px] rounded-t-2xl bg-ink p-3 pb-4 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)]">
+    <>
+      {/* click-outside backdrop */}
+      <div
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-x-0 bottom-0 z-50">
+        <div className="mx-auto max-w-[680px] rounded-t-2xl bg-ink p-3 pb-4 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)]">
         <div className="mb-2 flex items-center gap-2">
           <span className="flex items-center">{flag}</span>
           <span className="font-sans text-[11px] font-bold text-cream">
@@ -39,7 +46,8 @@ export function ScorePad({ open, teamName, flag, onDigit, onClose }: ScorePadPro
             </button>
           ))}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
