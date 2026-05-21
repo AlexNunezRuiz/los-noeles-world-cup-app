@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface FlapTileProps {
@@ -26,14 +26,18 @@ const label = (v: number | null) => (v === null ? "·" : String(v));
 export function FlapTile({ value, size = "md", focused, className }: FlapTileProps) {
   const [shown, setShown] = useState<number | null>(value);
   const [prev, setPrev] = useState<number | null>(value);
+  const [flipId, setFlipId] = useState(0);
   const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
     if (value === shown) return;
     setPrev(shown);
     setShown(value);
+    // flipId changes on every flip → the animated flaps remount and the CSS
+    // animation restarts, even on rapid consecutive changes to the same tile.
+    setFlipId((n) => n + 1);
     setAnimating(true);
-    const timer = window.setTimeout(() => setAnimating(false), 380);
+    const timer = window.setTimeout(() => setAnimating(false), 420);
     return () => window.clearTimeout(timer);
   }, [value, shown]);
 
@@ -56,12 +60,12 @@ export function FlapTile({ value, size = "md", focused, className }: FlapTilePro
       <Half pos="top" digit={next} text={s.text} />
       <Half pos="bottom" digit={animating ? old : next} text={s.text} />
 
-      {/* animated flaps — only mounted during a flip */}
+      {/* animated flaps — keyed by flipId so every change restarts the animation */}
       {animating && (
-        <>
+        <Fragment key={flipId}>
           <Half pos="top" digit={old} text={s.text} className="z-10 origin-bottom animate-flap-top" />
           <Half pos="bottom" digit={next} text={s.text} className="z-10 origin-top animate-flap-bottom" />
-        </>
+        </Fragment>
       )}
 
       {/* horizontal seam of the board */}

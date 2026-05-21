@@ -176,22 +176,22 @@ export default async function PorraPage() {
       </div>
 
       {/* Global progress card */}
-      <div className="rounded-[14px] bg-ink text-cream px-4 py-3 flex items-center gap-4">
-        <span className="font-marcador font-bold text-[46px] leading-none text-white">
+      <div className="rounded-[14px] bg-surface border border-border px-4 py-3 flex items-center gap-4 shadow-[0_5px_14px_-11px_rgba(26,26,23,0.5)]">
+        <span className="font-marcador font-bold text-[46px] leading-none text-red">
           {overallPct}%
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-cream">
+          <p className="text-sm font-bold text-ink">
             {motivationText(overallPct)}
           </p>
           {lockLabel && daysLeft !== null && (
-            <p className="text-[11px] text-ink-faint mt-0.5">
+            <p className="text-[11px] text-ink-muted mt-0.5">
               Cierra el {lockLabel} &middot; faltan{" "}
               {daysLeft === 1 ? "1 día" : `${daysLeft} días`}
             </p>
           )}
           {/* progress bar */}
-          <div className="h-1.5 bg-[#36342d] rounded-full mt-2 overflow-hidden">
+          <div className="h-1.5 bg-surface-sunken rounded-full mt-2 overflow-hidden">
             <div
               className="h-full bg-red rounded-full transition-all"
               style={{ width: `${overallPct}%` }}

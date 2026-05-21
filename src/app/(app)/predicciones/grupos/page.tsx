@@ -55,6 +55,7 @@ export default function GruposPage() {
   const [selectedGroup, setSelectedGroup] = useState<string>("A");
   const [editing, setEditing] = useState<{ matchId: number; side: "home" | "away" } | null>(null);
   const saveTimeout = useRef<NodeJS.Timeout>();
+  const standingsAutoSaveTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -162,7 +163,7 @@ export default function GruposPage() {
     []
   );
 
-  async function saveStandings() {
+  async function saveStandings(currentStandings: Map<string, TeamStanding[]>, silent = false) {
     if (!userId || isLocked) return;
     setSaving(true);
 
@@ -178,7 +179,7 @@ export default function GruposPage() {
       is_manual_override: boolean;
     }> = [];
 
-    for (const [group, gs] of Array.from(standings.entries())) {
+    for (const [group, gs] of Array.from(currentStandings.entries())) {
       for (const s of gs) {
         rows.push({
           user_id: userId,
@@ -200,10 +201,31 @@ export default function GruposPage() {
     setSaving(false);
     if (error) {
       toast({ title: "Error al guardar clasificaciones", description: error.message, variant: "destructive" });
-    } else {
+    } else if (!silent) {
       toast({ title: "Clasificaciones guardadas" });
     }
   }
+
+  // Auto-save standings (debounced) whenever standings change and at least one group is fully predicted
+  useEffect(() => {
+    if (!userId || isLocked) return;
+
+    const hasCompleteGroup = GROUPS.some((g) => {
+      const groupMatchList = matches.filter((m) => m.group_letter === g);
+      return groupMatchList.length > 0 && groupMatchList.every((m) => isComplete(predictions.get(m.id)));
+    });
+
+    if (!hasCompleteGroup) return;
+
+    if (standingsAutoSaveTimeout.current) clearTimeout(standingsAutoSaveTimeout.current);
+    standingsAutoSaveTimeout.current = setTimeout(() => {
+      saveStandings(standings, true);
+    }, 1000);
+
+    return () => {
+      if (standingsAutoSaveTimeout.current) clearTimeout(standingsAutoSaveTimeout.current);
+    };
+  }, [standings, userId, isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const completedGroups = GROUPS.filter((g) => {
     const groupMatchList = matches.filter((m) => m.group_letter === g);
@@ -350,16 +372,12 @@ export default function GruposPage() {
         />
       </div>
 
-      {/* Save standings + qualify cross-link */}
+      {/* Qualify cross-link */}
       <div className="mx-4 mt-3 rounded-xl border border-blue/25 bg-blue/8 p-3">
         <p className="text-xs text-ink-muted">
-          Los 2 primeros del Grupo {selectedGroup} pasan a Eliminatorias.
-          Guarda la clasificación cuando estés seguro.
+          Los 2 primeros del Grupo {selectedGroup} pasan a Eliminatorias — se guarda solo.
         </p>
         <div className="mt-2 flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={saveStandings} disabled={isLocked || saving}>
-            Guardar clasificación
-          </Button>
           <Link href="/predicciones/eliminatorias">
             <Button size="sm" variant="default">Ver el Cuadro →</Button>
           </Link>

@@ -1,8 +1,13 @@
+import { Emblem } from "@/components/ui/emblem";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-cream p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-3">
+            <Emblem size={56} />
+          </div>
           <h1 className="font-marcador font-bold uppercase text-4xl tracking-wide text-ink">
             Mundial <span className="text-red">&apos;26</span>
           </h1>

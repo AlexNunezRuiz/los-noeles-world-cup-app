@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { RankingList, RankingRow } from "@/components/ranking/ranking-list";
 import { Podium } from "@/components/ranking/podium";
@@ -143,6 +144,7 @@ export default function RankingPage() {
       name: e.name,
       points: e.total_points,
       isYou,
+      userId: e.user_id,
       breakdown: {
         grupos: e.group_stage_points,
         cuadro: e.knockout_exact_points,
@@ -250,8 +252,9 @@ export default function RankingPage() {
               {rest.map((e, i) => {
                 const initial = e.name.slice(0, 2);
                 return (
-                  <div
+                  <Link
                     key={e.user_id}
+                    href={`/jugador/${e.user_id}`}
                     className={`grid grid-cols-[20px_28px_1fr_auto] items-center gap-2.5 px-3 py-2.5 ${
                       i > 0 ? "border-t border-border" : ""
                     } ${e.isYou ? "bg-red/5" : ""}`}
@@ -273,7 +276,7 @@ export default function RankingPage() {
                     <span className="font-marcador text-base font-bold text-ink">
                       {e.total_points}
                     </span>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

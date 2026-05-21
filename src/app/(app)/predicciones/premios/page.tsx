@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlayerCombobox } from "@/components/ui/player-combobox";
 import { StageBar } from "@/components/porra/stage-bar";
 import { Trophy, Star, Shield } from "lucide-react";
 
@@ -98,18 +98,18 @@ export default function PremiosPage() {
   );
 
   const handlePlayerSelect = useCallback(
-    (awardType: string, playerId: string) => {
-      const player = players.find((p) => p.id === parseInt(playerId));
+    (awardType: string, playerId: number) => {
+      const player = players.find((p) => p.id === playerId);
       setPredictions((prev) => {
         const next = new Map(prev);
         next.set(awardType, {
           award_type: awardType,
-          player_id: parseInt(playerId),
+          player_id: playerId,
           player_name: player?.name,
         });
         return next;
       });
-      upsertAward(awardType, parseInt(playerId), player?.name);
+      upsertAward(awardType, playerId, player?.name);
     },
     [players, upsertAward]
   );
@@ -169,23 +169,14 @@ export default function PremiosPage() {
                 )}
               </div>
 
-              {/* Select */}
-              <Select
-                value={pred?.player_id?.toString() ?? ""}
-                onValueChange={(v) => handlePlayerSelect(type, v)}
+              {/* Player combobox */}
+              <PlayerCombobox
+                options={players.map((p) => ({ id: p.id, name: p.name }))}
+                value={pred?.player_id ?? null}
+                onChange={(id) => handlePlayerSelect(type, id)}
                 disabled={isLocked || players.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar jugador…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {players.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Seleccionar jugador…"
+              />
 
               {/* Chosen player name */}
               {hasSelection && (

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardList, Activity, Trophy, MessageCircle, User, Shield } from "lucide-react";
+import { Emblem } from "@/components/ui/emblem";
 
 const navItems = [
   { href: "/porra", label: "Porra", icon: ClipboardList },
@@ -22,8 +23,9 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
           {/* Wordmark */}
           <Link
             href="/porra"
-            className="font-marcador font-bold uppercase text-xl text-ink leading-none"
+            className="flex items-center gap-2 font-marcador font-bold uppercase text-xl text-ink leading-none"
           >
+            <Emblem size={26} />
             Mundial<span className="text-red">&apos;26</span>
           </Link>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { BreakdownBar } from "./breakdown-bar";
 
@@ -18,6 +19,7 @@ export interface RankingRow {
   isYou: boolean;
   breakdown: Breakdown;
   gapInfo?: string;
+  userId: string;
 }
 
 function Movement({ value }: { value: number }) {
@@ -46,9 +48,10 @@ export function RankingList({ players }: { players: RankingRow[] }) {
         const initial = p.name.slice(0, 2);
         if (p.isYou) {
           return (
-            <div
+            <Link
               key={p.position}
-              className="rounded-xl border-2 border-red bg-surface p-3 shadow-[0_6px_16px_-10px_rgba(221,53,43,0.5)]"
+              href={`/jugador/${p.userId}`}
+              className="block rounded-xl border-2 border-red bg-surface p-3 shadow-[0_6px_16px_-10px_rgba(221,53,43,0.5)]"
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-5 text-center font-marcador text-xl font-bold text-red">{p.position}</span>
@@ -68,12 +71,13 @@ export function RankingList({ players }: { players: RankingRow[] }) {
                 {p.gapInfo && <p className="mb-1.5 text-[10px] font-semibold text-ink-muted">{p.gapInfo}</p>}
                 <BreakdownBar {...p.breakdown} />
               </div>
-            </div>
+            </Link>
           );
         }
         return (
-          <div
+          <Link
             key={p.position}
+            href={`/jugador/${p.userId}`}
             className={cn(
               "grid grid-cols-[20px_28px_1fr_auto] items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5",
               EDGE[p.position]
@@ -88,7 +92,7 @@ export function RankingList({ players }: { players: RankingRow[] }) {
               <span className="truncate font-sans text-xs font-bold text-ink">{p.name}</span>
             </span>
             <span className="font-marcador text-lg font-bold text-ink">{p.points}</span>
-          </div>
+          </Link>
         );
       })}
     </div>
