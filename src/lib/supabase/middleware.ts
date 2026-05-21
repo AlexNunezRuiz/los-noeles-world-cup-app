@@ -42,7 +42,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/predicciones") ||
     request.nextUrl.pathname.startsWith("/ranking") ||
     request.nextUrl.pathname.startsWith("/chat") ||
-    request.nextUrl.pathname.startsWith("/mi-cuenta");
+    request.nextUrl.pathname.startsWith("/mi-cuenta") ||
+    request.nextUrl.pathname.startsWith("/porra") ||
+    request.nextUrl.pathname.startsWith("/resultados");
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
 
   if (!user && (isAppRoute || isAdminRoute)) {

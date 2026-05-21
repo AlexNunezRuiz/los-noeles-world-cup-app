@@ -1,95 +1,74 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
-import { Home, Trophy, MessageCircle, User, LogOut, Shield, FileText } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ClipboardList, Activity, Trophy, MessageCircle, User, Shield } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Inicio", icon: Home },
-  { href: "/predicciones/grupos", label: "Predicciones", icon: FileText },
+  { href: "/porra", label: "Porra", icon: ClipboardList },
+  { href: "/resultados", label: "Resultados", icon: Activity },
   { href: "/ranking", label: "Ranking", icon: Trophy },
   { href: "/chat", label: "Chat", icon: MessageCircle },
-  { href: "/mi-cuenta", label: "Cuenta", icon: User },
 ];
 
 export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const supabase = createClient();
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
 
   return (
     <>
-      {/* Desktop top navbar */}
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 h-14 items-center border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 px-4">
-        <Link href="/dashboard" className="font-bold text-primary mr-8 text-lg">
-          Mundial 2026
-        </Link>
-        <div className="flex items-center gap-1 flex-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname.startsWith(item.href)
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
-          {isAdmin && (
-            <Link
-              href="/admin/usuarios"
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname.startsWith("/admin")
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <Shield className="h-4 w-4" />
-              Admin
-            </Link>
-          )}
-        </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Salir
-        </button>
-      </nav>
+      {/* Fixed header */}
+      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-surface border-b border-border">
+        <div className="max-w-[680px] mx-auto px-4 h-full flex items-center justify-between">
+          {/* Wordmark */}
+          <Link
+            href="/porra"
+            className="font-marcador font-bold uppercase text-xl text-ink leading-none"
+          >
+            Mundial<span className="text-red">&apos;26</span>
+          </Link>
 
-      {/* Mobile bottom navbar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="flex items-center justify-around h-16">
-          {navItems.map((item) => (
+          {/* Right actions */}
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Link
+                href="/admin/usuarios"
+                className="flex items-center justify-center w-8 h-8 text-ink-muted hover:text-ink transition-colors"
+                aria-label="Administración"
+              >
+                <Shield className="w-4 h-4" />
+              </Link>
+            )}
             <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center gap-1 px-2 py-1 text-xs transition-colors min-w-0",
-                pathname.startsWith(item.href)
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              )}
+              href="/mi-cuenta"
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-ink text-cream"
+              aria-label="Mi cuenta"
             >
-              <item.icon className="h-5 w-5" />
-              <span className="truncate">{item.label}</span>
+              <User className="w-4 h-4" />
             </Link>
-          ))}
+          </div>
+        </div>
+      </header>
+
+      {/* Fixed bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border">
+        <div className="max-w-[680px] mx-auto flex pt-2 pb-2">
+          {navItems.map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex-1 flex flex-col items-center gap-0.5 ${
+                  active ? "text-red" : "text-ink-faint"
+                }`}
+              >
+                <item.icon size={20} />
+                <span className="font-marcador text-[10px] font-bold uppercase tracking-wide">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </>
