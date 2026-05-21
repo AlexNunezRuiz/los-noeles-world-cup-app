@@ -1,7 +1,15 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const MOCK = process.env.NEXT_PUBLIC_MOCK === "true";
+
 export async function updateSession(request: NextRequest) {
+  // Mock mode: no real auth — let every route through so the
+  // whole UI (app + admin + auth screens) is browsable.
+  if (MOCK) {
+    return NextResponse.next({ request: { headers: request.headers } });
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
