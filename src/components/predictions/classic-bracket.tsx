@@ -31,15 +31,23 @@ interface ClassicBracketProps {
   onSelectMatch: (matchNumber: number) => void;
 }
 
-// ─── Round definitions ────────────────────────────────────────────────────────
+// ─── Match number ranges per half ─────────────────────────────────────────────
 
-const ROUND_COLUMNS = [
-  { key: "round_of_32",   label: "16avos",  stages: ["round_of_32"] },
-  { key: "round_of_16",   label: "Octavos", stages: ["round_of_16"] },
-  { key: "quarter_final", label: "Cuartos", stages: ["quarter_final"] },
-  { key: "semi_final",    label: "Semis",   stages: ["semi_final"] },
-  { key: "final",         label: "Final",   stages: ["third_place", "final"] },
-] as const;
+// LEFT half  (flows right → towards centre)
+const LEFT_R32  = [73, 74, 75, 76, 77, 78, 79, 80];
+const LEFT_R16  = [89, 90, 91, 92];
+const LEFT_QF   = [97, 98];
+const LEFT_SF   = [101];
+
+// RIGHT half  (flows left ← towards centre, mirrored)
+const RIGHT_R32 = [81, 82, 83, 84, 85, 86, 87, 88];
+const RIGHT_R16 = [93, 94, 95, 96];
+const RIGHT_QF  = [99, 100];
+const RIGHT_SF  = [102];
+
+// Centre
+const FINAL_NUM       = 104;
+const THIRD_PLACE_NUM = 103;
 
 // ─── Match node ───────────────────────────────────────────────────────────────
 
@@ -47,9 +55,11 @@ interface MatchNodeProps {
   match: BracketMatchView;
   prediction: BracketPrediction | undefined;
   onClick: () => void;
+  /** extra width for the final node */
+  wide?: boolean;
 }
 
-function MatchNode({ match, prediction, onClick }: MatchNodeProps) {
+function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
   const homeScore = prediction?.home_score ?? null;
   const awayScore = prediction?.away_score ?? null;
 
@@ -69,8 +79,9 @@ function MatchNode({ match, prediction, onClick }: MatchNodeProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        "w-[148px] rounded-lg border border-border bg-surface text-left transition-colors",
-        "hover:border-red/50 active:border-red"
+        "rounded-lg border border-border bg-surface text-left transition-colors",
+        "hover:border-red/50 active:border-red",
+        wide ? "w-[164px]" : "w-[148px]"
       )}
     >
       {/* Home row */}
@@ -140,30 +151,31 @@ function MatchNode({ match, prediction, onClick }: MatchNodeProps) {
   );
 }
 
-// ─── Connector lines between match pairs ────────────────────────────────────
+// ─── Left-side connector: pair feeds right ────────────────────────────────────
+//
+// Layout (left → right):
+//
+//   [top node]──┐
+//               │  (right border)
+//   [bot node]──┘
+//               ──── (horizontal line to next column)
 
-/**
- * Renders a pair of matches in the left column connected by elbow lines to a
- * slot for the right-column match they feed into. The vertical space between
- * the two nodes is bridged by right-side borders so it looks like a classic
- * tournament bracket.
- */
-function MatchPairWithConnector({
-  top,
-  bottom,
-  predictions,
-  onSelectMatch,
-}: {
+interface LeftPairConnectorProps {
   top: BracketMatchView;
   bottom: BracketMatchView;
   predictions: Map<number, BracketPrediction>;
   onSelectMatch: (n: number) => void;
-}) {
+}
+
+function LeftPairConnector({
+  top,
+  bottom,
+  predictions,
+  onSelectMatch,
+}: LeftPairConnectorProps) {
   return (
-    // Each pair occupies the same height as one slot in the next column.
-    // We stack the two nodes with connector pseudo-borders between them.
     <div className="flex items-center">
-      {/* Two stacked nodes */}
+      {/* Two stacked nodes with right-side elbow */}
       <div className="flex flex-col">
         {/* Top node + right border going down to midpoint */}
         <div className="flex items-center">
@@ -172,23 +184,294 @@ function MatchPairWithConnector({
             prediction={predictions.get(top.match_number)}
             onClick={() => onSelectMatch(top.match_number)}
           />
-          {/* Right elbow from top node: border-right + border-bottom half */}
-          <div className="w-3 self-stretch border-r-2 border-b-2 border-border rounded-br-sm" style={{ marginBottom: "-1px" }} />
+          {/* Right elbow: border-right + border-bottom */}
+          <div
+            className="w-3 self-stretch border-r-2 border-b-2 border-border rounded-br-sm"
+            style={{ marginBottom: "-1px" }}
+          />
         </div>
-        {/* Gap */}
+        {/* Bottom node + right border going up to midpoint */}
         <div className="flex items-center">
           <MatchNode
             match={bottom}
             prediction={predictions.get(bottom.match_number)}
             onClick={() => onSelectMatch(bottom.match_number)}
           />
-          {/* Right elbow from bottom node: border-right + border-top half */}
-          <div className="w-3 self-stretch border-r-2 border-t-2 border-border rounded-tr-sm" style={{ marginTop: "-1px" }} />
+          {/* Right elbow: border-right + border-top */}
+          <div
+            className="w-3 self-stretch border-r-2 border-t-2 border-border rounded-tr-sm"
+            style={{ marginTop: "-1px" }}
+          />
         </div>
       </div>
-      {/* Horizontal line to next column */}
+      {/* Horizontal stub into next column */}
       <div className="w-3 border-t-2 border-border self-center" />
     </div>
+  );
+}
+
+// ─── Right-side connector: pair feeds left (mirrored) ─────────────────────────
+//
+// Layout (right ← left):
+//
+//   ┌──[top node]
+//   │  (left border)
+//   └──[bot node]
+//   ──── (horizontal line to next column, going left)
+
+interface RightPairConnectorProps {
+  top: BracketMatchView;
+  bottom: BracketMatchView;
+  predictions: Map<number, BracketPrediction>;
+  onSelectMatch: (n: number) => void;
+}
+
+function RightPairConnector({
+  top,
+  bottom,
+  predictions,
+  onSelectMatch,
+}: RightPairConnectorProps) {
+  return (
+    <div className="flex items-center flex-row-reverse">
+      {/* Two stacked nodes with left-side elbow */}
+      <div className="flex flex-col">
+        {/* Top node + left border going down to midpoint */}
+        <div className="flex items-center flex-row-reverse">
+          <MatchNode
+            match={top}
+            prediction={predictions.get(top.match_number)}
+            onClick={() => onSelectMatch(top.match_number)}
+          />
+          {/* Left elbow: border-left + border-bottom */}
+          <div
+            className="w-3 self-stretch border-l-2 border-b-2 border-border rounded-bl-sm"
+            style={{ marginBottom: "-1px" }}
+          />
+        </div>
+        {/* Bottom node + left border going up to midpoint */}
+        <div className="flex items-center flex-row-reverse">
+          <MatchNode
+            match={bottom}
+            prediction={predictions.get(bottom.match_number)}
+            onClick={() => onSelectMatch(bottom.match_number)}
+          />
+          {/* Left elbow: border-left + border-top */}
+          <div
+            className="w-3 self-stretch border-l-2 border-t-2 border-border rounded-tl-sm"
+            style={{ marginTop: "-1px" }}
+          />
+        </div>
+      </div>
+      {/* Horizontal stub into next column (visually to the left) */}
+      <div className="w-3 border-t-2 border-border self-center" />
+    </div>
+  );
+}
+
+// ─── Left-side single node with right-pointing stub ──────────────────────────
+
+function LeftSingleNode({
+  match,
+  predictions,
+  onSelectMatch,
+}: {
+  match: BracketMatchView;
+  predictions: Map<number, BracketPrediction>;
+  onSelectMatch: (n: number) => void;
+}) {
+  return (
+    <div className="flex items-center">
+      <MatchNode
+        match={match}
+        prediction={predictions.get(match.match_number)}
+        onClick={() => onSelectMatch(match.match_number)}
+      />
+      <div className="w-6 border-t-2 border-border" />
+    </div>
+  );
+}
+
+// ─── Right-side single node with left-pointing stub ───────────────────────────
+
+function RightSingleNode({
+  match,
+  predictions,
+  onSelectMatch,
+}: {
+  match: BracketMatchView;
+  predictions: Map<number, BracketPrediction>;
+  onSelectMatch: (n: number) => void;
+}) {
+  return (
+    <div className="flex items-center flex-row-reverse">
+      <MatchNode
+        match={match}
+        prediction={predictions.get(match.match_number)}
+        onClick={() => onSelectMatch(match.match_number)}
+      />
+      <div className="w-6 border-t-2 border-border" />
+    </div>
+  );
+}
+
+// ─── Column wrapper ───────────────────────────────────────────────────────────
+
+function Column({
+  label,
+  children,
+  width = 180,
+}: {
+  label: string;
+  children: React.ReactNode;
+  width?: number;
+}) {
+  return (
+    <div className="flex flex-col" style={{ width }}>
+      <p className="mb-2 font-marcador text-[10px] uppercase tracking-widest text-ink-muted text-center">
+        {label}
+      </p>
+      <div className="flex flex-col items-stretch">{children}</div>
+    </div>
+  );
+}
+
+// ─── Left half column ─────────────────────────────────────────────────────────
+//
+// Renders pairs (or singles for the semi) in a left-to-right flowing column.
+// Each pair fans in to the next inner column.
+
+function LeftColumn({
+  label,
+  matchNums,
+  allMatches,
+  predictions,
+  onSelectMatch,
+  width,
+}: {
+  label: string;
+  matchNums: number[];
+  allMatches: BracketMatchView[];
+  predictions: Map<number, BracketPrediction>;
+  onSelectMatch: (n: number) => void;
+  width?: number;
+}) {
+  const ordered = matchNums
+    .map((n) => allMatches.find((m) => m.match_number === n))
+    .filter((m): m is BracketMatchView => m !== undefined);
+
+  // Build pairs (top, bottom). Odd match at end becomes a single.
+  const rows: React.ReactNode[] = [];
+
+  if (ordered.length === 1) {
+    // Single node (e.g. semi-final left)
+    rows.push(
+      <LeftSingleNode
+        key={ordered[0].match_number}
+        match={ordered[0]}
+        predictions={predictions}
+        onSelectMatch={onSelectMatch}
+      />
+    );
+  } else {
+    for (let i = 0; i < ordered.length; i += 2) {
+      const top = ordered[i];
+      const bot = ordered[i + 1];
+      if (top && bot) {
+        rows.push(
+          <LeftPairConnector
+            key={`${top.match_number}-${bot.match_number}`}
+            top={top}
+            bottom={bot}
+            predictions={predictions}
+            onSelectMatch={onSelectMatch}
+          />
+        );
+      } else if (top) {
+        rows.push(
+          <LeftSingleNode
+            key={top.match_number}
+            match={top}
+            predictions={predictions}
+            onSelectMatch={onSelectMatch}
+          />
+        );
+      }
+    }
+  }
+
+  return (
+    <Column label={label} width={width}>
+      <div className="flex flex-col gap-3">{rows}</div>
+    </Column>
+  );
+}
+
+// ─── Right half column ────────────────────────────────────────────────────────
+//
+// Mirrors LeftColumn: connectors point leftward.
+
+function RightColumn({
+  label,
+  matchNums,
+  allMatches,
+  predictions,
+  onSelectMatch,
+  width,
+}: {
+  label: string;
+  matchNums: number[];
+  allMatches: BracketMatchView[];
+  predictions: Map<number, BracketPrediction>;
+  onSelectMatch: (n: number) => void;
+  width?: number;
+}) {
+  const ordered = matchNums
+    .map((n) => allMatches.find((m) => m.match_number === n))
+    .filter((m): m is BracketMatchView => m !== undefined);
+
+  const rows: React.ReactNode[] = [];
+
+  if (ordered.length === 1) {
+    rows.push(
+      <RightSingleNode
+        key={ordered[0].match_number}
+        match={ordered[0]}
+        predictions={predictions}
+        onSelectMatch={onSelectMatch}
+      />
+    );
+  } else {
+    for (let i = 0; i < ordered.length; i += 2) {
+      const top = ordered[i];
+      const bot = ordered[i + 1];
+      if (top && bot) {
+        rows.push(
+          <RightPairConnector
+            key={`${top.match_number}-${bot.match_number}`}
+            top={top}
+            bottom={bot}
+            predictions={predictions}
+            onSelectMatch={onSelectMatch}
+          />
+        );
+      } else if (top) {
+        rows.push(
+          <RightSingleNode
+            key={top.match_number}
+            match={top}
+            predictions={predictions}
+            onSelectMatch={onSelectMatch}
+          />
+        );
+      }
+    }
+  }
+
+  return (
+    <Column label={label} width={width}>
+      <div className="flex flex-col gap-3">{rows}</div>
+    </Column>
   );
 }
 
@@ -199,220 +482,143 @@ export function ClassicBracket({
   predictions,
   onSelectMatch,
 }: ClassicBracketProps) {
-  // Partition matches by stage
-  const byStage = (stages: readonly string[]) =>
-    matches
-      .filter((m) => (stages as readonly string[]).includes(m.stage))
-      .sort((a, b) => a.match_number - b.match_number);
+  const find = (n: number) => matches.find((m) => m.match_number === n);
 
-  const r32 = byStage(ROUND_COLUMNS[0].stages);   // 16 matches
-  const r16 = byStage(ROUND_COLUMNS[1].stages);   // 8 matches
-  const qf  = byStage(ROUND_COLUMNS[2].stages);   // 4 matches
-  const sf  = byStage(ROUND_COLUMNS[3].stages);   // 2 matches
-  const fin = byStage(ROUND_COLUMNS[4].stages);   // 2 (3rd place + final)
+  const finalMatch      = find(FINAL_NUM);
+  const thirdPlaceMatch = find(THIRD_PLACE_NUM);
 
-  // NODE_H = height of one match node in px (~54px = 2 rows × ~27px)
-  // GAP_R32: gap between the two nodes in a round_of_32 pair
-  // We use tailwind gap classes
+  // Column widths: outer columns are wider to hold the node + elbow stub.
+  // Inner columns (semis → centre) can be tighter.
+  const COL_R32  = 172; // node(148) + elbow(3) + stub(3) + gap
+  const COL_MID  = 172; // same for octavos & cuartos
+  const COL_SF   = 172; // semis
+  const COL_FIN  = 196; // centre: node(164) + some padding
 
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="inline-flex gap-0 min-w-max px-4 pt-2">
+      <div className="inline-flex gap-0 min-w-max px-4 pt-2 items-start">
 
-        {/* ── round_of_32 ─────────────────────────────────────────────────── */}
-        <Column label="16avos">
-          {/* 16 matches → 8 pairs, each pair feeds 1 r16 match */}
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: Math.ceil(r32.length / 2) }, (_, i) => {
-              const top = r32[i * 2];
-              const bot = r32[i * 2 + 1];
-              if (!top) return null;
-              if (!bot) {
-                return (
-                  <div key={top.match_number} className="flex items-center">
-                    <MatchNode
-                      match={top}
-                      prediction={predictions.get(top.match_number)}
-                      onClick={() => onSelectMatch(top.match_number)}
-                    />
-                    <div className="w-6 border-t-2 border-border" />
-                  </div>
-                );
-              }
-              return (
-                <MatchPairWithConnector
-                  key={`${top.match_number}-${bot.match_number}`}
-                  top={top}
-                  bottom={bot}
-                  predictions={predictions}
-                  onSelectMatch={onSelectMatch}
+        {/* ── LEFT HALF ────────────────────────────────────────────────────── */}
+
+        {/* 16avos L */}
+        <LeftColumn
+          label="16avos"
+          matchNums={LEFT_R32}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_R32}
+        />
+
+        {/* Octavos L */}
+        <LeftColumn
+          label="Octavos"
+          matchNums={LEFT_R16}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_MID}
+        />
+
+        {/* Cuartos L */}
+        <LeftColumn
+          label="Cuartos"
+          matchNums={LEFT_QF}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_MID}
+        />
+
+        {/* Semis L */}
+        <LeftColumn
+          label="Semis"
+          matchNums={LEFT_SF}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_SF}
+        />
+
+        {/* ── CENTRE ───────────────────────────────────────────────────────── */}
+
+        <Column label="Final" width={COL_FIN}>
+          <div className="flex flex-col items-center gap-4">
+            {/* Final — gold-accented */}
+            {finalMatch ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] font-marcador uppercase tracking-widest text-amber-500">
+                  Final
+                </span>
+                <div className="rounded-lg border-2 border-amber-400/60 shadow-sm shadow-amber-400/20">
+                  <MatchNode
+                    match={finalMatch}
+                    prediction={predictions.get(FINAL_NUM)}
+                    onClick={() => onSelectMatch(FINAL_NUM)}
+                    wide
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {/* 3er puesto */}
+            {thirdPlaceMatch ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] font-marcador uppercase tracking-widest text-ink-faint">
+                  3er Puesto
+                </span>
+                <MatchNode
+                  match={thirdPlaceMatch}
+                  prediction={predictions.get(THIRD_PLACE_NUM)}
+                  onClick={() => onSelectMatch(THIRD_PLACE_NUM)}
                 />
-              );
-            })}
+              </div>
+            ) : null}
           </div>
         </Column>
 
-        {/* ── round_of_16 ─────────────────────────────────────────────────── */}
-        <Column label="Octavos">
-          <AlignedNodes
-            matches={r16}
-            predictions={predictions}
-            onSelectMatch={onSelectMatch}
-            nextCount={qf.length}
-          />
-        </Column>
+        {/* ── RIGHT HALF ───────────────────────────────────────────────────── */}
 
-        {/* ── quarter_final ────────────────────────────────────────────────── */}
-        <Column label="Cuartos">
-          <AlignedNodes
-            matches={qf}
-            predictions={predictions}
-            onSelectMatch={onSelectMatch}
-            nextCount={sf.length}
-          />
-        </Column>
+        {/* Semis R */}
+        <RightColumn
+          label="Semis"
+          matchNums={RIGHT_SF}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_SF}
+        />
 
-        {/* ── semi_final ───────────────────────────────────────────────────── */}
-        <Column label="Semis">
-          <AlignedNodes
-            matches={sf}
-            predictions={predictions}
-            onSelectMatch={onSelectMatch}
-            nextCount={fin.length}
-          />
-        </Column>
+        {/* Cuartos R */}
+        <RightColumn
+          label="Cuartos"
+          matchNums={RIGHT_QF}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_MID}
+        />
 
-        {/* ── Final + 3er puesto ───────────────────────────────────────────── */}
-        <Column label="Final">
-          <div className="flex flex-col gap-3">
-            {fin.map((m) => (
-              <div key={m.match_number} className="flex items-center">
-                <MatchNode
-                  match={m}
-                  prediction={predictions.get(m.match_number)}
-                  onClick={() => onSelectMatch(m.match_number)}
-                />
-              </div>
-            ))}
-          </div>
-        </Column>
+        {/* Octavos R */}
+        <RightColumn
+          label="Octavos"
+          matchNums={RIGHT_R16}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_MID}
+        />
+
+        {/* 16avos R */}
+        <RightColumn
+          label="16avos"
+          matchNums={RIGHT_R32}
+          allMatches={matches}
+          predictions={predictions}
+          onSelectMatch={onSelectMatch}
+          width={COL_R32}
+        />
       </div>
-    </div>
-  );
-}
-
-// ─── Column wrapper ───────────────────────────────────────────────────────────
-
-function Column({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col">
-      <p className="mb-2 font-marcador text-[10px] uppercase tracking-widest text-ink-muted text-center w-[180px]">
-        {label}
-      </p>
-      <div className="flex flex-col items-start">{children}</div>
-    </div>
-  );
-}
-
-// ─── AlignedNodes ─────────────────────────────────────────────────────────────
-
-/**
- * Renders matches for a middle column. Each node is centered vertically in
- * the space occupied by the pair of nodes from the previous column that feed
- * into it, and connects forward to the next column with connectors.
- *
- * pairCount = number of node-pairs in the previous column
- * nextCount = number of matches in the next column (to know whether to draw connectors)
- */
-function AlignedNodes({
-  matches,
-  predictions,
-  onSelectMatch,
-  nextCount,
-}: {
-  matches: BracketMatchView[];
-  predictions: Map<number, BracketPrediction>;
-  onSelectMatch: (n: number) => void;
-  nextCount: number;
-}) {
-  // Each "slot" in this column must have the same height as one pair from the
-  // previous column. We use flex with equal-height slots by relying on the
-  // fact that each pair in the previous column has the same flex gap.
-  // We replicate the gap structure: gap-3 between pairs, and the pair itself
-  // takes ~2 node heights.
-
-  // The simplest approach: place each node in a flex container that matches
-  // the height of two nodes + the gap between them from the previous column.
-  //
-  // Node height ≈ 54px (2 rows at ~27px each).
-  // gap-3 = 12px between pairs.
-  // So slot = 54*2 + 12 = 120px per pair slot.
-  // But since the pairs also have internal gap between top and bottom nodes,
-  // we use a CSS approach: alternate between pairs of this column too.
-
-  const willConnectNext = nextCount > 0 && matches.length > 1;
-
-  if (matches.length === 0) return null;
-
-  // For the final column pairs where there is no next connecting step
-  const pairs = Array.from({ length: Math.ceil(matches.length / 2) }, (_, i) => ({
-    top: matches[i * 2],
-    bot: matches[i * 2 + 1] ?? null,
-  }));
-
-  if (willConnectNext) {
-    return (
-      <div className="flex flex-col gap-3">
-        {pairs.map(({ top, bot }, i) => {
-          if (!top) return null;
-          if (!bot) {
-            return (
-              <div key={top.match_number} className="flex items-center self-center" style={{ marginTop: i === 0 ? "33px" : 0 }}>
-                <MatchNode
-                  match={top}
-                  prediction={predictions.get(top.match_number)}
-                  onClick={() => onSelectMatch(top.match_number)}
-                />
-                <div className="w-6 border-t-2 border-border" />
-              </div>
-            );
-          }
-          return (
-            <MatchPairWithConnector
-              key={`${top.match_number}-${bot.match_number}`}
-              top={top}
-              bottom={bot}
-              predictions={predictions}
-              onSelectMatch={onSelectMatch}
-            />
-          );
-        })}
-      </div>
-    );
-  }
-
-  // No forward connectors — just show nodes stacked, centered in their slots
-  return (
-    <div className="flex flex-col gap-3">
-      {matches.map((m, i) => (
-        <div
-          key={m.match_number}
-          className="flex items-center"
-          style={{ marginTop: i === 0 ? "33px" : 0 }}
-        >
-          <MatchNode
-            match={m}
-            prediction={predictions.get(m.match_number)}
-            onClick={() => onSelectMatch(m.match_number)}
-          />
-        </div>
-      ))}
     </div>
   );
 }
