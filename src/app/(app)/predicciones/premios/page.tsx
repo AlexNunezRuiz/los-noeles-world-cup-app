@@ -1,15 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
-import Link from "next/link";
-import { Trophy, Medal, Shield } from "lucide-react";
+import { PlayerCombobox } from "@/components/ui/player-combobox";
+import { StageBar } from "@/components/porra/stage-bar";
+import { Trophy, Star, Shield } from "lucide-react";
 
 interface Player {
   id: number;
@@ -24,9 +19,27 @@ interface AwardPrediction {
 }
 
 const AWARDS = [
-  { type: "golden_boot", label: "Bota de Oro", description: "Máximo goleador", icon: Trophy },
-  { type: "golden_ball", label: "Balón de Oro", description: "Mejor jugador", icon: Medal },
-  { type: "golden_glove", label: "Guante de Oro", description: "Mejor portero", icon: Shield },
+  {
+    type: "golden_boot",
+    label: "Bota de Oro",
+    description: "Máximo goleador del torneo",
+    icon: Trophy,
+    points: 10,
+  },
+  {
+    type: "golden_ball",
+    label: "Balón de Oro",
+    description: "Mejor jugador del torneo",
+    icon: Star,
+    points: 10,
+  },
+  {
+    type: "golden_glove",
+    label: "Guante de Oro",
+    description: "Mejor portero del torneo",
+    icon: Shield,
+    points: 10,
+  },
 ];
 
 export default function PremiosPage() {
@@ -35,7 +48,6 @@ export default function PremiosPage() {
   const [isLocked, setIsLocked] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
   const supabase = createClient();
 
   useEffect(() => {
@@ -64,124 +76,117 @@ export default function PremiosPage() {
       setPredictions(predMap);
     }
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePlayerNameChange = (awardType: string, name: string) => {
-    setPredictions((prev) => {
-      const next = new Map(prev);
-      next.set(awardType, { award_type: awardType, player_name: name });
-      return next;
-    });
-  };
-
-  const handlePlayerSelect = (awardType: string, playerId: string) => {
-    const player = players.find((p) => p.id === parseInt(playerId));
-    setPredictions((prev) => {
-      const next = new Map(prev);
-      next.set(awardType, {
-        award_type: awardType,
-        player_id: parseInt(playerId),
-        player_name: player?.name,
-      });
-      return next;
-    });
-  };
-
-  const handleSave = async () => {
-    if (!userId || isLocked) return;
-    setSaving(true);
-
-    for (const [awardType, pred] of Array.from(predictions.entries())) {
+  const upsertAward = useCallback(
+    async (awardType: string, playerId: number, playerName: string | undefined) => {
+      if (!userId || isLocked) return;
+      setSaving(true);
       await supabase.from("award_predictions").upsert(
         {
           user_id: userId,
           award_type: awardType,
-          player_id: pred.player_id || null,
-          player_name: pred.player_name || null,
+          player_id: playerId,
+          player_name: playerName ?? null,
         },
         { onConflict: "user_id,award_type" }
       );
-    }
+      setSaving(false);
+    },
+    [userId, isLocked, supabase]
+  );
 
-    setSaving(false);
-    toast({ title: "Premios guardados" });
-  };
+  const handlePlayerSelect = useCallback(
+    (awardType: string, playerId: number) => {
+      const player = players.find((p) => p.id === playerId);
+      setPredictions((prev) => {
+        const next = new Map(prev);
+        next.set(awardType, {
+          award_type: awardType,
+          player_id: playerId,
+          player_name: player?.name,
+        });
+        return next;
+      });
+      upsertAward(awardType, playerId, player?.name);
+    },
+    [players, upsertAward]
+  );
 
-  const hasPlayers = players.length > 0;
+  const chosenCount = AWARDS.filter((a) => predictions.get(a.type)?.player_id).length;
+  const premiosPct = Math.round((chosenCount / 3) * 100);
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <div>
-        <h1 className="text-2xl font-bold">Premios Individuales</h1>
-        <p className="text-muted-foreground text-sm">
-          Selecciona tus predicciones para los premios (10 pts cada uno)
+    <div className="pb-8">
+      {/* Stage progress bar */}
+      <StageBar progress={{ premios: premiosPct }} />
+
+      {/* Header */}
+      <div className="px-4 pt-3 pb-4">
+        <h1 className="font-marcador text-3xl uppercase text-ink leading-none">Premios</h1>
+        <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
+          Premios individuales · {chosenCount} de 3 elegidos · 10 pts cada uno
+          {saving && " · guardando…"}
         </p>
       </div>
 
+      {/* Locked notice */}
       {isLocked && (
-        <Card className="border-destructive/50 bg-destructive/10">
-          <CardContent className="pt-6">
-            <p className="text-destructive font-medium">Las predicciones están bloqueadas.</p>
-          </CardContent>
-        </Card>
+        <div className="mx-4 mb-4 rounded-xl border border-red/30 bg-red/8 px-3 py-2">
+          <p className="text-sm font-semibold text-red">Las predicciones están bloqueadas.</p>
+        </div>
       )}
 
-      {AWARDS.map(({ type, label, description, icon: Icon }) => {
-        const pred = predictions.get(type);
-        return (
-          <Card key={type}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Icon className="h-5 w-5 text-[hsl(var(--gold))]" />
-                {label}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </CardHeader>
-            <CardContent>
-              {hasPlayers ? (
-                <Select
-                  value={pred?.player_id?.toString() || ""}
-                  onValueChange={(v) => handlePlayerSelect(type, v)}
-                  disabled={isLocked}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar jugador..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {players.map((p) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Nombre del jugador</Label>
-                  <Input
-                    placeholder="Escribe el nombre..."
-                    value={pred?.player_name || ""}
-                    onChange={(e) => handlePlayerNameChange(type, e.target.value)}
-                    disabled={isLocked}
-                  />
+      {/* Award cards */}
+      <div className="flex flex-col gap-3 px-4">
+        {AWARDS.map(({ type, label, description, icon: Icon, points }) => {
+          const pred = predictions.get(type);
+          const hasSelection = !!pred?.player_id;
+
+          return (
+            <div
+              key={type}
+              className="bg-surface border border-border rounded-xl p-4"
+            >
+              {/* Card header */}
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-sunken">
+                  <Icon className="h-4 w-4 text-gold" />
                 </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-marcador text-base uppercase text-ink leading-none tracking-wide">
+                    {label}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                    {description} · {points} pts
+                  </p>
+                </div>
+                {hasSelection && (
+                  <span className="shrink-0 rounded-full bg-gold/15 px-2 py-0.5 font-marcador text-[10px] font-bold uppercase tracking-wide text-gold">
+                    ✓
+                  </span>
+                )}
+              </div>
+
+              {/* Player combobox */}
+              <PlayerCombobox
+                options={players.map((p) => ({ id: p.id, name: p.name }))}
+                value={pred?.player_id ?? null}
+                onChange={(id) => handlePlayerSelect(type, id)}
+                disabled={isLocked || players.length === 0}
+                placeholder="Seleccionar jugador…"
+              />
+
+              {/* Chosen player name */}
+              {hasSelection && (
+                <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-ink-muted">
+                  Elegido: <span className="text-ink">{pred?.player_name}</span>
+                </p>
               )}
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      <Button onClick={handleSave} disabled={isLocked || saving} className="w-full">
-        {saving ? "Guardando..." : "Guardar Premios"}
-      </Button>
-
-      <div className="flex justify-between">
-        <Link href="/predicciones/eliminatorias">
-          <Button variant="outline">← Eliminatorias</Button>
-        </Link>
-        <Link href="/dashboard">
-          <Button variant="outline">Volver al Inicio</Button>
-        </Link>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

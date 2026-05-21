@@ -18,87 +18,87 @@ INSERT INTO tournament_config (key, value) VALUES
 
 -- Grupo A
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Marruecos', 'MAR', '🇲🇦', 'A'),
-  ('Perú', 'PER', '🇵🇪', 'A'),
-  ('Canadá', 'CAN', '🇨🇦', 'A'),
-  ('Australia', 'AUS', '🇦🇺', 'A');
+  ('México', 'MEX', '🇲🇽', 'A'),
+  ('Sudáfrica', 'RSA', '🇿🇦', 'A'),
+  ('Corea del Sur', 'KOR', '🇰🇷', 'A'),
+  ('Chequia', 'CZE', '🇨🇿', 'A');
 
 -- Grupo B
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('España', 'ESP', '🇪🇸', 'B'),
-  ('Bolivia', 'BOL', '🇧🇴', 'B'),
-  ('Croacia', 'CRO', '🇭🇷', 'B'),
-  ('Nueva Zelanda', 'NZL', '🇳🇿', 'B');
+  ('Canadá', 'CAN', '🇨🇦', 'B'),
+  ('Bosnia y Herzegovina', 'BIH', '🇧🇦', 'B'),
+  ('Catar', 'QAT', '🇶🇦', 'B'),
+  ('Suiza', 'SUI', '🇨🇭', 'B');
 
 -- Grupo C
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Francia', 'FRA', '🇫🇷', 'C'),
-  ('Colombia', 'COL', '🇨🇴', 'C'),
-  ('Arabia Saudita', 'KSA', '🇸🇦', 'C'),
-  ('Corea del Sur', 'KOR', '🇰🇷', 'C');
+  ('Brasil', 'BRA', '🇧🇷', 'C'),
+  ('Marruecos', 'MAR', '🇲🇦', 'C'),
+  ('Haití', 'HAI', '🇭🇹', 'C'),
+  ('Escocia', 'SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'C');
 
 -- Grupo D
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Japón', 'JPN', '🇯🇵', 'D'),
-  ('Serbia', 'SRB', '🇷🇸', 'D'),
-  ('Costa Rica', 'CRC', '🇨🇷', 'D'),
-  ('Irán', 'IRN', '🇮🇷', 'D');
+  ('Estados Unidos', 'USA', '🇺🇸', 'D'),
+  ('Paraguay', 'PAR', '🇵🇾', 'D'),
+  ('Australia', 'AUS', '🇦🇺', 'D'),
+  ('Turquía', 'TUR', '🇹🇷', 'D');
 
 -- Grupo E
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Brasil', 'BRA', '🇧🇷', 'E'),
-  ('Ecuador', 'ECU', '🇪🇨', 'E'),
-  ('Nigeria', 'NGA', '🇳🇬', 'E'),
-  ('Turquía', 'TUR', '🇹🇷', 'E');
+  ('Alemania', 'GER', '🇩🇪', 'E'),
+  ('Curazao', 'CUW', '🇨🇼', 'E'),
+  ('Costa de Marfil', 'CIV', '🇨🇮', 'E'),
+  ('Ecuador', 'ECU', '🇪🇨', 'E');
 
 -- Grupo F
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('México', 'MEX', '🇲🇽', 'F'),
-  ('Honduras', 'HON', '🇭🇳', 'F'),
-  ('Senegal', 'SEN', '🇸🇳', 'F'),
-  ('Uruguay', 'URU', '🇺🇾', 'F');
+  ('Países Bajos', 'NED', '🇳🇱', 'F'),
+  ('Japón', 'JPN', '🇯🇵', 'F'),
+  ('Suecia', 'SWE', '🇸🇪', 'F'),
+  ('Túnez', 'TUN', '🇹🇳', 'F');
 
 -- Grupo G
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Argentina', 'ARG', '🇦🇷', 'G'),
-  ('Chile', 'CHI', '🇨🇱', 'G'),
-  ('Uzbekistán', 'UZB', '🇺🇿', 'G'),
-  ('Dinamarca', 'DEN', '🇩🇰', 'G');
+  ('Bélgica', 'BEL', '🇧🇪', 'G'),
+  ('Egipto', 'EGY', '🇪🇬', 'G'),
+  ('Irán', 'IRN', '🇮🇷', 'G'),
+  ('Nueva Zelanda', 'NZL', '🇳🇿', 'G');
 
 -- Grupo H
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('EE.UU.', 'USA', '🇺🇸', 'H'),
-  ('Gales', 'WAL', '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'H'),
-  ('Panamá', 'PAN', '🇵🇦', 'H'),
-  ('Camerún', 'CMR', '🇨🇲', 'H');
+  ('España', 'ESP', '🇪🇸', 'H'),
+  ('Cabo Verde', 'CPV', '🇨🇻', 'H'),
+  ('Arabia Saudita', 'KSA', '🇸🇦', 'H'),
+  ('Uruguay', 'URU', '🇺🇾', 'H');
 
 -- Grupo I
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Portugal', 'POR', '🇵🇹', 'I'),
-  ('Guatemala', 'GUA', '🇬🇹', 'I'),
-  ('Alemania', 'GER', '🇩🇪', 'I'),
-  ('Suiza', 'SUI', '🇨🇭', 'I');
+  ('Francia', 'FRA', '🇫🇷', 'I'),
+  ('Senegal', 'SEN', '🇸🇳', 'I'),
+  ('Irak', 'IRQ', '🇮🇶', 'I'),
+  ('Noruega', 'NOR', '🇳🇴', 'I');
 
 -- Grupo J
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Países Bajos', 'NED', '🇳🇱', 'J'),
-  ('Ghana', 'GHA', '🇬🇭', 'J'),
-  ('Paraguay', 'PAR', '🇵🇾', 'J'),
-  ('Egipto', 'EGY', '🇪🇬', 'J');
+  ('Argentina', 'ARG', '🇦🇷', 'J'),
+  ('Argelia', 'ALG', '🇩🇿', 'J'),
+  ('Austria', 'AUT', '🇦🇹', 'J'),
+  ('Jordania', 'JOR', '🇯🇴', 'J');
 
 -- Grupo K
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Inglaterra', 'ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'K'),
-  ('Bélgica', 'BEL', '🇧🇪', 'K'),
-  ('Jamaica', 'JAM', '🇯🇲', 'K'),
-  ('Argelia', 'ALG', '🇩🇿', 'K');
+  ('Portugal', 'POR', '🇵🇹', 'K'),
+  ('R.D. del Congo', 'COD', '🇨🇩', 'K'),
+  ('Uzbekistán', 'UZB', '🇺🇿', 'K'),
+  ('Colombia', 'COL', '🇨🇴', 'K');
 
 -- Grupo L
 INSERT INTO teams (name, code, flag_emoji, group_letter) VALUES
-  ('Italia', 'ITA', '🇮🇹', 'L'),
-  ('Albania', 'ALB', '🇦🇱', 'L'),
-  ('R.P. del Congo', 'COD', '🇨🇩', 'L'),
-  ('Bahréin', 'BHR', '🇧🇭', 'L');
+  ('Inglaterra', 'ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'L'),
+  ('Croacia', 'CRO', '🇭🇷', 'L'),
+  ('Ghana', 'GHA', '🇬🇭', 'L'),
+  ('Panamá', 'PAN', '🇵🇦', 'L');
 
 -- ============================================================
 -- GROUP STAGE MATCHES (72 partidos: 12 grupos × 6 partidos)
@@ -223,41 +223,41 @@ INSERT INTO matches (match_number, stage, group_letter, home_team_id, away_team_
 -- Final: match 104
 -- ============================================================
 
--- Round of 32
+-- Round of 32 (official 2026 FIFA World Cup bracket)
 INSERT INTO matches (match_number, stage, home_placeholder, away_placeholder, match_date) VALUES
-  (73,  'round_of_32', '1A', '2C', '2026-06-28 16:00:00+00'),
-  (74,  'round_of_32', '1B', '2D', '2026-06-28 19:00:00+00'),
-  (75,  'round_of_32', '1C', '2B', '2026-06-28 22:00:00+00'),
-  (76,  'round_of_32', '1D', '2F', '2026-06-29 01:00:00+00'),
-  (77,  'round_of_32', '1E', '2H', '2026-06-29 16:00:00+00'),
-  (78,  'round_of_32', '1F', '2E', '2026-06-29 19:00:00+00'),
-  (79,  'round_of_32', '1G', '2I', '2026-06-29 22:00:00+00'),
-  (80,  'round_of_32', '1H', '2J', '2026-06-30 01:00:00+00'),
-  (81,  'round_of_32', '1I', '2G', '2026-06-30 16:00:00+00'),
-  (82,  'round_of_32', '1J', '2L', '2026-06-30 19:00:00+00'),
-  (83,  'round_of_32', '1K', '2A', '2026-06-30 22:00:00+00'),
-  (84,  'round_of_32', '1L', '2K', '2026-07-01 01:00:00+00'),
-  (85,  'round_of_32', '3A/B/C', '3D/E/F', '2026-07-01 16:00:00+00'),
-  (86,  'round_of_32', '3G/H/I', '3J/K/L', '2026-07-01 19:00:00+00'),
-  (87,  'round_of_32', '3A/B/C', '3D/E/F', '2026-07-01 22:00:00+00'),
-  (88,  'round_of_32', '3G/H/I', '3J/K/L', '2026-07-02 01:00:00+00');
+  (73,  'round_of_32', '2A', '2B',            '2026-06-28 16:00:00+00'),
+  (74,  'round_of_32', '1E', '3º A/B/C/D/F',  '2026-06-28 19:00:00+00'),
+  (75,  'round_of_32', '1F', '2C',            '2026-06-28 22:00:00+00'),
+  (76,  'round_of_32', '1C', '2F',            '2026-06-29 01:00:00+00'),
+  (77,  'round_of_32', '1I', '3º C/D/F/G/H',  '2026-06-29 16:00:00+00'),
+  (78,  'round_of_32', '2E', '2I',            '2026-06-29 19:00:00+00'),
+  (79,  'round_of_32', '1A', '3º C/E/F/H/I',  '2026-06-29 22:00:00+00'),
+  (80,  'round_of_32', '1L', '3º E/H/I/J/K',  '2026-06-30 01:00:00+00'),
+  (81,  'round_of_32', '1D', '3º B/E/F/I/J',  '2026-06-30 16:00:00+00'),
+  (82,  'round_of_32', '1G', '3º A/E/H/I/J',  '2026-06-30 19:00:00+00'),
+  (83,  'round_of_32', '2K', '2L',            '2026-06-30 22:00:00+00'),
+  (84,  'round_of_32', '1H', '2J',            '2026-07-01 01:00:00+00'),
+  (85,  'round_of_32', '1B', '3º E/F/G/I/J',  '2026-07-01 16:00:00+00'),
+  (86,  'round_of_32', '1J', '2H',            '2026-07-01 19:00:00+00'),
+  (87,  'round_of_32', '1K', '3º D/E/I/J/L',  '2026-07-01 22:00:00+00'),
+  (88,  'round_of_32', '2D', '2G',            '2026-07-02 01:00:00+00');
 
--- Round of 16
+-- Round of 16 (official feeds)
 INSERT INTO matches (match_number, stage, home_placeholder, away_placeholder, match_date) VALUES
-  (89,  'round_of_16', 'W73', 'W74', '2026-07-04 16:00:00+00'),
-  (90,  'round_of_16', 'W75', 'W76', '2026-07-04 19:00:00+00'),
-  (91,  'round_of_16', 'W77', 'W78', '2026-07-04 22:00:00+00'),
+  (89,  'round_of_16', 'W74', 'W77', '2026-07-04 16:00:00+00'),
+  (90,  'round_of_16', 'W73', 'W75', '2026-07-04 19:00:00+00'),
+  (91,  'round_of_16', 'W76', 'W78', '2026-07-04 22:00:00+00'),
   (92,  'round_of_16', 'W79', 'W80', '2026-07-05 01:00:00+00'),
-  (93,  'round_of_16', 'W81', 'W82', '2026-07-05 16:00:00+00'),
-  (94,  'round_of_16', 'W83', 'W84', '2026-07-05 19:00:00+00'),
-  (95,  'round_of_16', 'W85', 'W86', '2026-07-05 22:00:00+00'),
-  (96,  'round_of_16', 'W87', 'W88', '2026-07-06 01:00:00+00');
+  (93,  'round_of_16', 'W83', 'W84', '2026-07-05 16:00:00+00'),
+  (94,  'round_of_16', 'W81', 'W82', '2026-07-05 19:00:00+00'),
+  (95,  'round_of_16', 'W86', 'W88', '2026-07-05 22:00:00+00'),
+  (96,  'round_of_16', 'W85', 'W87', '2026-07-06 01:00:00+00');
 
--- Quarter-finals
+-- Quarter-finals (official feeds)
 INSERT INTO matches (match_number, stage, home_placeholder, away_placeholder, match_date) VALUES
   (97,  'quarter_final', 'W89', 'W90', '2026-07-09 16:00:00+00'),
-  (98,  'quarter_final', 'W91', 'W92', '2026-07-09 20:00:00+00'),
-  (99,  'quarter_final', 'W93', 'W94', '2026-07-10 16:00:00+00'),
+  (98,  'quarter_final', 'W93', 'W94', '2026-07-09 20:00:00+00'),
+  (99,  'quarter_final', 'W91', 'W92', '2026-07-10 16:00:00+00'),
   (100, 'quarter_final', 'W95', 'W96', '2026-07-10 20:00:00+00');
 
 -- Semi-finals
@@ -278,71 +278,122 @@ INSERT INTO matches (match_number, stage, home_placeholder, away_placeholder, ma
 -- Defines how group results feed into knockout
 -- ============================================================
 
--- Round of 32: Winners and Runners-up
+-- Round of 32: per-match slot definitions (official 2026 FIFA World Cup bracket)
+-- 73: R:A vs R:B
 INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
-  (73, 'home', 'group_winner', 'A', '1ºA'),
-  (73, 'away', 'group_runner_up', 'C', '2ºC'),
-  (74, 'home', 'group_winner', 'B', '1ºB'),
-  (74, 'away', 'group_runner_up', 'D', '2ºD'),
-  (75, 'home', 'group_winner', 'C', '1ºC'),
-  (75, 'away', 'group_runner_up', 'B', '2ºB'),
-  (76, 'home', 'group_winner', 'D', '1ºD'),
-  (76, 'away', 'group_runner_up', 'F', '2ºF'),
-  (77, 'home', 'group_winner', 'E', '1ºE'),
-  (77, 'away', 'group_runner_up', 'H', '2ºH'),
-  (78, 'home', 'group_winner', 'F', '1ºF'),
-  (78, 'away', 'group_runner_up', 'E', '2ºE'),
-  (79, 'home', 'group_winner', 'G', '1ºG'),
-  (79, 'away', 'group_runner_up', 'I', '2ºI'),
-  (80, 'home', 'group_winner', 'H', '1ºH'),
-  (80, 'away', 'group_runner_up', 'J', '2ºJ'),
-  (81, 'home', 'group_winner', 'I', '1ºI'),
-  (81, 'away', 'group_runner_up', 'G', '2ºG'),
-  (82, 'home', 'group_winner', 'J', '1ºJ'),
-  (82, 'away', 'group_runner_up', 'L', '2ºL'),
-  (83, 'home', 'group_winner', 'K', '1ºK'),
-  (83, 'away', 'group_runner_up', 'A', '2ºA'),
-  (84, 'home', 'group_winner', 'L', '1ºL'),
-  (84, 'away', 'group_runner_up', 'K', '2ºK');
+  (73, 'home', 'group_runner_up', 'A', '2ºA'),
+  (73, 'away', 'group_runner_up', 'B', '2ºB');
 
--- Best third positions (4 matches for 8 best thirds from 12 groups)
+-- 74: W:E vs T:A,B,C,D,F
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (74, 'home', 'group_winner', 'E', '1ºE');
 INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
-  (85, 'home', 'best_third', 'A,B,C', '3º mejor (A/B/C)'),
-  (85, 'away', 'best_third', 'D,E,F', '3º mejor (D/E/F)'),
-  (86, 'home', 'best_third', 'G,H,I', '3º mejor (G/H/I)'),
-  (86, 'away', 'best_third', 'J,K,L', '3º mejor (J/K/L)'),
-  (87, 'home', 'best_third', 'A,B,C', '3º mejor (A/B/C)'),
-  (87, 'away', 'best_third', 'D,E,F', '3º mejor (D/E/F)'),
-  (88, 'home', 'best_third', 'G,H,I', '3º mejor (G/H/I)'),
-  (88, 'away', 'best_third', 'J,K,L', '3º mejor (J/K/L)');
+  (74, 'away', 'best_third', 'A,B,C,D,F', '3º mejor (A/B/C/D/F)');
 
--- Round of 16: Winners of R32
+-- 75: W:F vs R:C
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (75, 'home', 'group_winner', 'F', '1ºF'),
+  (75, 'away', 'group_runner_up', 'C', '2ºC');
+
+-- 76: W:C vs R:F
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (76, 'home', 'group_winner', 'C', '1ºC'),
+  (76, 'away', 'group_runner_up', 'F', '2ºF');
+
+-- 77: W:I vs T:C,D,F,G,H
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (77, 'home', 'group_winner', 'I', '1ºI');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (77, 'away', 'best_third', 'C,D,F,G,H', '3º mejor (C/D/F/G/H)');
+
+-- 78: R:E vs R:I
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (78, 'home', 'group_runner_up', 'E', '2ºE'),
+  (78, 'away', 'group_runner_up', 'I', '2ºI');
+
+-- 79: W:A vs T:C,E,F,H,I
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (79, 'home', 'group_winner', 'A', '1ºA');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (79, 'away', 'best_third', 'C,E,F,H,I', '3º mejor (C/E/F/H/I)');
+
+-- 80: W:L vs T:E,H,I,J,K
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (80, 'home', 'group_winner', 'L', '1ºL');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (80, 'away', 'best_third', 'E,H,I,J,K', '3º mejor (E/H/I/J/K)');
+
+-- 81: W:D vs T:B,E,F,I,J
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (81, 'home', 'group_winner', 'D', '1ºD');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (81, 'away', 'best_third', 'B,E,F,I,J', '3º mejor (B/E/F/I/J)');
+
+-- 82: W:G vs T:A,E,H,I,J
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (82, 'home', 'group_winner', 'G', '1ºG');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (82, 'away', 'best_third', 'A,E,H,I,J', '3º mejor (A/E/H/I/J)');
+
+-- 83: R:K vs R:L
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (83, 'home', 'group_runner_up', 'K', '2ºK'),
+  (83, 'away', 'group_runner_up', 'L', '2ºL');
+
+-- 84: W:H vs R:J
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (84, 'home', 'group_winner', 'H', '1ºH'),
+  (84, 'away', 'group_runner_up', 'J', '2ºJ');
+
+-- 85: W:B vs T:E,F,G,I,J
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (85, 'home', 'group_winner', 'B', '1ºB');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (85, 'away', 'best_third', 'E,F,G,I,J', '3º mejor (E/F/G/I/J)');
+
+-- 86: W:J vs R:H
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (86, 'home', 'group_winner', 'J', '1ºJ'),
+  (86, 'away', 'group_runner_up', 'H', '2ºH');
+
+-- 87: W:K vs T:D,E,I,J,L
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (87, 'home', 'group_winner', 'K', '1ºK');
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, best_third_pool, description) VALUES
+  (87, 'away', 'best_third', 'D,E,I,J,L', '3º mejor (D/E/I/J/L)');
+
+-- 88: R:D vs R:G
+INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_group, description) VALUES
+  (88, 'home', 'group_runner_up', 'D', '2ºD'),
+  (88, 'away', 'group_runner_up', 'G', '2ºG');
+
+-- Round of 16: Winners of R32 (official feeds)
 INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_match_number, description) VALUES
-  (89, 'home', 'match_winner', 73, 'Ganador P73'),
-  (89, 'away', 'match_winner', 74, 'Ganador P74'),
-  (90, 'home', 'match_winner', 75, 'Ganador P75'),
-  (90, 'away', 'match_winner', 76, 'Ganador P76'),
-  (91, 'home', 'match_winner', 77, 'Ganador P77'),
+  (89, 'home', 'match_winner', 74, 'Ganador P74'),
+  (89, 'away', 'match_winner', 77, 'Ganador P77'),
+  (90, 'home', 'match_winner', 73, 'Ganador P73'),
+  (90, 'away', 'match_winner', 75, 'Ganador P75'),
+  (91, 'home', 'match_winner', 76, 'Ganador P76'),
   (91, 'away', 'match_winner', 78, 'Ganador P78'),
   (92, 'home', 'match_winner', 79, 'Ganador P79'),
   (92, 'away', 'match_winner', 80, 'Ganador P80'),
-  (93, 'home', 'match_winner', 81, 'Ganador P81'),
-  (93, 'away', 'match_winner', 82, 'Ganador P82'),
-  (94, 'home', 'match_winner', 83, 'Ganador P83'),
-  (94, 'away', 'match_winner', 84, 'Ganador P84'),
-  (95, 'home', 'match_winner', 85, 'Ganador P85'),
-  (95, 'away', 'match_winner', 86, 'Ganador P86'),
-  (96, 'home', 'match_winner', 87, 'Ganador P87'),
-  (96, 'away', 'match_winner', 88, 'Ganador P88');
+  (93, 'home', 'match_winner', 83, 'Ganador P83'),
+  (93, 'away', 'match_winner', 84, 'Ganador P84'),
+  (94, 'home', 'match_winner', 81, 'Ganador P81'),
+  (94, 'away', 'match_winner', 82, 'Ganador P82'),
+  (95, 'home', 'match_winner', 86, 'Ganador P86'),
+  (95, 'away', 'match_winner', 88, 'Ganador P88'),
+  (96, 'home', 'match_winner', 85, 'Ganador P85'),
+  (96, 'away', 'match_winner', 87, 'Ganador P87');
 
--- Quarter-finals
+-- Quarter-finals (official feeds)
 INSERT INTO knockout_bracket_positions (match_number, slot, source_type, source_match_number, description) VALUES
   (97,  'home', 'match_winner', 89, 'Ganador P89'),
   (97,  'away', 'match_winner', 90, 'Ganador P90'),
-  (98,  'home', 'match_winner', 91, 'Ganador P91'),
-  (98,  'away', 'match_winner', 92, 'Ganador P92'),
-  (99,  'home', 'match_winner', 93, 'Ganador P93'),
-  (99,  'away', 'match_winner', 94, 'Ganador P94'),
+  (98,  'home', 'match_winner', 93, 'Ganador P93'),
+  (98,  'away', 'match_winner', 94, 'Ganador P94'),
+  (99,  'home', 'match_winner', 91, 'Ganador P91'),
+  (99,  'away', 'match_winner', 92, 'Ganador P92'),
   (100, 'home', 'match_winner', 95, 'Ganador P95'),
   (100, 'away', 'match_winner', 96, 'Ganador P96');
 

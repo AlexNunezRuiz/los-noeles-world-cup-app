@@ -2,10 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
 import { useToast } from "@/components/ui/use-toast";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -71,8 +69,8 @@ export default function ChatPage() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chat_messages" },
-        (payload) => {
-          const msg = payload.new as ChatMessage;
+        (payload: { new: ChatMessage }) => {
+          const msg = payload.new;
           if (!msg.is_deleted) {
             setMessages((prev) => [...prev, msg]);
           }
@@ -81,8 +79,8 @@ export default function ChatPage() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "chat_messages" },
-        (payload) => {
-          const msg = payload.new as ChatMessage;
+        (payload: { new: ChatMessage }) => {
+          const msg = payload.new;
           if (msg.is_deleted) {
             setMessages((prev) => prev.filter((m) => m.id !== msg.id));
           }
@@ -125,15 +123,17 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-8rem)]">
+      {/* Page heading */}
       <div className="mb-4">
-        <h1 className="text-2xl font-bold">Chat</h1>
+        <h1 className="font-marcador uppercase text-3xl tracking-wide text-ink">Chat</h1>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      {/* Chat container */}
+      <div className="flex-1 flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
         {/* Messages area */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-cream">
           {messages.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">
+            <p className="text-center text-ink-faint py-8 font-sans text-sm">
               No hay mensajes aún. ¡Sé el primero!
             </p>
           )}
@@ -149,7 +149,7 @@ export default function ChatPage() {
                   isMe ? "ml-auto items-end" : "items-start"
                 )}
               >
-                <span className="text-xs text-muted-foreground mb-0.5">
+                <span className="text-xs text-ink-faint mb-0.5 font-sans">
                   {name} &middot;{" "}
                   {new Date(msg.created_at).toLocaleTimeString("es-ES", {
                     hour: "2-digit",
@@ -158,10 +158,10 @@ export default function ChatPage() {
                 </span>
                 <div
                   className={cn(
-                    "rounded-lg px-3 py-2 text-sm",
+                    "rounded-lg px-3 py-2 text-sm font-sans",
                     isMe
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground"
+                      ? "bg-red text-white"
+                      : "bg-surface border border-border text-ink"
                   )}
                 >
                   {msg.message}
@@ -172,9 +172,9 @@ export default function ChatPage() {
         </div>
 
         {/* Input area */}
-        <div className="border-t p-3">
+        <div className="border-t border-border bg-surface p-3">
           {isBanned ? (
-            <p className="text-center text-sm text-destructive">
+            <p className="text-center text-sm font-sans text-red py-1">
               Estás baneado del chat.
             </p>
           ) : (
@@ -185,15 +185,20 @@ export default function ChatPage() {
                 placeholder="Escribe un mensaje..."
                 maxLength={500}
                 disabled={sending}
-                className="flex-1"
+                className="flex-1 bg-surface-sunken border-border text-ink placeholder:text-ink-faint"
               />
-              <Button type="submit" size="icon" disabled={sending || !newMessage.trim()}>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={sending || !newMessage.trim()}
+                className="bg-red hover:bg-red-strong text-white shrink-0"
+              >
                 <Send className="h-4 w-4" />
               </Button>
             </form>
           )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

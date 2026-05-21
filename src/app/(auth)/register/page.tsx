@@ -51,9 +51,11 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card>
+    <Card className="bg-surface">
       <CardHeader>
-        <CardTitle className="text-center">Crear Cuenta</CardTitle>
+        <CardTitle className="text-center font-marcador uppercase">
+          Crear cuenta
+        </CardTitle>
       </CardHeader>
       <form onSubmit={handleRegister}>
         <CardContent className="space-y-4">
@@ -93,12 +95,12 @@ export default function RegisterPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" variant="default" className="w-full" disabled={loading}>
             {loading ? "Creando cuenta..." : "Registrarse"}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-ink-muted text-center">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link href="/login" className="text-blue hover:underline">
               Inicia sesión
             </Link>
           </p>

@@ -53,8 +53,10 @@ export default function AdminUsuariosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Usuarios</h1>
-        <Badge variant="outline">{profiles.length} registrados</Badge>
+        <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Usuarios</h1>
+        <Badge variant="outline">
+          <span className="font-marcador">{profiles.length}</span>&nbsp;registrados
+        </Badge>
       </div>
 
       <Card>
@@ -62,20 +64,20 @@ export default function AdminUsuariosPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-xs text-muted-foreground">
-                  <th className="text-left py-3 px-4">Nombre</th>
-                  <th className="text-left py-3 px-2">Email</th>
-                  <th className="text-center py-3 px-2">Pagado</th>
-                  <th className="text-center py-3 px-2">Ban Chat</th>
-                  <th className="text-center py-3 px-2">Admin</th>
-                  <th className="text-left py-3 px-2">Registro</th>
+                <tr className="border-b border-border text-xs text-ink-muted bg-surface-sunken">
+                  <th className="text-left py-3 px-4 font-sans font-medium">Nombre</th>
+                  <th className="text-left py-3 px-2 font-sans font-medium">Email</th>
+                  <th className="text-center py-3 px-2 font-sans font-medium">Pagado</th>
+                  <th className="text-center py-3 px-2 font-sans font-medium">Ban Chat</th>
+                  <th className="text-center py-3 px-2 font-sans font-medium">Admin</th>
+                  <th className="text-left py-3 px-2 font-sans font-medium">Registro</th>
                 </tr>
               </thead>
               <tbody>
                 {profiles.map((p) => (
-                  <tr key={p.id} className="border-b border-border/50">
-                    <td className="py-3 px-4 font-medium">{p.display_name}</td>
-                    <td className="py-3 px-2 text-muted-foreground">{p.email}</td>
+                  <tr key={p.id} className="border-b border-border/50 hover:bg-surface-sunken/50 transition-colors">
+                    <td className="py-3 px-4 font-medium text-ink">{p.display_name}</td>
+                    <td className="py-3 px-2 text-ink-muted text-xs">{p.email}</td>
                     <td className="py-3 px-2 text-center">
                       <Switch
                         checked={p.has_paid}
@@ -91,7 +93,7 @@ export default function AdminUsuariosPage() {
                     <td className="py-3 px-2 text-center">
                       {p.is_admin && <Badge variant="default">Admin</Badge>}
                     </td>
-                    <td className="py-3 px-2 text-muted-foreground text-xs">
+                    <td className="py-3 px-2 text-ink-faint text-xs font-marcador">
                       {new Date(p.created_at).toLocaleDateString("es-ES")}
                     </td>
                   </tr>

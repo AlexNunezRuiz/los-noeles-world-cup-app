@@ -39,9 +39,11 @@ export default function LoginPage() {
   };
 
   return (
-    <Card>
+    <Card className="bg-surface">
       <CardHeader>
-        <CardTitle className="text-center">Iniciar Sesión</CardTitle>
+        <CardTitle className="text-center font-marcador uppercase">
+          Iniciar sesión
+        </CardTitle>
       </CardHeader>
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
@@ -69,12 +71,12 @@ export default function LoginPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" variant="default" className="w-full" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-ink-muted text-center">
             ¿No tienes cuenta?{" "}
-            <Link href="/register" className="text-primary hover:underline">
+            <Link href="/register" className="text-blue hover:underline">
               Regístrate
             </Link>
           </p>

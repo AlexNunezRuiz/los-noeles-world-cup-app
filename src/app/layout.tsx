@@ -1,36 +1,38 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Rajdhani, Archivo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ["latin"] });
+const rajdhani = Rajdhani({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-rajdhani",
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-archivo",
+});
 
 export const metadata: Metadata = {
   title: "Porra del Mundial 2026",
   description: "App de pronósticos del Mundial FIFA 2026",
   manifest: "/manifest.json",
-  icons: {
-    icon: "/icons/icon-192x192.png",
-    apple: "/icons/icon-192x192.png",
-  },
+  icons: { icon: "/icons/icon-192x192.png", apple: "/icons/icon-192x192.png" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#22c55e",
+  themeColor: "#F0ECE1",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className="dark">
-      <body className={`${inter.className} antialiased min-h-screen`}>
-        {children}
+    <html lang="es" className={`${rajdhani.variable} ${archivo.variable}`}>
+      <body className="font-sans antialiased min-h-screen paper-grain">
+        <div className="relative z-[1]">{children}</div>
         <Toaster />
       </body>
     </html>

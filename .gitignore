@@ -31,6 +31,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# superpowers brainstorm companion
+.superpowers/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -40,3 +43,7 @@ public/sw.js
 public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
+
+# stray build/debug artifacts
+tsc-output.txt
+*.stackdump

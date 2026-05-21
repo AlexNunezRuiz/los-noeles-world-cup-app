@@ -1,7 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createMockClient } from "./mock/client";
+
+const MOCK = process.env.NEXT_PUBLIC_MOCK === "true";
 
 export function createClient() {
+  if (MOCK) return createMockClient() as ReturnType<typeof createServerClient>;
+
   const cookieStore = cookies();
 
   return createServerClient(

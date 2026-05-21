@@ -84,8 +84,10 @@ export default function AdminJugadoresPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Jugadores</h1>
-        <Badge variant="outline">{players.length} jugadores</Badge>
+        <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Jugadores</h1>
+        <Badge variant="outline">
+          <span className="font-marcador">{players.length}</span>&nbsp;jugadores
+        </Badge>
       </div>
 
       {/* Add player form */}
@@ -96,7 +98,7 @@ export default function AdminJugadoresPage() {
         <CardContent>
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-[200px]">
-              <Label className="text-xs">Nombre</Label>
+              <Label className="text-xs text-ink-muted">Nombre</Label>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -104,7 +106,7 @@ export default function AdminJugadoresPage() {
               />
             </div>
             <div className="w-48">
-              <Label className="text-xs">Equipo</Label>
+              <Label className="text-xs text-ink-muted">Equipo</Label>
               <Select value={newTeamId} onValueChange={setNewTeamId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Equipo..." />
@@ -119,14 +121,14 @@ export default function AdminJugadoresPage() {
               </Select>
             </div>
             <div className="w-32">
-              <Label className="text-xs">Posición</Label>
+              <Label className="text-xs text-ink-muted">Posición</Label>
               <Input
                 value={newPosition}
                 onChange={(e) => setNewPosition(e.target.value)}
                 placeholder="DEL, MED..."
               />
             </div>
-            <Button onClick={handleAdd} size="icon">
+            <Button onClick={handleAdd} size="icon" variant="default">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -140,17 +142,17 @@ export default function AdminJugadoresPage() {
             {players.map((p) => {
               const team = teamsMap.get(p.team_id);
               return (
-                <div key={p.id} className="flex items-center justify-between px-4 py-2">
+                <div key={p.id} className="flex items-center justify-between px-4 py-2 hover:bg-surface-sunken/50 transition-colors">
                   <div className="flex items-center gap-2">
                     <Flag emoji={team?.flag_emoji || ""} size={18} />
-                    <span className="font-medium text-sm">{p.name}</span>
+                    <span className="font-medium text-sm text-ink">{p.name}</span>
                     {p.position && (
                       <Badge variant="secondary" className="text-xs">{p.position}</Badge>
                     )}
                   </div>
                   <button
                     onClick={() => handleDelete(p.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    className="text-ink-faint hover:text-red transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -158,7 +160,7 @@ export default function AdminJugadoresPage() {
               );
             })}
             {players.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
+              <p className="text-center text-ink-muted py-8 font-sans">
                 No hay jugadores cargados.
               </p>
             )}
