@@ -442,3 +442,133 @@ INSERT INTO scoring_rules (category, rule_key, points, description) VALUES
   ('awards', 'golden_boot', 10, 'Acertar Bota de Oro'),
   ('awards', 'golden_ball', 10, 'Acertar Balón de Oro'),
   ('awards', 'golden_glove', 10, 'Acertar Guante de Oro');
+
+-- ============================================================
+-- VENUES (16 sedes del Mundial 2026)
+-- ============================================================
+INSERT INTO venues (name, city, country) VALUES
+  ('Mercedes-Benz Stadium', 'Atlanta', 'Estados Unidos'),
+  ('Gillette Stadium', 'Foxborough', 'Estados Unidos'),
+  ('AT&T Stadium', 'Arlington', 'Estados Unidos'),
+  ('Estadio Akron', 'Zapopan', 'México'),
+  ('NRG Stadium', 'Houston', 'Estados Unidos'),
+  ('Arrowhead Stadium', 'Kansas City', 'Estados Unidos'),
+  ('SoFi Stadium', 'Inglewood', 'Estados Unidos'),
+  ('Estadio Azteca', 'Ciudad de México', 'México'),
+  ('Hard Rock Stadium', 'Miami Gardens', 'Estados Unidos'),
+  ('Estadio BBVA', 'Guadalupe', 'México'),
+  ('MetLife Stadium', 'East Rutherford', 'Estados Unidos'),
+  ('Lincoln Financial Field', 'Filadelfia', 'Estados Unidos'),
+  ('Levi''s Stadium', 'Santa Clara', 'Estados Unidos'),
+  ('Lumen Field', 'Seattle', 'Estados Unidos'),
+  ('BMO Field', 'Toronto', 'Canadá'),
+  ('BC Place', 'Vancouver', 'Canadá');
+
+-- ============================================================
+-- CALENDARIO OFICIAL: fecha (UTC) + sede de cada partido
+-- Generado por scripts/build-schedule.mjs desde OpenFootball worldcup.json
+-- ============================================================
+UPDATE matches SET match_date='2026-06-11T19:00:00+00', venue_id=8 WHERE match_number=1;
+UPDATE matches SET match_date='2026-06-12T02:00:00+00', venue_id=4 WHERE match_number=2;
+UPDATE matches SET match_date='2026-06-19T01:00:00+00', venue_id=4 WHERE match_number=3;
+UPDATE matches SET match_date='2026-06-18T16:00:00+00', venue_id=1 WHERE match_number=4;
+UPDATE matches SET match_date='2026-06-25T01:00:00+00', venue_id=8 WHERE match_number=5;
+UPDATE matches SET match_date='2026-06-25T01:00:00+00', venue_id=10 WHERE match_number=6;
+UPDATE matches SET match_date='2026-06-12T19:00:00+00', venue_id=15 WHERE match_number=7;
+UPDATE matches SET match_date='2026-06-13T19:00:00+00', venue_id=13 WHERE match_number=8;
+UPDATE matches SET match_date='2026-06-18T22:00:00+00', venue_id=16 WHERE match_number=9;
+UPDATE matches SET match_date='2026-06-18T19:00:00+00', venue_id=7 WHERE match_number=10;
+UPDATE matches SET match_date='2026-06-24T19:00:00+00', venue_id=16 WHERE match_number=11;
+UPDATE matches SET match_date='2026-06-24T19:00:00+00', venue_id=14 WHERE match_number=12;
+UPDATE matches SET match_date='2026-06-13T22:00:00+00', venue_id=11 WHERE match_number=13;
+UPDATE matches SET match_date='2026-06-14T01:00:00+00', venue_id=2 WHERE match_number=14;
+UPDATE matches SET match_date='2026-06-20T00:30:00+00', venue_id=12 WHERE match_number=15;
+UPDATE matches SET match_date='2026-06-19T22:00:00+00', venue_id=2 WHERE match_number=16;
+UPDATE matches SET match_date='2026-06-24T22:00:00+00', venue_id=9 WHERE match_number=17;
+UPDATE matches SET match_date='2026-06-24T22:00:00+00', venue_id=1 WHERE match_number=18;
+UPDATE matches SET match_date='2026-06-13T01:00:00+00', venue_id=7 WHERE match_number=19;
+UPDATE matches SET match_date='2026-06-14T04:00:00+00', venue_id=16 WHERE match_number=20;
+UPDATE matches SET match_date='2026-06-19T19:00:00+00', venue_id=14 WHERE match_number=21;
+UPDATE matches SET match_date='2026-06-20T03:00:00+00', venue_id=13 WHERE match_number=22;
+UPDATE matches SET match_date='2026-06-26T02:00:00+00', venue_id=7 WHERE match_number=23;
+UPDATE matches SET match_date='2026-06-26T02:00:00+00', venue_id=13 WHERE match_number=24;
+UPDATE matches SET match_date='2026-06-14T17:00:00+00', venue_id=5 WHERE match_number=25;
+UPDATE matches SET match_date='2026-06-14T23:00:00+00', venue_id=12 WHERE match_number=26;
+UPDATE matches SET match_date='2026-06-20T20:00:00+00', venue_id=15 WHERE match_number=27;
+UPDATE matches SET match_date='2026-06-21T00:00:00+00', venue_id=6 WHERE match_number=28;
+UPDATE matches SET match_date='2026-06-25T20:00:00+00', venue_id=11 WHERE match_number=29;
+UPDATE matches SET match_date='2026-06-25T20:00:00+00', venue_id=12 WHERE match_number=30;
+UPDATE matches SET match_date='2026-06-14T20:00:00+00', venue_id=3 WHERE match_number=31;
+UPDATE matches SET match_date='2026-06-15T02:00:00+00', venue_id=10 WHERE match_number=32;
+UPDATE matches SET match_date='2026-06-20T17:00:00+00', venue_id=5 WHERE match_number=33;
+UPDATE matches SET match_date='2026-06-21T04:00:00+00', venue_id=10 WHERE match_number=34;
+UPDATE matches SET match_date='2026-06-25T23:00:00+00', venue_id=6 WHERE match_number=35;
+UPDATE matches SET match_date='2026-06-25T23:00:00+00', venue_id=3 WHERE match_number=36;
+UPDATE matches SET match_date='2026-06-15T19:00:00+00', venue_id=14 WHERE match_number=37;
+UPDATE matches SET match_date='2026-06-16T01:00:00+00', venue_id=7 WHERE match_number=38;
+UPDATE matches SET match_date='2026-06-21T19:00:00+00', venue_id=7 WHERE match_number=39;
+UPDATE matches SET match_date='2026-06-22T01:00:00+00', venue_id=16 WHERE match_number=40;
+UPDATE matches SET match_date='2026-06-27T03:00:00+00', venue_id=16 WHERE match_number=41;
+UPDATE matches SET match_date='2026-06-27T03:00:00+00', venue_id=14 WHERE match_number=42;
+UPDATE matches SET match_date='2026-06-15T16:00:00+00', venue_id=1 WHERE match_number=43;
+UPDATE matches SET match_date='2026-06-15T22:00:00+00', venue_id=9 WHERE match_number=44;
+UPDATE matches SET match_date='2026-06-21T16:00:00+00', venue_id=1 WHERE match_number=45;
+UPDATE matches SET match_date='2026-06-21T22:00:00+00', venue_id=9 WHERE match_number=46;
+UPDATE matches SET match_date='2026-06-27T00:00:00+00', venue_id=4 WHERE match_number=47;
+UPDATE matches SET match_date='2026-06-27T00:00:00+00', venue_id=5 WHERE match_number=48;
+UPDATE matches SET match_date='2026-06-16T19:00:00+00', venue_id=11 WHERE match_number=49;
+UPDATE matches SET match_date='2026-06-16T22:00:00+00', venue_id=2 WHERE match_number=50;
+UPDATE matches SET match_date='2026-06-22T21:00:00+00', venue_id=12 WHERE match_number=51;
+UPDATE matches SET match_date='2026-06-23T00:00:00+00', venue_id=11 WHERE match_number=52;
+UPDATE matches SET match_date='2026-06-26T19:00:00+00', venue_id=2 WHERE match_number=53;
+UPDATE matches SET match_date='2026-06-26T19:00:00+00', venue_id=15 WHERE match_number=54;
+UPDATE matches SET match_date='2026-06-17T01:00:00+00', venue_id=6 WHERE match_number=55;
+UPDATE matches SET match_date='2026-06-17T04:00:00+00', venue_id=13 WHERE match_number=56;
+UPDATE matches SET match_date='2026-06-22T17:00:00+00', venue_id=3 WHERE match_number=57;
+UPDATE matches SET match_date='2026-06-23T03:00:00+00', venue_id=13 WHERE match_number=58;
+UPDATE matches SET match_date='2026-06-28T02:00:00+00', venue_id=3 WHERE match_number=59;
+UPDATE matches SET match_date='2026-06-28T02:00:00+00', venue_id=6 WHERE match_number=60;
+UPDATE matches SET match_date='2026-06-17T17:00:00+00', venue_id=5 WHERE match_number=61;
+UPDATE matches SET match_date='2026-06-18T02:00:00+00', venue_id=8 WHERE match_number=62;
+UPDATE matches SET match_date='2026-06-23T17:00:00+00', venue_id=5 WHERE match_number=63;
+UPDATE matches SET match_date='2026-06-24T02:00:00+00', venue_id=4 WHERE match_number=64;
+UPDATE matches SET match_date='2026-06-27T23:30:00+00', venue_id=9 WHERE match_number=65;
+UPDATE matches SET match_date='2026-06-27T23:30:00+00', venue_id=1 WHERE match_number=66;
+UPDATE matches SET match_date='2026-06-17T20:00:00+00', venue_id=3 WHERE match_number=67;
+UPDATE matches SET match_date='2026-06-17T23:00:00+00', venue_id=15 WHERE match_number=68;
+UPDATE matches SET match_date='2026-06-23T20:00:00+00', venue_id=2 WHERE match_number=69;
+UPDATE matches SET match_date='2026-06-23T23:00:00+00', venue_id=15 WHERE match_number=70;
+UPDATE matches SET match_date='2026-06-27T21:00:00+00', venue_id=11 WHERE match_number=71;
+UPDATE matches SET match_date='2026-06-27T21:00:00+00', venue_id=12 WHERE match_number=72;
+UPDATE matches SET match_date='2026-06-28T19:00:00+00', venue_id=7 WHERE match_number=73;
+UPDATE matches SET match_date='2026-06-29T20:30:00+00', venue_id=2 WHERE match_number=74;
+UPDATE matches SET match_date='2026-06-30T01:00:00+00', venue_id=10 WHERE match_number=75;
+UPDATE matches SET match_date='2026-06-29T17:00:00+00', venue_id=5 WHERE match_number=76;
+UPDATE matches SET match_date='2026-06-30T21:00:00+00', venue_id=11 WHERE match_number=77;
+UPDATE matches SET match_date='2026-06-30T17:00:00+00', venue_id=3 WHERE match_number=78;
+UPDATE matches SET match_date='2026-07-01T01:00:00+00', venue_id=8 WHERE match_number=79;
+UPDATE matches SET match_date='2026-07-01T16:00:00+00', venue_id=1 WHERE match_number=80;
+UPDATE matches SET match_date='2026-07-02T00:00:00+00', venue_id=13 WHERE match_number=81;
+UPDATE matches SET match_date='2026-07-01T20:00:00+00', venue_id=14 WHERE match_number=82;
+UPDATE matches SET match_date='2026-07-02T23:00:00+00', venue_id=15 WHERE match_number=83;
+UPDATE matches SET match_date='2026-07-02T19:00:00+00', venue_id=7 WHERE match_number=84;
+UPDATE matches SET match_date='2026-07-03T03:00:00+00', venue_id=16 WHERE match_number=85;
+UPDATE matches SET match_date='2026-07-03T22:00:00+00', venue_id=9 WHERE match_number=86;
+UPDATE matches SET match_date='2026-07-04T01:30:00+00', venue_id=6 WHERE match_number=87;
+UPDATE matches SET match_date='2026-07-03T18:00:00+00', venue_id=3 WHERE match_number=88;
+UPDATE matches SET match_date='2026-07-04T21:00:00+00', venue_id=12 WHERE match_number=89;
+UPDATE matches SET match_date='2026-07-04T17:00:00+00', venue_id=5 WHERE match_number=90;
+UPDATE matches SET match_date='2026-07-05T20:00:00+00', venue_id=11 WHERE match_number=91;
+UPDATE matches SET match_date='2026-07-06T00:00:00+00', venue_id=8 WHERE match_number=92;
+UPDATE matches SET match_date='2026-07-06T19:00:00+00', venue_id=3 WHERE match_number=93;
+UPDATE matches SET match_date='2026-07-07T00:00:00+00', venue_id=14 WHERE match_number=94;
+UPDATE matches SET match_date='2026-07-07T16:00:00+00', venue_id=1 WHERE match_number=95;
+UPDATE matches SET match_date='2026-07-07T20:00:00+00', venue_id=16 WHERE match_number=96;
+UPDATE matches SET match_date='2026-07-09T20:00:00+00', venue_id=2 WHERE match_number=97;
+UPDATE matches SET match_date='2026-07-10T19:00:00+00', venue_id=7 WHERE match_number=98;
+UPDATE matches SET match_date='2026-07-11T21:00:00+00', venue_id=9 WHERE match_number=99;
+UPDATE matches SET match_date='2026-07-12T01:00:00+00', venue_id=6 WHERE match_number=100;
+UPDATE matches SET match_date='2026-07-14T19:00:00+00', venue_id=3 WHERE match_number=101;
+UPDATE matches SET match_date='2026-07-15T19:00:00+00', venue_id=1 WHERE match_number=102;
+UPDATE matches SET match_date='2026-07-18T21:00:00+00', venue_id=9 WHERE match_number=103;
+UPDATE matches SET match_date='2026-07-19T19:00:00+00', venue_id=11 WHERE match_number=104;
