@@ -6,6 +6,7 @@ import { TuJornadaCard } from "@/components/results/tu-jornada-card";
 import { MatchResultCard } from "@/components/results/match-result-card";
 import { UpcomingStrip } from "@/components/results/upcoming-strip";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
+import { getTeams, getVenues } from "@/lib/data/static-cache";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -113,8 +114,8 @@ export default function ResultadosPage() {
       // Parallel fetches
       const [teamsRes, venuesRes, matchesRes, predictionsRes, scoresRes, profilesRes] =
         await Promise.all([
-          supabase.from("teams").select("id, name, flag_emoji, group_letter"),
-          supabase.from("venues").select("id, name, city"),
+          getTeams(),
+          getVenues(),
           supabase
             .from("matches")
             .select(
@@ -134,8 +135,8 @@ export default function ResultadosPage() {
           supabase.from("profiles").select("id, has_paid"),
         ]);
 
-      const teams: TeamRow[] = (teamsRes.data ?? []) as TeamRow[];
-      const venues: VenueRow[] = (venuesRes.data ?? []) as VenueRow[];
+      const teams: TeamRow[] = teamsRes as TeamRow[];
+      const venues: VenueRow[] = venuesRes as VenueRow[];
       const matches: MatchRow[] = (matchesRes.data ?? []) as MatchRow[];
       const predictions: PredictionRow[] = (predictionsRes.data ?? []) as PredictionRow[];
       const scores: UserScoreRow[] = (scoresRes.data ?? []) as UserScoreRow[];

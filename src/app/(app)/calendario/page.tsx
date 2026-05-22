@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MatchCalendar } from "@/components/calendar/match-calendar";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
 import { todayKey } from "@/lib/datetime";
+import { getTeams, getVenues } from "@/lib/data/static-cache";
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -53,8 +54,8 @@ export default function CalendarioPage() {
   useEffect(() => {
     async function load() {
       const [teamsRes, venuesRes, matchesRes] = await Promise.all([
-        supabase.from("teams").select("id, name, flag_emoji"),
-        supabase.from("venues").select("id, name, city"),
+        getTeams(),
+        getVenues(),
         supabase
           .from("matches")
           .select(
@@ -64,10 +65,10 @@ export default function CalendarioPage() {
       ]);
 
       const teamMap = new Map<number, TeamRow>(
-        ((teamsRes.data ?? []) as TeamRow[]).map((t) => [t.id, t])
+        (teamsRes as TeamRow[]).map((t) => [t.id, t])
       );
       const venueMap = new Map<number, VenueRow>(
-        ((venuesRes.data ?? []) as VenueRow[]).map((v) => [v.id, v])
+        (venuesRes as VenueRow[]).map((v) => [v.id, v])
       );
 
       const assembled: CalendarMatch[] = ((matchesRes.data ?? []) as MatchRow[])

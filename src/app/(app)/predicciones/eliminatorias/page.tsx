@@ -11,6 +11,7 @@ import { ClassicBracket, type BracketMatchView } from "@/components/predictions/
 import { MatchResultDialog } from "@/components/predictions/match-result-dialog";
 import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
+import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -127,15 +128,15 @@ export default function EliminatoriasPage() {
         predsRes,
         configRes,
       ] = await Promise.all([
-        supabase.from("teams").select("*").order("id"),
+        getTeams(),
         supabase.from("matches").select("*").neq("stage", "group").order("match_number"),
         supabase.from("predicted_group_standings").select("*").eq("user_id", user.id),
-        supabase.from("knockout_bracket_positions").select("*"),
+        getBracketPositions(),
         supabase.from("match_predictions").select("*").eq("user_id", user.id),
         supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
       ]);
 
-      setTeams(teamsRes.data || []);
+      setTeams(teamsRes);
       setIsLocked(configRes.data?.value === "true");
 
       // Build match_number -> id map
@@ -209,7 +210,7 @@ export default function EliminatoriasPage() {
         away_placeholder: m.away_placeholder,
       }));
 
-      const bpList: BracketPosition[] = (bracketPosRes.data || []).map((bp: {
+      const bpList: BracketPosition[] = bracketPosRes.map((bp: {
         match_number: number;
         slot: string;
         source_type: string;

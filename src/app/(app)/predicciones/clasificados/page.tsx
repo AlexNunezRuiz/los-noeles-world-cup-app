@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Flag } from "@/components/ui/flag";
 import { StageBar } from "@/components/porra/stage-bar";
+import { getTeams } from "@/lib/data/static-cache";
 
 interface Team {
   id: number;
@@ -52,7 +53,7 @@ export default function ClasificadosPage() {
       if (!user) return;
 
       const [teamsRes, standingsRes] = await Promise.all([
-        supabase.from("teams").select("*").order("id"),
+        getTeams(),
         supabase
           .from("predicted_group_standings")
           .select("*")
@@ -61,7 +62,7 @@ export default function ClasificadosPage() {
           .order("position"),
       ]);
 
-      setTeams(teamsRes.data || []);
+      setTeams(teamsRes);
       setStandings(standingsRes.data || []);
     }
     load();
