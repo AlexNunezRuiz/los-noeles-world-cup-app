@@ -12,7 +12,7 @@ interface FlapTileProps {
 
 const SIZES: Record<NonNullable<FlapTileProps["size"]>, { w: string; h: string; text: string }> = {
   sm: { w: "w-9", h: "h-11", text: "text-2xl" },
-  md: { w: "w-11", h: "h-14", text: "text-3xl" },
+  md: { w: "w-12", h: "h-16", text: "text-4xl" },
   lg: { w: "w-[68px]", h: "h-[86px]", text: "text-6xl" },
 };
 
