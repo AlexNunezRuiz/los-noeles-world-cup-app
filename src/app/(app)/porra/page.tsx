@@ -69,27 +69,36 @@ export default async function PorraPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user!.id)
-    .single();
+  // Consultas independientes en paralelo — solo auth.getUser() debe ir antes.
+  // Antes eran 6 round-trips en serie; ahora es 1× la latencia en vez de 6×.
+  const [
+    { data: profile },
+    { data: configRows },
+    { data: allMatches },
+    { data: userPredictions },
+    { data: standingRows },
+    { data: awardRows },
+  ] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user!.id).single(),
+    supabase.from("tournament_config").select("*"),
+    supabase.from("matches").select("id, stage"),
+    supabase
+      .from("match_predictions")
+      .select("match_id")
+      .eq("user_id", user!.id),
+    supabase
+      .from("predicted_group_standings")
+      .select("group_letter")
+      .eq("user_id", user!.id),
+    supabase.from("award_predictions").select("id").eq("user_id", user!.id),
+  ]);
 
   // Tournament config
-  const { data: configRows } = await supabase
-    .from("tournament_config")
-    .select("*");
-
   const config = (configRows ?? []) as TournamentConfigRow[];
   const lockDatetime = config.find((c) => c.key === "lock_datetime")?.value;
   const bizumPhone = config.find((c) => c.key === "bizum_phone")?.value;
 
   // All matches (to split by stage)
-  const { data: allMatches } = await supabase
-    .from("matches")
-    .select("id, stage");
-
   const matches = (allMatches ?? []) as MatchRow[];
   const groupMatchIds = matches
     .filter((m) => m.stage === "group")
@@ -99,11 +108,6 @@ export default async function PorraPage() {
     .map((m) => m.id);
 
   // User's match predictions
-  const { data: userPredictions } = await supabase
-    .from("match_predictions")
-    .select("match_id")
-    .eq("user_id", user!.id);
-
   const predictions = (userPredictions ?? []) as MatchPredictionRow[];
   const predictedIds = new Set(predictions.map((p) => p.match_id));
 
@@ -113,11 +117,6 @@ export default async function PorraPage() {
   ).length;
 
   // Clasificados: groups where user has 4 rows in predicted_group_standings
-  const { data: standingRows } = await supabase
-    .from("predicted_group_standings")
-    .select("group_letter")
-    .eq("user_id", user!.id);
-
   const standings = (standingRows ?? []) as GroupStandingRow[];
   const groupCounts = standings.reduce<Record<string, number>>((acc, row) => {
     acc[row.group_letter] = (acc[row.group_letter] ?? 0) + 1;
@@ -128,11 +127,6 @@ export default async function PorraPage() {
   ).length;
 
   // Award predictions
-  const { data: awardRows } = await supabase
-    .from("award_predictions")
-    .select("id")
-    .eq("user_id", user!.id);
-
   const premiosDone = ((awardRows ?? []) as AwardPredictionRow[]).length;
 
   // Overall progress — average of the 4 phase percentages
