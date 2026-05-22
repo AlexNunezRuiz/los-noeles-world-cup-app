@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { usernameToEmail, validateUsername } from "@/lib/auth/username";
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -21,20 +23,43 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      toast({
+        title: "Usuario no válido",
+        description: usernameError,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Las contraseñas no coinciden",
+        description: "Vuelve a escribir la misma contraseña en los dos campos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: usernameToEmail(username),
       password,
       options: {
-        data: { display_name: displayName },
+        data: { display_name: displayName.trim() },
       },
     });
 
     if (error) {
+      const taken = /already|registered|exists/i.test(error.message);
       toast({
         title: "Error al registrarse",
-        description: error.message,
+        description: taken
+          ? "Ese usuario ya está cogido. Prueba con otro."
+          : error.message,
         variant: "destructive",
       });
       setLoading(false);
@@ -43,7 +68,7 @@ export default function RegisterPage() {
 
     toast({
       title: "Cuenta creada",
-      description: "Ya puedes iniciar sesión.",
+      description: "¡Bienvenido a la porra!",
     });
 
     router.push("/dashboard");
@@ -60,24 +85,25 @@ export default function RegisterPage() {
       <form onSubmit={handleRegister}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nombre</Label>
+            <Label htmlFor="username">Usuario</Label>
             <Input
-              id="name"
+              id="username"
               type="text"
-              placeholder="Tu nombre"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="con el que entrarás"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="name">Nombre</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="name"
+              type="text"
+              placeholder="el que verán los demás"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
               required
             />
           </div>
@@ -87,8 +113,22 @@ export default function RegisterPage() {
               id="password"
               type="password"
               placeholder="Mínimo 6 caracteres"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              minLength={6}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Repetir contraseña</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="La misma contraseña"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               minLength={6}
               required
             />

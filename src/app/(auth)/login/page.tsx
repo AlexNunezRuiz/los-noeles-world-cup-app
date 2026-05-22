@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { usernameToEmail } from "@/lib/auth/username";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -22,12 +23,15 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password,
+    });
 
     if (error) {
       toast({
         title: "Error al iniciar sesión",
-        description: error.message,
+        description: "Usuario o contraseña incorrectos.",
         variant: "destructive",
       });
       setLoading(false);
@@ -48,13 +52,14 @@ export default function LoginPage() {
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="username">Usuario</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              placeholder="tu usuario"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
@@ -64,6 +69,7 @@ export default function LoginPage() {
               id="password"
               type="password"
               placeholder="••••••••"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
