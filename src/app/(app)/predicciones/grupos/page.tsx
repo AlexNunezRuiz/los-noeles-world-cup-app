@@ -12,6 +12,7 @@ import { Flag } from "@/components/ui/flag";
 import { Button } from "@/components/ui/button";
 import { calculateGroupStandings, findTiedTeams, type TeamStanding } from "@/lib/tournament/standings";
 import { useToast } from "@/components/ui/use-toast";
+import { getTeams } from "@/lib/data/static-cache";
 
 interface Team {
   id: number;
@@ -67,13 +68,13 @@ export default function GruposPage() {
       setUserId(user.id);
 
       const [teamsRes, matchesRes, predsRes, configRes] = await Promise.all([
-        supabase.from("teams").select("*").order("id"),
+        getTeams(),
         supabase.from("matches").select("*").eq("stage", "group").order("match_number"),
         supabase.from("match_predictions").select("*").eq("user_id", user.id),
         supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
       ]);
 
-      setTeams(teamsRes.data || []);
+      setTeams(teamsRes);
       setMatches(matchesRes.data || []);
       setIsLocked(configRes.data?.value === "true");
 
