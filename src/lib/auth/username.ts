@@ -1,6 +1,7 @@
 // Autenticación por usuario.
-// Supabase Auth necesita un email; lo sintetizamos a partir del usuario.
-// El usuario nunca ve este email — es un detalle interno.
+// Las cuentas usan el correo real como identidad en Supabase. El usuario se
+// guarda en `profiles.username` y, al iniciar sesión por usuario, se resuelve
+// su correo con la función `email_for_username` del servidor.
 
 const SYNTH_DOMAIN = "noeles.app";
 
@@ -9,25 +10,18 @@ export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
 }
 
-/** Email sintético, determinista, a partir del usuario. */
+/**
+ * Correo sintético a partir del usuario. Solo se usa como reserva para el
+ * login por usuario cuando la búsqueda en servidor no está disponible
+ * (por ejemplo, en modo mock).
+ */
 export function usernameToEmail(username: string): string {
   return `${normalizeUsername(username)}@${SYNTH_DOMAIN}`;
 }
 
 /**
- * Resuelve el email para iniciar sesión. Acepta tanto un usuario como un email
- * directo (útil para cuentas antiguas creadas con email real): si lo escrito
- * contiene "@" se trata como email; si no, se convierte al email sintético.
- */
-export function resolveLoginEmail(identifier: string): string {
-  const value = identifier.trim().toLowerCase();
-  return value.includes("@") ? value : usernameToEmail(value);
-}
-
-/**
- * Valida el formato del usuario. Debe ser seguro como parte local de un email
- * y mapear 1:1 con su email sintético.
- * Devuelve un mensaje de error, o null si es válido.
+ * Valida el formato del usuario. Devuelve un mensaje de error, o null si es
+ * válido.
  */
 export function validateUsername(username: string): string | null {
   const u = normalizeUsername(username);
