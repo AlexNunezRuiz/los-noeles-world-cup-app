@@ -165,6 +165,147 @@ const GROUP_RESULTS: Record<number, [number, number]> = {
   5: [1, 0], 6: [2, 2], 7: [0, 1], 8: [3, 0],
 };
 
+// ---------------------------------------------------------------
+// VENUES (16) — from migration 002 + seed.sql
+// ---------------------------------------------------------------
+const VENUE_DEFS: [string, string, string][] = [
+  ["Mercedes-Benz Stadium", "Atlanta", "Estados Unidos"],
+  ["Gillette Stadium", "Foxborough", "Estados Unidos"],
+  ["AT&T Stadium", "Arlington", "Estados Unidos"],
+  ["Estadio Akron", "Zapopan", "México"],
+  ["NRG Stadium", "Houston", "Estados Unidos"],
+  ["Arrowhead Stadium", "Kansas City", "Estados Unidos"],
+  ["SoFi Stadium", "Inglewood", "Estados Unidos"],
+  ["Estadio Azteca", "Ciudad de México", "México"],
+  ["Hard Rock Stadium", "Miami Gardens", "Estados Unidos"],
+  ["Estadio BBVA", "Guadalupe", "México"],
+  ["MetLife Stadium", "East Rutherford", "Estados Unidos"],
+  ["Lincoln Financial Field", "Filadelfia", "Estados Unidos"],
+  ["Levi's Stadium", "Santa Clara", "Estados Unidos"],
+  ["Lumen Field", "Seattle", "Estados Unidos"],
+  ["BMO Field", "Toronto", "Canadá"],
+  ["BC Place", "Vancouver", "Canadá"],
+];
+
+const VENUES: Row[] = VENUE_DEFS.map(([name, city, country], i) => ({
+  id: i + 1,
+  name,
+  city,
+  country,
+  created_at: "2026-01-01T00:00:00Z",
+}));
+
+// ---------------------------------------------------------------
+// SCHEDULE — match_number -> { date (UTC ISO), venue (1-16) }
+// Calendario oficial; generado por scripts/build-schedule.mjs.
+// ---------------------------------------------------------------
+const SCHEDULE: Record<number, { date: string; venue: number }> = {
+  1: { date: "2026-06-11T19:00:00Z", venue: 8 },
+  2: { date: "2026-06-12T02:00:00Z", venue: 4 },
+  3: { date: "2026-06-19T01:00:00Z", venue: 4 },
+  4: { date: "2026-06-18T16:00:00Z", venue: 1 },
+  5: { date: "2026-06-25T01:00:00Z", venue: 8 },
+  6: { date: "2026-06-25T01:00:00Z", venue: 10 },
+  7: { date: "2026-06-12T19:00:00Z", venue: 15 },
+  8: { date: "2026-06-13T19:00:00Z", venue: 13 },
+  9: { date: "2026-06-18T22:00:00Z", venue: 16 },
+  10: { date: "2026-06-18T19:00:00Z", venue: 7 },
+  11: { date: "2026-06-24T19:00:00Z", venue: 16 },
+  12: { date: "2026-06-24T19:00:00Z", venue: 14 },
+  13: { date: "2026-06-13T22:00:00Z", venue: 11 },
+  14: { date: "2026-06-14T01:00:00Z", venue: 2 },
+  15: { date: "2026-06-20T00:30:00Z", venue: 12 },
+  16: { date: "2026-06-19T22:00:00Z", venue: 2 },
+  17: { date: "2026-06-24T22:00:00Z", venue: 9 },
+  18: { date: "2026-06-24T22:00:00Z", venue: 1 },
+  19: { date: "2026-06-13T01:00:00Z", venue: 7 },
+  20: { date: "2026-06-14T04:00:00Z", venue: 16 },
+  21: { date: "2026-06-19T19:00:00Z", venue: 14 },
+  22: { date: "2026-06-20T03:00:00Z", venue: 13 },
+  23: { date: "2026-06-26T02:00:00Z", venue: 7 },
+  24: { date: "2026-06-26T02:00:00Z", venue: 13 },
+  25: { date: "2026-06-14T17:00:00Z", venue: 5 },
+  26: { date: "2026-06-14T23:00:00Z", venue: 12 },
+  27: { date: "2026-06-20T20:00:00Z", venue: 15 },
+  28: { date: "2026-06-21T00:00:00Z", venue: 6 },
+  29: { date: "2026-06-25T20:00:00Z", venue: 11 },
+  30: { date: "2026-06-25T20:00:00Z", venue: 12 },
+  31: { date: "2026-06-14T20:00:00Z", venue: 3 },
+  32: { date: "2026-06-15T02:00:00Z", venue: 10 },
+  33: { date: "2026-06-20T17:00:00Z", venue: 5 },
+  34: { date: "2026-06-21T04:00:00Z", venue: 10 },
+  35: { date: "2026-06-25T23:00:00Z", venue: 6 },
+  36: { date: "2026-06-25T23:00:00Z", venue: 3 },
+  37: { date: "2026-06-15T19:00:00Z", venue: 14 },
+  38: { date: "2026-06-16T01:00:00Z", venue: 7 },
+  39: { date: "2026-06-21T19:00:00Z", venue: 7 },
+  40: { date: "2026-06-22T01:00:00Z", venue: 16 },
+  41: { date: "2026-06-27T03:00:00Z", venue: 16 },
+  42: { date: "2026-06-27T03:00:00Z", venue: 14 },
+  43: { date: "2026-06-15T16:00:00Z", venue: 1 },
+  44: { date: "2026-06-15T22:00:00Z", venue: 9 },
+  45: { date: "2026-06-21T16:00:00Z", venue: 1 },
+  46: { date: "2026-06-21T22:00:00Z", venue: 9 },
+  47: { date: "2026-06-27T00:00:00Z", venue: 4 },
+  48: { date: "2026-06-27T00:00:00Z", venue: 5 },
+  49: { date: "2026-06-16T19:00:00Z", venue: 11 },
+  50: { date: "2026-06-16T22:00:00Z", venue: 2 },
+  51: { date: "2026-06-22T21:00:00Z", venue: 12 },
+  52: { date: "2026-06-23T00:00:00Z", venue: 11 },
+  53: { date: "2026-06-26T19:00:00Z", venue: 2 },
+  54: { date: "2026-06-26T19:00:00Z", venue: 15 },
+  55: { date: "2026-06-17T01:00:00Z", venue: 6 },
+  56: { date: "2026-06-17T04:00:00Z", venue: 13 },
+  57: { date: "2026-06-22T17:00:00Z", venue: 3 },
+  58: { date: "2026-06-23T03:00:00Z", venue: 13 },
+  59: { date: "2026-06-28T02:00:00Z", venue: 3 },
+  60: { date: "2026-06-28T02:00:00Z", venue: 6 },
+  61: { date: "2026-06-17T17:00:00Z", venue: 5 },
+  62: { date: "2026-06-18T02:00:00Z", venue: 8 },
+  63: { date: "2026-06-23T17:00:00Z", venue: 5 },
+  64: { date: "2026-06-24T02:00:00Z", venue: 4 },
+  65: { date: "2026-06-27T23:30:00Z", venue: 9 },
+  66: { date: "2026-06-27T23:30:00Z", venue: 1 },
+  67: { date: "2026-06-17T20:00:00Z", venue: 3 },
+  68: { date: "2026-06-17T23:00:00Z", venue: 15 },
+  69: { date: "2026-06-23T20:00:00Z", venue: 2 },
+  70: { date: "2026-06-23T23:00:00Z", venue: 15 },
+  71: { date: "2026-06-27T21:00:00Z", venue: 11 },
+  72: { date: "2026-06-27T21:00:00Z", venue: 12 },
+  73: { date: "2026-06-28T19:00:00Z", venue: 7 },
+  74: { date: "2026-06-29T20:30:00Z", venue: 2 },
+  75: { date: "2026-06-30T01:00:00Z", venue: 10 },
+  76: { date: "2026-06-29T17:00:00Z", venue: 5 },
+  77: { date: "2026-06-30T21:00:00Z", venue: 11 },
+  78: { date: "2026-06-30T17:00:00Z", venue: 3 },
+  79: { date: "2026-07-01T01:00:00Z", venue: 8 },
+  80: { date: "2026-07-01T16:00:00Z", venue: 1 },
+  81: { date: "2026-07-02T00:00:00Z", venue: 13 },
+  82: { date: "2026-07-01T20:00:00Z", venue: 14 },
+  83: { date: "2026-07-02T23:00:00Z", venue: 15 },
+  84: { date: "2026-07-02T19:00:00Z", venue: 7 },
+  85: { date: "2026-07-03T03:00:00Z", venue: 16 },
+  86: { date: "2026-07-03T22:00:00Z", venue: 9 },
+  87: { date: "2026-07-04T01:30:00Z", venue: 6 },
+  88: { date: "2026-07-03T18:00:00Z", venue: 3 },
+  89: { date: "2026-07-04T21:00:00Z", venue: 12 },
+  90: { date: "2026-07-04T17:00:00Z", venue: 5 },
+  91: { date: "2026-07-05T20:00:00Z", venue: 11 },
+  92: { date: "2026-07-06T00:00:00Z", venue: 8 },
+  93: { date: "2026-07-06T19:00:00Z", venue: 3 },
+  94: { date: "2026-07-07T00:00:00Z", venue: 14 },
+  95: { date: "2026-07-07T16:00:00Z", venue: 1 },
+  96: { date: "2026-07-07T20:00:00Z", venue: 16 },
+  97: { date: "2026-07-09T20:00:00Z", venue: 2 },
+  98: { date: "2026-07-10T19:00:00Z", venue: 7 },
+  99: { date: "2026-07-11T21:00:00Z", venue: 9 },
+  100: { date: "2026-07-12T01:00:00Z", venue: 6 },
+  101: { date: "2026-07-14T19:00:00Z", venue: 3 },
+  102: { date: "2026-07-15T19:00:00Z", venue: 1 },
+  103: { date: "2026-07-18T21:00:00Z", venue: 9 },
+  104: { date: "2026-07-19T19:00:00Z", venue: 11 },
+};
+
 function buildMatches(): Row[] {
   const matches: Row[] = [];
   const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -174,8 +315,6 @@ function buildMatches(): Row[] {
     const base = g * 4;
     GROUP_PATTERN.forEach(([h, a], i) => {
       const mn = g * 6 + i + 1;
-      const day = 11 + Math.floor((mn - 1) / 6); // June 11..22
-      const hour = [13, 16, 19, 22][i % 4];
       matches.push({
         id: mn,
         match_number: mn,
@@ -185,8 +324,8 @@ function buildMatches(): Row[] {
         away_team_id: base + a,
         home_placeholder: null,
         away_placeholder: null,
-        match_date: `2026-06-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00+00:00`,
-        venue: null,
+        match_date: SCHEDULE[mn].date,
+        venue_id: SCHEDULE[mn].venue,
         home_score: GROUP_RESULTS[mn]?.[0] ?? null,
         away_score: GROUP_RESULTS[mn]?.[1] ?? null,
         penalty_winner_team_id: null,
@@ -211,7 +350,6 @@ function buildMatches(): Row[] {
       home_placeholder = `${prefix}${h}`;
       away_placeholder = `${prefix}${a}`;
     }
-    const day = 28 + Math.floor((mn - 73) * 0.7); // spread across late June–July
     matches.push({
       id: mn,
       match_number: mn,
@@ -221,8 +359,8 @@ function buildMatches(): Row[] {
       away_team_id: null,
       home_placeholder,
       away_placeholder,
-      match_date: `2026-0${day > 30 ? 7 : 6}-${String(day > 30 ? day - 30 : day).padStart(2, "0")}T19:00:00+00:00`,
-      venue: null,
+      match_date: SCHEDULE[mn].date,
+      venue_id: SCHEDULE[mn].venue,
       home_score: null,
       away_score: null,
       penalty_winner_team_id: null,
@@ -455,6 +593,7 @@ export function createDb(): Db {
   return {
     profiles: buildProfiles(),
     teams: buildTeams(),
+    venues: VENUES,
     players: buildPlayers(),
     matches: buildMatches(),
     knockout_bracket_positions: buildBracketPositions(),
