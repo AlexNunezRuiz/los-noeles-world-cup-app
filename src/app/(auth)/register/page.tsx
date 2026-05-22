@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { usernameToEmail, validateUsername } from "@/lib/auth/username";
+import { normalizeUsername, validateUsername } from "@/lib/auth/username";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,21 +45,40 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
+    const cleanUsername = normalizeUsername(username);
+
+    // Comprobación de usuario libre (si la función del servidor está disponible).
+    try {
+      const { data: taken } = await supabase.rpc("email_for_username", {
+        p_username: cleanUsername,
+      });
+      if (taken) {
+        toast({
+          title: "Usuario no disponible",
+          description: "Ese usuario ya está cogido. Prueba con otro.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+    } catch {
+      /* La función aún no está disponible — el alta fallará si está repetido. */
+    }
 
     const { error } = await supabase.auth.signUp({
-      email: usernameToEmail(username),
+      email: email.trim().toLowerCase(),
       password,
       options: {
-        data: { display_name: displayName.trim() },
+        data: { display_name: displayName.trim(), username: cleanUsername },
       },
     });
 
     if (error) {
-      const taken = /already|registered|exists/i.test(error.message);
+      const dup = /already|registered|exists|duplicate/i.test(error.message);
       toast({
         title: "Error al registrarse",
-        description: taken
-          ? "Ese usuario ya está cogido. Prueba con otro."
+        description: dup
+          ? "Ya hay una cuenta con ese correo o usuario."
           : error.message,
         variant: "destructive",
       });
@@ -104,6 +124,18 @@ export default function RegisterPage() {
               placeholder="el que verán los demás"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="tu@correo.com"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>

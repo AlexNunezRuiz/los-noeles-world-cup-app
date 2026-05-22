@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { resolveLoginEmail } from "@/lib/auth/username";
+import { usernameToEmail } from "@/lib/auth/username";
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
@@ -23,15 +23,30 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: resolveLoginEmail(identifier),
-      password,
-    });
+    // Resuelve el correo de acceso: si lo escrito tiene "@" es un correo;
+    // si no, es un usuario y se busca su correo en el servidor.
+    const id = identifier.trim().toLowerCase();
+    let email = id;
+    if (!id.includes("@")) {
+      let resolved: string | null = null;
+      try {
+        const { data } = await supabase.rpc("email_for_username", {
+          p_username: id,
+        });
+        resolved = (data as string | null) ?? null;
+      } catch {
+        resolved = null;
+      }
+      // Reserva (modo mock o función no disponible): correo sintético.
+      email = resolved ?? usernameToEmail(id);
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       toast({
         title: "Error al iniciar sesión",
-        description: "Usuario/email o contraseña incorrectos.",
+        description: "Usuario/correo o contraseña incorrectos.",
         variant: "destructive",
       });
       setLoading(false);
@@ -52,11 +67,11 @@ export default function LoginPage() {
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Usuario o email</Label>
+            <Label htmlFor="username">Usuario o correo</Label>
             <Input
               id="username"
               type="text"
-              placeholder="tu usuario o email"
+              placeholder="tu usuario o correo"
               autoComplete="username"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
