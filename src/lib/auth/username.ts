@@ -15,6 +15,16 @@ export function usernameToEmail(username: string): string {
 }
 
 /**
+ * Resuelve el email para iniciar sesión. Acepta tanto un usuario como un email
+ * directo (útil para cuentas antiguas creadas con email real): si lo escrito
+ * contiene "@" se trata como email; si no, se convierte al email sintético.
+ */
+export function resolveLoginEmail(identifier: string): string {
+  const value = identifier.trim().toLowerCase();
+  return value.includes("@") ? value : usernameToEmail(value);
+}
+
+/**
  * Valida el formato del usuario. Debe ser seguro como parte local de un email
  * y mapear 1:1 con su email sintético.
  * Devuelve un mensaje de error, o null si es válido.
