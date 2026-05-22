@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Activity, Trophy, MessageCircle, User, Shield } from "lucide-react";
+import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield } from "lucide-react";
 import { Emblem } from "@/components/ui/emblem";
 
 const navItems = [
   { href: "/porra", label: "Porra", icon: ClipboardList },
+  { href: "/calendario", label: "Calendario", icon: CalendarDays },
   { href: "/resultados", label: "Resultados", icon: Activity },
   { href: "/ranking", label: "Ranking", icon: Trophy },
   { href: "/chat", label: "Chat", icon: MessageCircle },

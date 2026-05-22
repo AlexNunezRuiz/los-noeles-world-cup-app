@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { TuJornadaCard } from "@/components/results/tu-jornada-card";
 import { MatchResultCard } from "@/components/results/match-result-card";
+import { UpcomingStrip } from "@/components/results/upcoming-strip";
+import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -17,12 +19,23 @@ interface TeamRow {
 interface MatchRow {
   id: number;
   match_number: number;
+  stage: string;
   group_letter: string | null;
   home_team_id: number | null;
   away_team_id: number | null;
+  home_placeholder: string | null;
+  away_placeholder: string | null;
+  match_date: string | null;
+  venue_id: number | null;
   home_score: number | null;
   away_score: number | null;
   is_finished: boolean;
+}
+
+interface VenueRow {
+  id: number;
+  name: string;
+  city: string;
 }
 
 interface PredictionRow {
@@ -82,6 +95,7 @@ interface FinishedMatchDisplay {
 export default function ResultadosPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("partidos");
   const [finishedMatches, setFinishedMatches] = useState<FinishedMatchDisplay[]>([]);
+  const [upcoming, setUpcoming] = useState<CalendarMatch[]>([]);
   const [totalPuntos, setTotalPuntos] = useState(0);
   const [posicion, setPosicion] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -97,13 +111,14 @@ export default function ResultadosPage() {
       const uid = user?.id ?? "";
 
       // Parallel fetches
-      const [teamsRes, matchesRes, predictionsRes, scoresRes, profilesRes] =
+      const [teamsRes, venuesRes, matchesRes, predictionsRes, scoresRes, profilesRes] =
         await Promise.all([
           supabase.from("teams").select("id, name, flag_emoji, group_letter"),
+          supabase.from("venues").select("id, name, city"),
           supabase
             .from("matches")
             .select(
-              "id, match_number, group_letter, home_team_id, away_team_id, home_score, away_score, is_finished"
+              "id, match_number, stage, group_letter, home_team_id, away_team_id, home_placeholder, away_placeholder, match_date, venue_id, home_score, away_score, is_finished"
             )
             .order("match_number", { ascending: true }),
           uid
@@ -120,6 +135,7 @@ export default function ResultadosPage() {
         ]);
 
       const teams: TeamRow[] = (teamsRes.data ?? []) as TeamRow[];
+      const venues: VenueRow[] = (venuesRes.data ?? []) as VenueRow[];
       const matches: MatchRow[] = (matchesRes.data ?? []) as MatchRow[];
       const predictions: PredictionRow[] = (predictionsRes.data ?? []) as PredictionRow[];
       const scores: UserScoreRow[] = (scoresRes.data ?? []) as UserScoreRow[];
@@ -127,6 +143,7 @@ export default function ResultadosPage() {
 
       // Build fast lookups
       const teamMap = new Map<number, TeamRow>(teams.map((t) => [t.id, t]));
+      const venueMap = new Map<number, VenueRow>(venues.map((v) => [v.id, v]));
       const predMap = new Map<number, PredictionRow>(
         predictions.map((p) => [p.match_id, p])
       );
@@ -188,6 +205,35 @@ export default function ResultadosPage() {
         });
       }
 
+      // Build calendar matches for the "próximos partidos" strip
+      const calendarMatches: CalendarMatch[] = matches
+        .filter((m) => m.match_date)
+        .map((m) => {
+          const home = m.home_team_id ? teamMap.get(m.home_team_id) : undefined;
+          const away = m.away_team_id ? teamMap.get(m.away_team_id) : undefined;
+          const venue = m.venue_id ? venueMap.get(m.venue_id) : undefined;
+          return {
+            id: m.id,
+            match_number: m.match_number,
+            stage: m.stage,
+            group_letter: m.group_letter,
+            match_date: m.match_date as string,
+            is_finished: m.is_finished,
+            home_score: m.home_score,
+            away_score: m.away_score,
+            home: home
+              ? { name: home.name, flag_emoji: home.flag_emoji }
+              : null,
+            away: away
+              ? { name: away.name, flag_emoji: away.flag_emoji }
+              : null,
+            home_placeholder: m.home_placeholder,
+            away_placeholder: m.away_placeholder,
+            venue: venue ? { name: venue.name, city: venue.city } : null,
+          };
+        });
+
+      setUpcoming(calendarMatches);
       setFinishedMatches(finished);
       setTotalPuntos(sumPts);
       setLoading(false);
@@ -233,6 +279,9 @@ export default function ResultadosPage() {
           Cargando resultados…
         </div>
       )}
+
+      {/* Próximos partidos */}
+      {!loading && <UpcomingStrip matches={upcoming} />}
 
       {/* Sub-tab switcher */}
       <div className="flex gap-1.5">
