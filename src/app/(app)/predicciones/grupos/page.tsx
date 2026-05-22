@@ -179,7 +179,15 @@ export default function GruposPage() {
       is_manual_override: boolean;
     }> = [];
 
+    // Solo se guardan los grupos "tocados" — con al menos un resultado completo.
+    // Los grupos sin tocar no se vuelcan a clasificados ni se meten al cuadro.
+    const touched = new Set<string>();
+    for (const m of matches) {
+      if (isComplete(predictions.get(m.id))) touched.add(m.group_letter);
+    }
+
     for (const [group, gs] of Array.from(currentStandings.entries())) {
+      if (!touched.has(group)) continue;
       for (const s of gs) {
         rows.push({
           user_id: userId,
@@ -196,7 +204,9 @@ export default function GruposPage() {
     }
 
     await supabase.from("predicted_group_standings").delete().eq("user_id", userId);
-    const { error } = await supabase.from("predicted_group_standings").insert(rows);
+    const { error } = rows.length
+      ? await supabase.from("predicted_group_standings").insert(rows)
+      : { error: null };
 
     setSaving(false);
     if (error) {
@@ -210,12 +220,10 @@ export default function GruposPage() {
   useEffect(() => {
     if (!userId || isLocked) return;
 
-    const hasCompleteGroup = GROUPS.some((g) => {
-      const groupMatchList = matches.filter((m) => m.group_letter === g);
-      return groupMatchList.length > 0 && groupMatchList.every((m) => isComplete(predictions.get(m.id)));
-    });
-
-    if (!hasCompleteGroup) return;
+    // Hay clasificaciones que guardar en cuanto se ha tocado algún grupo
+    // (al menos un partido con resultado completo).
+    const hasTouchedGroup = matches.some((m) => isComplete(predictions.get(m.id)));
+    if (!hasTouchedGroup) return;
 
     if (standingsAutoSaveTimeout.current) clearTimeout(standingsAutoSaveTimeout.current);
     standingsAutoSaveTimeout.current = setTimeout(() => {
