@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield, Banknote } from "lucide-react";
+import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield, Banknote, ScrollText } from "lucide-react";
 import { Emblem } from "@/components/ui/emblem";
 
 const navItems = [
@@ -33,6 +33,13 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/normas"
+              className="flex items-center justify-center w-8 h-8 text-ink-muted hover:text-ink transition-colors"
+              aria-label="Normas"
+            >
+              <ScrollText className="w-4 h-4" />
+            </Link>
             {isAdmin && (
               <Link
                 href="/admin/usuarios"
