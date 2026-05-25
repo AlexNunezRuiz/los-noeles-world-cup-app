@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield } from "lucide-react";
+import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield, Banknote } from "lucide-react";
 import { Emblem } from "@/components/ui/emblem";
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/calendario", label: "Calendario", icon: CalendarDays },
   { href: "/resultados", label: "Resultados", icon: Activity },
   { href: "/ranking", label: "Ranking", icon: Trophy },
+  { href: "/bote", label: "Bote", icon: Banknote },
   { href: "/chat", label: "Chat", icon: MessageCircle },
 ];
 
