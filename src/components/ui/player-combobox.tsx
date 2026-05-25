@@ -113,8 +113,14 @@ export function PlayerCombobox({
               role="option"
               aria-selected={option.id === value}
               onMouseDown={(e) => {
-                // Prevent blur from firing before click
                 e.preventDefault();
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleSelect(option);
               }}
               onClick={() => handleSelect(option)}
               className="cursor-pointer select-none px-3 py-2 text-sm text-ink hover:bg-surface-sunken"
