@@ -52,6 +52,10 @@ export function PlayerCombobox({
 
   const handleSelect = useCallback(
     (option: PlayerOption) => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
       setQuery(option.name);
       setOpen(false);
       onChange(option.id);
