@@ -23,39 +23,47 @@ export function PlayerCombobox({
   disabled = false,
   placeholder = "Buscar jugador…",
 }: PlayerComboboxProps) {
-  const selectedOption = value !== null ? options.find((o) => o.id === value) ?? null : null;
-
-  const [query, setQuery] = useState(selectedOption?.name ?? "");
+  const [query, setQuery] = useState(() => {
+    return value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
+  });
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep input text in sync when the external value changes
+  // Keep query in sync when external value changes
   useEffect(() => {
     const name = value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
     setQuery(name);
   }, [value, options]);
+
+  // Close on tap/click outside the container
+  useEffect(() => {
+    function handleOutside(e: MouseEvent | TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        // Reset query to the currently selected value
+        const name = value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
+        setQuery(name);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+    };
+    // value/options intentionally omitted: stale closure is acceptable here,
+    // the useEffect above keeps query in sync after any external value change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered =
     query.trim() === ""
       ? options
       : options.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()));
 
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setQuery(e.target.value);
-      setOpen(true);
-    },
-    []
-  );
-
   const handleSelect = useCallback(
     (option: PlayerOption) => {
-      if (closeTimerRef.current) {
-        clearTimeout(closeTimerRef.current);
-        closeTimerRef.current = null;
-      }
       setQuery(option.name);
       setOpen(false);
       onChange(option.id);
@@ -63,41 +71,17 @@ export function PlayerCombobox({
     [onChange]
   );
 
-  const handleFocus = useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    setOpen(true);
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    // Small delay so that a click on an option fires before we close
-    closeTimerRef.current = setTimeout(() => {
-      setOpen(false);
-      // If the current query doesn't match the selected value, reset it
-      const name =
-        value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
-      setQuery(name);
-    }, 150);
-  }, [value, options]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    };
-  }, []);
-
   return (
-    <div className="relative w-full">
+    <div ref={containerRef} className="relative w-full">
       <input
         ref={inputRef}
         type="text"
         value={query}
-        onChange={handleInputChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
         disabled={disabled}
         placeholder={placeholder}
         autoComplete="off"
@@ -106,7 +90,6 @@ export function PlayerCombobox({
 
       {open && !disabled && filtered.length > 0 && (
         <ul
-          ref={listRef}
           role="listbox"
           className="absolute z-50 mt-1 w-full overflow-y-auto rounded-md border border-border bg-surface shadow-md"
           style={{ maxHeight: "14rem" }}
@@ -117,16 +100,15 @@ export function PlayerCombobox({
               role="option"
               aria-selected={option.id === value}
               onMouseDown={(e) => {
+                // Desktop: prevent input blur before click
                 e.preventDefault();
               }}
-              onTouchStart={(e) => {
-                e.preventDefault();
-              }}
+              onClick={() => handleSelect(option)}
               onTouchEnd={(e) => {
+                // Mobile: handle selection on touchend and prevent synthetic click
                 e.preventDefault();
                 handleSelect(option);
               }}
-              onClick={() => handleSelect(option)}
               className="cursor-pointer select-none px-3 py-2 text-sm text-ink hover:bg-surface-sunken"
             >
               <span className="font-medium">{option.name}</span>
