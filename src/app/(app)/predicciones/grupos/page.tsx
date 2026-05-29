@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { GroupStandingsTable } from "@/components/predictions/GroupStandingsTable";
@@ -56,10 +56,15 @@ export default function GruposPage() {
   const [saving, setSaving] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>("A");
   const [editing, setEditing] = useState<{ matchId: number; side: "home" | "away" } | null>(null);
-  const saveTimeout = useRef<NodeJS.Timeout>();
-  const standingsAutoSaveTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
   const supabase = createClient();
+
+  useEffect(() => {
+    const groupParam = new URLSearchParams(window.location.search).get("grupo")?.toUpperCase();
+    if (groupParam && GROUPS.includes(groupParam)) {
+      setSelectedGroup(groupParam);
+    }
+  }, []);
 
   // Load data
   useEffect(() => {
@@ -274,14 +279,7 @@ export default function GruposPage() {
     const hasTouchedGroup = matches.some((m) => isComplete(predictions.get(m.id)));
     if (!hasTouchedGroup) return;
 
-    if (standingsAutoSaveTimeout.current) clearTimeout(standingsAutoSaveTimeout.current);
-    standingsAutoSaveTimeout.current = setTimeout(() => {
-      saveStandings(standings, true);
-    }, 1000);
-
-    return () => {
-      if (standingsAutoSaveTimeout.current) clearTimeout(standingsAutoSaveTimeout.current);
-    };
+    void saveStandings(standings, true);
   }, [standings, userId, isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const completedGroups = GROUPS.filter((g) => {
@@ -334,9 +332,8 @@ export default function GruposPage() {
 
     // Persist only once both sides have a value — a half-filled match is not
     // a prediction yet, so nothing is written and no empty 0 is stored.
-    if (saveTimeout.current) clearTimeout(saveTimeout.current);
     if (newHome !== null && newAway !== null) {
-      saveTimeout.current = setTimeout(() => savePrediction(matchId, newHome, newAway), 800);
+      void savePrediction(matchId, newHome, newAway);
     }
 
     // Auto-advance: home → away → next match's home

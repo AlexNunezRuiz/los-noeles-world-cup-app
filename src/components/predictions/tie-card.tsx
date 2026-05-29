@@ -7,7 +7,7 @@ import { FlapTile } from "@/components/ui/flap-tile";
 
 interface Contender {
   sourceLabel: string;
-  team: { name: string; flag_emoji: string } | null;
+  team: { name: string; flag_emoji: string; code?: string } | null;
 }
 
 interface TieCardProps {
@@ -19,7 +19,10 @@ interface TieCardProps {
   awayScore: number | null;
   selected?: boolean;
   focusedSide?: "home" | "away" | null;
+  sourceGroups?: string[];
+  penaltyWinner?: "home" | "away" | null;
   onTileTap: (side: "home" | "away") => void;
+  onWinnerSelect?: (side: "home" | "away") => void;
 }
 
 function ContenderRow({
@@ -66,9 +69,15 @@ export function TieCard({
   awayScore,
   selected,
   focusedSide,
+  sourceGroups = [],
+  penaltyWinner,
   onTileTap,
+  onWinnerSelect,
 }: TieCardProps) {
   const resolved = home.team !== null && away.team !== null;
+  const isDraw = homeScore !== null && awayScore !== null && homeScore === awayScore;
+  const uniqueSourceGroups = Array.from(new Set(sourceGroups)).filter(Boolean);
+
   return (
     <div
       className={cn(
@@ -81,7 +90,7 @@ export function TieCard({
       )}
     >
       <p className="mb-2 font-marcador text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-        Cruce Nº {String(matchNumber).padStart(2, "0")} · {roundLabel}
+        Cruce No {String(matchNumber).padStart(2, "0")} · {roundLabel}
       </p>
       <div className="space-y-2">
         <ContenderRow
@@ -99,18 +108,62 @@ export function TieCard({
           onTap={() => onTileTap("away")}
         />
       </div>
+
+      {selected && isDraw && resolved && onWinnerSelect && (
+        <div className="mt-3 rounded-lg border border-amber/40 bg-amber/[0.08] p-2.5">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
+            Empate en 90 minutos: elige quien pasa
+          </p>
+          <div className="flex gap-2">
+            {(["home", "away"] as const).map((side) => {
+              const contender = side === "home" ? home : away;
+              return (
+                <button
+                  key={side}
+                  type="button"
+                  onClick={() => onWinnerSelect(side)}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
+                    penaltyWinner === side
+                      ? "border-red bg-red text-white"
+                      : "border-border bg-surface text-ink"
+                  )}
+                >
+                  {contender.team && <Flag emoji={contender.team.flag_emoji} size={14} />}
+                  {contender.team?.code ?? contender.team?.name ?? contender.sourceLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {selected && (
         <div className="mt-3 border-t border-dashed border-border pt-2.5">
           <p className="text-[11px] text-ink-muted">
             Sale de <b className="text-ink">{home.sourceLabel}</b> y{" "}
             <b className="text-ink">{away.sourceLabel}</b>.
           </p>
-          <Link
-            href="/predicciones/grupos"
-            className="mt-1.5 inline-block font-marcador text-[11px] font-bold uppercase text-blue"
-          >
-            Ir a los grupos ›
-          </Link>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {uniqueSourceGroups.length > 0 ? (
+              uniqueSourceGroups.map((group) => (
+                <Link
+                  key={group}
+                  href={`/predicciones/grupos?grupo=${group}`}
+                  className="font-marcador text-[11px] font-bold uppercase text-blue"
+                >
+                  Grupo {group} ›
+                </Link>
+              ))
+            ) : (
+              <Link
+                href="/predicciones/grupos"
+                className="font-marcador text-[11px] font-bold uppercase text-blue"
+              >
+                Ir a los grupos ›
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </div>

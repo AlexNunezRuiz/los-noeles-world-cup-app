@@ -99,6 +99,17 @@ function buildSourceLabel(
   return placeholder ?? "TBD";
 }
 
+function getSourceGroups(bp: BracketPosition | undefined): string[] {
+  if (!bp) return [];
+  if ((bp.source_type === "group_winner" || bp.source_type === "group_runner_up") && bp.source_group) {
+    return [bp.source_group];
+  }
+  if (bp.source_type === "best_third" && bp.best_third_pool) {
+    return bp.best_third_pool.split(",").map((group) => group.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EliminatoriasPage() {
@@ -603,20 +614,23 @@ export default function EliminatoriasPage() {
                   home={{
                     sourceLabel: homeSourceLabel,
                     team: homeTeam
-                      ? { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji }
+                      ? { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji, code: homeTeam.code }
                       : null,
                   }}
                   away={{
                     sourceLabel: awaySourceLabel,
                     team: awayTeam
-                      ? { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji }
+                      ? { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji, code: awayTeam.code }
                       : null,
                   }}
                   homeScore={homeScore}
                   awayScore={awayScore}
                   selected={isSelected}
                   focusedSide={focusedSide}
+                  sourceGroups={[...getSourceGroups(homeBp), ...getSourceGroups(awayBp)]}
+                  penaltyWinner={pred?.penalty_winner ?? null}
                   onTileTap={(side) => handleTileTap(match.match_number, side)}
+                  onWinnerSelect={(side) => handlePenaltyWinner(match.match_number, side)}
                 />
               );
             })}
@@ -627,57 +641,6 @@ export default function EliminatoriasPage() {
               </p>
             )}
           </div>
-
-          {/* Penalty winner (draw case) — shown inline below selected card */}
-          {editing && (() => {
-            const match = bracketMatches.find((m) => m.match_number === editing.matchNum);
-            if (!match) return null;
-            const pred = predictions.get(match.match_number);
-            const isDraw =
-              pred !== undefined &&
-              pred.home_score !== null &&
-              pred.away_score !== null &&
-              pred.home_score === pred.away_score;
-            if (!isDraw) return null;
-            const homeTeam = match.home_team_id ? teamsMap.get(match.home_team_id) : undefined;
-            const awayTeam = match.away_team_id ? teamsMap.get(match.away_team_id) : undefined;
-            if (!homeTeam || !awayTeam) return null;
-            return (
-              <div className="mx-4 mt-2 rounded-xl border border-border bg-surface p-3">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
-                  Empate en 90 minutos: elige quién pasa
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePenaltyWinner(editing.matchNum, "home")}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
-                      pred?.penalty_winner === "home"
-                        ? "border-red bg-red text-white"
-                        : "border-border bg-surface text-ink"
-                    )}
-                  >
-                    <Flag emoji={homeTeam.flag_emoji} size={14} />
-                    {homeTeam.code}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePenaltyWinner(editing.matchNum, "away")}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
-                      pred?.penalty_winner === "away"
-                        ? "border-red bg-red text-white"
-                        : "border-border bg-surface text-ink"
-                    )}
-                  >
-                    <Flag emoji={awayTeam.flag_emoji} size={14} />
-                    {awayTeam.code}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
 
           {/* Score pad (docked) */}
           <ScorePad
