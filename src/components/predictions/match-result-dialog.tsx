@@ -199,16 +199,17 @@ export function MatchResultDialog({
           </div>
         )}
 
-        {/* Penalty section (draw case) */}
+        {/* Manual winner section (draw case) */}
         {isDraw && !isLocked && (
           <div className="mt-3 rounded-xl border border-border bg-surface-sunken p-3">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
-              Desempate penaltis
+              Empate en 90 minutos: elige quién pasa
             </p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => handlePenalty("home")}
+                disabled={!homeTeam || !awayTeam}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
                   localPenalty === "home"
@@ -222,6 +223,7 @@ export function MatchResultDialog({
               <button
                 type="button"
                 onClick={() => handlePenalty("away")}
+                disabled={!homeTeam || !awayTeam}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 font-marcador text-xs font-bold uppercase transition-colors",
                   localPenalty === "away"
@@ -240,10 +242,17 @@ export function MatchResultDialog({
         <button
           type="button"
           onClick={handleSave}
-          disabled={localHome === null || localAway === null || saving || isLocked}
+          disabled={
+            localHome === null ||
+            localAway === null ||
+            (isDraw && !localPenalty) ||
+            (isDraw && (!homeTeam || !awayTeam)) ||
+            saving ||
+            isLocked
+          }
           className={cn(
             "mt-4 w-full rounded-xl py-3 font-marcador text-sm font-bold uppercase tracking-wider transition-colors",
-            localHome !== null && localAway !== null && !isLocked
+            localHome !== null && localAway !== null && (!isDraw || (localPenalty && homeTeam && awayTeam)) && !isLocked
               ? "bg-red text-white active:bg-red/80"
               : "bg-surface-sunken text-ink-muted cursor-not-allowed"
           )}

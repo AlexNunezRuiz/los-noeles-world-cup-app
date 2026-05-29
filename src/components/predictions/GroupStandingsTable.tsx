@@ -105,7 +105,7 @@ export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, o
       </table>
       {tiedTeamIds.length > 0 && !isLocked && (
         <p className="text-xs text-amber px-3 py-2">
-          Hay equipos empatados. Usa las flechas para definir el orden.
+          Empate total tras criterios FIFA calculables. Usa las flechas para definir el orden.
         </p>
       )}
     </div>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Flag } from "@/components/ui/flag";
 import { StageBar } from "@/components/porra/stage-bar";
 import { getTeams } from "@/lib/data/static-cache";
+import { cn } from "@/lib/utils";
 
 interface Team {
   id: number;
@@ -22,6 +23,11 @@ interface Standing {
   points: number;
   goal_difference: number;
   goals_for: number;
+}
+
+interface BestThirdOverride {
+  team_id: number;
+  rank: number;
 }
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -43,6 +49,9 @@ const POSITION_LABELS: Record<number, string> = {
 export default function ClasificadosPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [bestThirdOverrides, setBestThirdOverrides] = useState<Map<number, number>>(new Map());
+  const [userId, setUserId] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -51,8 +60,9 @@ export default function ClasificadosPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
-      const [teamsRes, standingsRes] = await Promise.all([
+      const [teamsRes, standingsRes, bestThirdRes, configRes] = await Promise.all([
         getTeams(),
         supabase
           .from("predicted_group_standings")
@@ -60,18 +70,35 @@ export default function ClasificadosPage() {
           .eq("user_id", user.id)
           .order("group_letter")
           .order("position"),
+        supabase
+          .from("predicted_best_third_order")
+          .select("team_id, rank")
+          .eq("user_id", user.id)
+          .order("rank"),
+        supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
       ]);
 
       setTeams(teamsRes);
       setStandings(standingsRes.data || []);
+      setIsLocked(configRes.data?.value === "true");
+      setBestThirdOverrides(
+        new Map(
+          ((bestThirdRes.data || []) as BestThirdOverride[]).map((row) => [
+            row.team_id,
+            row.rank,
+          ])
+        )
+      );
     }
     load();
   }, []);
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
-  // Best thirds: 3rd-placed teams ranked by points > goal_difference > goals_for, top 8 qualify
-  const thirds = standings
+  const thirdTieKey = (s: Standing) => `${s.points}:${s.goal_difference}:${s.goals_for}`;
+
+  // Best thirds: FIFA calculable criteria are points > goal difference > goals for.
+  const baseThirds = standings
     .filter((s) => s.position === 3)
     .sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
@@ -79,8 +106,60 @@ export default function ClasificadosPage() {
         return b.goal_difference - a.goal_difference;
       return b.goals_for - a.goals_for;
     });
+  const tiedThirdKeys = new Set<string>();
+  for (const third of baseThirds) {
+    const key = thirdTieKey(third);
+    if (baseThirds.filter((s) => thirdTieKey(s) === key).length > 1) {
+      tiedThirdKeys.add(key);
+    }
+  }
+  const thirds = [...baseThirds].sort((a, b) => {
+    const statDiff =
+      b.points - a.points ||
+      b.goal_difference - a.goal_difference ||
+      b.goals_for - a.goals_for;
+    if (statDiff !== 0) return statDiff;
+    return (
+      (bestThirdOverrides.get(a.team_id) ?? Number.MAX_SAFE_INTEGER) -
+        (bestThirdOverrides.get(b.team_id) ?? Number.MAX_SAFE_INTEGER) ||
+      baseThirds.findIndex((s) => s.team_id === a.team_id) -
+        baseThirds.findIndex((s) => s.team_id === b.team_id)
+    );
+  });
   const bestThirds = thirds.slice(0, 8);
   const bestThirdsSet = new Set(bestThirds.map((t) => t.team_id));
+  const hasThirdTies = tiedThirdKeys.size > 0;
+
+  const saveBestThirdOrder = useCallback(
+    async (orderedThirds: Standing[]) => {
+      if (!userId || isLocked) return;
+      const rows = orderedThirds.map((third, index) => ({
+        user_id: userId,
+        team_id: third.team_id,
+        rank: index + 1,
+      }));
+      await supabase.from("predicted_best_third_order").delete().eq("user_id", userId);
+      if (rows.length > 0) {
+        await supabase.from("predicted_best_third_order").insert(rows);
+      }
+    },
+    [isLocked, supabase, userId]
+  );
+
+  const moveThird = useCallback(
+    (teamId: number, direction: "up" | "down") => {
+      const idx = thirds.findIndex((s) => s.team_id === teamId);
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= thirds.length) return;
+      if (thirdTieKey(thirds[idx]) !== thirdTieKey(thirds[swapIdx])) return;
+
+      const next = [...thirds];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      setBestThirdOverrides(new Map(next.map((third, index) => [third.team_id, index + 1])));
+      saveBestThirdOrder(next);
+    },
+    [saveBestThirdOrder, thirds]
+  );
 
   // Progress: a group is complete when it has at least 4 positioned teams saved
   const completedGroups = GROUPS.filter(
@@ -204,6 +283,11 @@ export default function ClasificadosPage() {
               <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
                 Clasificados por puntos · diferencia de goles · goles a favor
               </p>
+              {hasThirdTies && !isLocked && (
+                <p className="mt-2 text-xs text-amber">
+                  Hay empate total entre terceros tras criterios FIFA calculables. Ajusta el orden con las flechas.
+                </p>
+              )}
             </div>
 
             <div className="px-4 pb-4">
@@ -219,9 +303,11 @@ export default function ClasificadosPage() {
                     return (
                       <div
                         key={s.team_id}
-                        className={`flex items-center gap-3 py-1.5 rounded-lg px-2 ${
-                          qualifies ? "bg-green/8" : ""
-                        }`}
+                        className={cn(
+                          "flex items-center gap-3 py-1.5 rounded-lg px-2",
+                          qualifies && "bg-green/8",
+                          tiedThirdKeys.has(thirdTieKey(s)) && "border-l-2 border-l-amber"
+                        )}
                       >
                         <span
                           className={`font-marcador text-sm w-5 shrink-0 ${
@@ -245,6 +331,34 @@ export default function ClasificadosPage() {
                           {s.points}pts · {s.goal_difference > 0 ? "+" : ""}
                           {s.goal_difference}
                         </span>
+                        {tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && (
+                          <span className="flex shrink-0 gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => moveThird(s.team_id, "up")}
+                              disabled={
+                                idx === 0 ||
+                                thirdTieKey(thirds[idx - 1]) !== thirdTieKey(s)
+                              }
+                              className="rounded px-1 text-ink-muted transition-colors hover:text-ink disabled:opacity-30"
+                              aria-label={`Subir ${team?.name ?? "equipo"}`}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveThird(s.team_id, "down")}
+                              disabled={
+                                idx === thirds.length - 1 ||
+                                thirdTieKey(thirds[idx + 1]) !== thirdTieKey(s)
+                              }
+                              className="rounded px-1 text-ink-muted transition-colors hover:text-ink disabled:opacity-30"
+                              aria-label={`Bajar ${team?.name ?? "equipo"}`}
+                            >
+                              ↓
+                            </button>
+                          </span>
+                        )}
                         {qualifies && (
                           <span className="text-[10px] font-bold text-green shrink-0">
                             ✓

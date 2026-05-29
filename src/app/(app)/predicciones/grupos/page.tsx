@@ -41,7 +41,7 @@ interface Prediction {
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 /** A prediction only counts once BOTH scores have been entered. */
-function isComplete(p: Prediction | undefined): boolean {
+function isComplete(p: Prediction | undefined): p is Prediction & { home_score: number; away_score: number } {
   return p !== undefined && p.home_score !== null && p.away_score !== null;
 }
 
@@ -50,6 +50,7 @@ export default function GruposPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Map<number, Prediction>>(new Map());
   const [standings, setStandings] = useState<Map<string, TeamStanding[]>>(new Map());
+  const [manualGroupOrder, setManualGroupOrder] = useState<Map<string, Map<number, number>>>(new Map());
   const [isLocked, setIsLocked] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -67,10 +68,15 @@ export default function GruposPage() {
       if (!user) return;
       setUserId(user.id);
 
-      const [teamsRes, matchesRes, predsRes, configRes] = await Promise.all([
+      const [teamsRes, matchesRes, predsRes, manualStandingsRes, configRes] = await Promise.all([
         getTeams(),
         supabase.from("matches").select("*").eq("stage", "group").order("match_number"),
         supabase.from("match_predictions").select("*").eq("user_id", user.id),
+        supabase
+          .from("predicted_group_standings")
+          .select("group_letter, team_id, position, is_manual_override")
+          .eq("user_id", user.id)
+          .eq("is_manual_override", true),
         supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
       ]);
 
@@ -87,6 +93,15 @@ export default function GruposPage() {
         });
       }
       setPredictions(predMap);
+
+      const manualOrder = new Map<string, Map<number, number>>();
+      for (const row of manualStandingsRes.data || []) {
+        const group = row.group_letter as string;
+        const groupOrder = manualOrder.get(group) ?? new Map<number, number>();
+        groupOrder.set(row.team_id as number, row.position as number);
+        manualOrder.set(group, groupOrder);
+      }
+      setManualGroupOrder(manualOrder);
     }
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,24 +115,47 @@ export default function GruposPage() {
       const groupTeams = teams.filter((t) => t.group_letter === group);
       const groupMatchList = matches.filter((m) => m.group_letter === group);
 
-      const matchResults = groupMatchList.map((m) => {
-        const pred = predictions.get(m.id);
-        return {
-          home_team_id: m.home_team_id,
-          away_team_id: m.away_team_id,
-          home_score: pred?.home_score ?? 0,
-          away_score: pred?.away_score ?? 0,
-        };
-      });
+      const matchResults = groupMatchList
+        .map((m) => {
+          const pred = predictions.get(m.id);
+          if (!isComplete(pred)) return null;
+          return {
+            home_team_id: m.home_team_id,
+            away_team_id: m.away_team_id,
+            home_score: pred.home_score,
+            away_score: pred.away_score,
+          };
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null);
 
       const computed = calculateGroupStandings(
         groupTeams.map((t) => t.id),
         matchResults
       );
+      const savedOrder = manualGroupOrder.get(group);
+      if (savedOrder) {
+        const tiedGroups = findTiedTeams(computed);
+        for (const tiedGroup of tiedGroups) {
+          computed.sort((a, b) => {
+            const aTied = tiedGroup.includes(a.team_id);
+            const bTied = tiedGroup.includes(b.team_id);
+            if (aTied && bTied) {
+              return (
+                (savedOrder.get(a.team_id) ?? a.position) -
+                (savedOrder.get(b.team_id) ?? b.position)
+              );
+            }
+            return a.position - b.position;
+          });
+          computed.forEach((standing, index) => {
+            standing.position = index + 1;
+          });
+        }
+      }
       newStandings.set(group, computed);
     }
     setStandings(newStandings);
-  }, [teams, matches, predictions]);
+  }, [teams, matches, predictions, manualGroupOrder]);
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
@@ -157,6 +195,13 @@ export default function GruposPage() {
         gs[swapIdx] = { ...gs[swapIdx], position: tmpPos };
         gs.sort((a, b) => a.position - b.position);
 
+        const order = new Map(gs.map((standing) => [standing.team_id, standing.position]));
+        setManualGroupOrder((prevOrder) => {
+          const nextOrder = new Map(prevOrder);
+          nextOrder.set(group, order);
+          return nextOrder;
+        });
+
         next.set(group, gs);
         return next;
       });
@@ -189,6 +234,8 @@ export default function GruposPage() {
 
     for (const [group, gs] of Array.from(currentStandings.entries())) {
       if (!touched.has(group)) continue;
+      const manualOrder = manualGroupOrder.get(group);
+      const manuallyResolvedTeamIds = new Set(findTiedTeams(gs).flat());
       for (const s of gs) {
         rows.push({
           user_id: userId,
@@ -199,7 +246,8 @@ export default function GruposPage() {
           goal_difference: s.goal_difference,
           goals_for: s.goals_for,
           goals_against: s.goals_against,
-          is_manual_override: false,
+          is_manual_override:
+            (manualOrder?.has(s.team_id) ?? false) && manuallyResolvedTeamIds.has(s.team_id),
         });
       }
     }

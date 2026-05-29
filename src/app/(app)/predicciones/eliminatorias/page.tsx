@@ -40,6 +40,11 @@ interface KoPrediction {
   penalty_winner?: "home" | "away" | null;
 }
 
+interface BestThirdOverride {
+  team_id: number;
+  rank: number;
+}
+
 /** A prediction only counts once BOTH scores have been entered. */
 function isKoComplete(p: KoPrediction | undefined): boolean {
   return p !== undefined && p.home_score !== null && p.away_score !== null;
@@ -127,6 +132,7 @@ export default function EliminatoriasPage() {
         bracketPosRes,
         predsRes,
         configRes,
+        bestThirdOrderRes,
       ] = await Promise.all([
         getTeams(),
         supabase.from("matches").select("*").neq("stage", "group").order("match_number"),
@@ -134,6 +140,11 @@ export default function EliminatoriasPage() {
         getBracketPositions(),
         supabase.from("match_predictions").select("*").eq("user_id", user.id),
         supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
+        supabase
+          .from("predicted_best_third_order")
+          .select("team_id, rank")
+          .eq("user_id", user.id)
+          .order("rank"),
       ]);
 
       setTeams(teamsRes);
@@ -174,7 +185,13 @@ export default function EliminatoriasPage() {
         if (gs.length > 0) groupStandings.set(group, gs);
       }
 
-      const bestThirds = getBestThirds(groupStandings);
+      const bestThirdOrder = new Map(
+        ((bestThirdOrderRes.data || []) as BestThirdOverride[]).map((row) => [
+          row.team_id,
+          row.rank,
+        ])
+      );
+      const bestThirds = getBestThirds(groupStandings, bestThirdOrder);
 
       // Build predictions map (match_number based)
       const predMap = new Map<number, KnockoutPrediction>();
@@ -257,13 +274,14 @@ export default function EliminatoriasPage() {
       if (!userId || !matchId || isLocked) return;
       setSaving(true);
       const pred = predictions.get(matchNumber);
+      const penaltyWinner = homeScore === awayScore ? pred?.penalty_winner ?? null : null;
       await supabase.from("match_predictions").upsert(
         {
           user_id: userId,
           match_id: matchId,
           home_score: homeScore,
           away_score: awayScore,
-          penalty_winner: pred?.penalty_winner ?? null,
+          penalty_winner: penaltyWinner,
         },
         { onConflict: "user_id,match_id" }
       );
@@ -287,7 +305,7 @@ export default function EliminatoriasPage() {
           match_id: matchId,
           home_score: homeScore,
           away_score: awayScore,
-          penalty_winner: penaltyWinner ?? null,
+          penalty_winner: homeScore === awayScore ? penaltyWinner ?? null : null,
         },
         { onConflict: "user_id,match_id" }
       );
@@ -297,6 +315,7 @@ export default function EliminatoriasPage() {
 
   const handlePenaltyWinner = useCallback(
     (matchNumber: number, winner: "home" | "away") => {
+      const pred = predictions.get(matchNumber);
       setPredictions((prev) => {
         const next = new Map(prev);
         const existing = prev.get(matchNumber);
@@ -305,10 +324,10 @@ export default function EliminatoriasPage() {
         }
         return next;
       });
-      const pred = predictions.get(matchNumber);
       if (pred && pred.home_score !== null && pred.away_score !== null) {
         savePredictionFull(matchNumber, pred.home_score, pred.away_score, winner);
       }
+      setEditing(null);
     },
     [predictions, savePredictionFull]
   );
@@ -346,7 +365,7 @@ export default function EliminatoriasPage() {
           match_number: matchNum,
           home_score: newHome,
           away_score: newAway,
-          penalty_winner: existing?.penalty_winner,
+          penalty_winner: newHome === newAway ? existing?.penalty_winner : null,
         });
         return next;
       });
@@ -357,10 +376,14 @@ export default function EliminatoriasPage() {
         saveTimeout.current = setTimeout(() => savePrediction(matchNum, newHome, newAway), 800);
       }
 
-      // Auto-advance
+      // Auto-advance, except knockout draws need a manual winner decision.
       if (side === "home") {
         setEditing({ matchNum, side: "away" });
       } else {
+        if (newHome !== null && newAway !== null && newHome === newAway) {
+          setEditing({ matchNum, side: "away" });
+          return;
+        }
         const currentIdx = activeRoundMatches.findIndex((m) => m.match_number === matchNum);
         const nextMatch =
           currentIdx >= 0 && currentIdx < activeRoundMatches.length - 1
@@ -380,7 +403,11 @@ export default function EliminatoriasPage() {
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
-  const completedCount = Array.from(predictions.values()).filter(isKoComplete).length;
+  const completedCount = Array.from(predictions.values()).filter(
+    (pred) =>
+      isKoComplete(pred) &&
+      (pred.home_score !== pred.away_score || pred.penalty_winner === "home" || pred.penalty_winner === "away")
+  ).length;
   const elimPct = Math.round((completedCount / 32) * 100);
 
   // Build a lookup: match_number + slot -> BracketPosition
@@ -439,7 +466,7 @@ export default function EliminatoriasPage() {
         match_number: matchNumber,
         home_score: home,
         away_score: away,
-        penalty_winner: penaltyWinner ?? existing?.penalty_winner,
+        penalty_winner: home === away ? penaltyWinner ?? existing?.penalty_winner : null,
       });
       return next;
     });
@@ -479,7 +506,7 @@ export default function EliminatoriasPage() {
       <div className="px-4 pt-3 pb-1">
         <h1 className="font-marcador text-3xl uppercase text-ink leading-none">Cuadro</h1>
         <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
-          Eliminatorias · {completedCount} de 32 partidos
+          Eliminatorias · resultado en 90 minutos · {completedCount} de 32 partidos
           {saving && " · guardando…"}
         </p>
       </div>
@@ -618,7 +645,7 @@ export default function EliminatoriasPage() {
             return (
               <div className="mx-4 mt-2 rounded-xl border border-border bg-surface p-3">
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
-                  Desempate penaltis
+                  Empate en 90 minutos: elige quién pasa
                 </p>
                 <div className="flex gap-2">
                   <button

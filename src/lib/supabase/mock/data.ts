@@ -599,6 +599,7 @@ export function createDb(): Db {
     knockout_bracket_positions: buildBracketPositions(),
     match_predictions: buildMatchPredictions(),
     predicted_group_standings: [],
+    predicted_best_third_order: [],
     award_predictions: [],
     actual_awards: [],
     scoring_rules: buildScoringRules(),
@@ -618,6 +619,7 @@ export function createDb(): Db {
 export const UUID_TABLES = new Set([
   "match_predictions",
   "predicted_group_standings",
+  "predicted_best_third_order",
   "award_predictions",
   "user_scores",
   "score_events",
