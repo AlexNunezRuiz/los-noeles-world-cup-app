@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { cn } from "@/lib/utils";
 import type { TeamStanding } from "@/lib/tournament/standings";
 import { Flag } from "@/components/ui/flag";
@@ -18,9 +19,84 @@ interface Props {
   tiedTeamIds: number[];
   isLocked: boolean;
   onMoveTeam?: (teamId: number, direction: "up" | "down") => void;
+  onReorderTeam?: (teamId: number, targetTeamId: number) => void;
 }
 
-export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, onMoveTeam }: Props) {
+export function GroupStandingsTable({
+  standings,
+  teams,
+  tiedTeamIds,
+  isLocked,
+  onMoveTeam,
+  onReorderTeam,
+}: Props) {
+  const [pressingTeamId, setPressingTeamId] = useState<number | null>(null);
+  const [draggingTeamId, setDraggingTeamId] = useState<number | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const draggingTeamIdRef = useRef<number | null>(null);
+  const lastTargetTeamIdRef = useRef<number | null>(null);
+  const canDrag = !isLocked && tiedTeamIds.length > 0 && onReorderTeam !== undefined;
+
+  const clearPressTimer = useCallback(() => {
+    if (pressTimer.current !== null) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+
+  const endDrag = useCallback(() => {
+    clearPressTimer();
+    draggingTeamIdRef.current = null;
+    lastTargetTeamIdRef.current = null;
+    setDraggingTeamId(null);
+    setPressingTeamId(null);
+    document.body.style.userSelect = "";
+  }, [clearPressTimer]);
+
+  useEffect(
+    () => () => {
+      clearPressTimer();
+      document.body.style.userSelect = "";
+    },
+    [clearPressTimer]
+  );
+
+  const startPress = (teamId: number, event: PointerEvent<HTMLTableRowElement>) => {
+    if (!canDrag || !tiedTeamIds.includes(teamId)) return;
+    clearPressTimer();
+    setPressingTeamId(teamId);
+    lastTargetTeamIdRef.current = teamId;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    pressTimer.current = window.setTimeout(() => {
+      draggingTeamIdRef.current = teamId;
+      setDraggingTeamId(teamId);
+      document.body.style.userSelect = "none";
+      pressTimer.current = null;
+    }, 220);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLTableRowElement>) => {
+    const draggedTeamId = draggingTeamIdRef.current;
+    if (!draggedTeamId || !onReorderTeam) return;
+    event.preventDefault();
+
+    const targetRow = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)
+      ?.closest<HTMLTableRowElement>("[data-team-id]");
+    const targetTeamId = Number(targetRow?.dataset.teamId);
+    if (
+      !targetTeamId ||
+      targetTeamId === draggedTeamId ||
+      targetTeamId === lastTargetTeamIdRef.current ||
+      !tiedTeamIds.includes(targetTeamId)
+    ) {
+      return;
+    }
+
+    lastTargetTeamIdRef.current = targetTeamId;
+    onReorderTeam(draggedTeamId, targetTeamId);
+  };
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
       <table className="w-full text-sm">
@@ -48,9 +124,18 @@ export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, o
             return (
               <tr
                 key={s.team_id}
+                data-team-id={s.team_id}
+                onPointerDown={(event) => startPress(s.team_id, event)}
+                onPointerMove={handlePointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
                 className={cn(
-                  "border-b border-border text-ink last:border-b-0",
+                  "border-b border-border text-ink last:border-b-0 transition-[background,box-shadow,transform]",
                   isTied && "bg-amber/[0.08] border-l-2 border-l-amber",
+                  isTied && canDrag && "cursor-grab select-none active:cursor-grabbing",
+                  pressingTeamId === s.team_id && "ring-2 ring-amber/40",
+                  draggingTeamId === s.team_id && "relative z-10 scale-[1.01] bg-amber/15 shadow-md",
+                  draggingTeamId !== null && isTied && draggingTeamId !== s.team_id && "bg-amber/[0.12]",
                   !isTied && qualifies && "border-l-2 border-l-green"
                 )}
               >
@@ -105,7 +190,7 @@ export function GroupStandingsTable({ standings, teams, tiedTeamIds, isLocked, o
       </table>
       {tiedTeamIds.length > 0 && !isLocked && (
         <p className="text-xs text-amber px-3 py-2">
-          Empate total tras criterios FIFA calculables. Usa las flechas para definir el orden.
+          Empate total tras criterios FIFA calculables. Mantén pulsado un equipo para arrastrarlo o usa las flechas.
         </p>
       )}
     </div>

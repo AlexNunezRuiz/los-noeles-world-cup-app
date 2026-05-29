@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { GroupStandingsTable } from "@/components/predictions/GroupStandingsTable";
@@ -56,6 +56,7 @@ export default function GruposPage() {
   const [saving, setSaving] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>("A");
   const [editing, setEditing] = useState<{ matchId: number; side: "home" | "away" } | null>(null);
+  const standingsSaveTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -115,10 +116,23 @@ export default function GruposPage() {
   useEffect(() => {
     if (teams.length === 0 || matches.length === 0) return;
 
+    const teamsByGroup = new Map<string, Team[]>();
+    const matchesByGroup = new Map<string, Match[]>();
+    for (const group of GROUPS) {
+      teamsByGroup.set(group, []);
+      matchesByGroup.set(group, []);
+    }
+    for (const team of teams) {
+      teamsByGroup.get(team.group_letter)?.push(team);
+    }
+    for (const match of matches) {
+      matchesByGroup.get(match.group_letter)?.push(match);
+    }
+
     const newStandings = new Map<string, TeamStanding[]>();
     for (const group of GROUPS) {
-      const groupTeams = teams.filter((t) => t.group_letter === group);
-      const groupMatchList = matches.filter((m) => m.group_letter === group);
+      const groupTeams = teamsByGroup.get(group) ?? [];
+      const groupMatchList = matchesByGroup.get(group) ?? [];
 
       const matchResults = groupMatchList
         .map((m) => {
@@ -162,7 +176,7 @@ export default function GruposPage() {
     setStandings(newStandings);
   }, [teams, matches, predictions, manualGroupOrder]);
 
-  const teamsMap = new Map(teams.map((t) => [t.id, t]));
+  const teamsMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
   async function savePrediction(matchId: number, homeScore: number, awayScore: number) {
     if (!userId || isLocked) return;
@@ -208,6 +222,36 @@ export default function GruposPage() {
         });
 
         next.set(group, gs);
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleReorderTeam = useCallback(
+    (group: string, teamId: number, targetTeamId: number) => {
+      setStandings((prev) => {
+        const next = new Map(prev);
+        const gs = [...(next.get(group) || [])].sort((a, b) => a.position - b.position);
+        const fromIdx = gs.findIndex((s) => s.team_id === teamId);
+        const toIdx = gs.findIndex((s) => s.team_id === targetTeamId);
+        if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
+
+        const [moved] = gs.splice(fromIdx, 1);
+        gs.splice(toIdx, 0, moved);
+        const reordered = gs.map((standing, index) => ({
+          ...standing,
+          position: index + 1,
+        }));
+
+        const order = new Map(reordered.map((standing) => [standing.team_id, standing.position]));
+        setManualGroupOrder((prevOrder) => {
+          const nextOrder = new Map(prevOrder);
+          nextOrder.set(group, order);
+          return nextOrder;
+        });
+
+        next.set(group, reordered);
         return next;
       });
     },
@@ -279,29 +323,52 @@ export default function GruposPage() {
     const hasTouchedGroup = matches.some((m) => isComplete(predictions.get(m.id)));
     if (!hasTouchedGroup) return;
 
-    void saveStandings(standings, true);
+    if (standingsSaveTimeout.current) clearTimeout(standingsSaveTimeout.current);
+    standingsSaveTimeout.current = setTimeout(() => {
+      void saveStandings(standings, true);
+    }, 700);
+
+    return () => {
+      if (standingsSaveTimeout.current) clearTimeout(standingsSaveTimeout.current);
+    };
   }, [standings, userId, isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const completedGroups = GROUPS.filter((g) => {
-    const groupMatchList = matches.filter((m) => m.group_letter === g);
-    return groupMatchList.length > 0 && groupMatchList.every((m) => isComplete(predictions.get(m.id)));
-  });
+  const { completedGroups, completedCount, groupMatches, groupPredCount } = useMemo(() => {
+    const currentGroupMatches: Match[] = [];
+    const groupCounts = new Map<string, { total: number; complete: number }>();
+    let complete = 0;
 
-  const completedCount = Array.from(predictions.values()).filter(isComplete).length;
+    for (const match of matches) {
+      const isMatchComplete = isComplete(predictions.get(match.id));
+      if (isMatchComplete) complete += 1;
+      if (match.group_letter === selectedGroup) currentGroupMatches.push(match);
+
+      const count = groupCounts.get(match.group_letter) ?? { total: 0, complete: 0 };
+      count.total += 1;
+      if (isMatchComplete) count.complete += 1;
+      groupCounts.set(match.group_letter, count);
+    }
+
+    currentGroupMatches.sort((a, b) => a.match_number - b.match_number);
+
+    return {
+      completedGroups: GROUPS.filter((g) => {
+        const count = groupCounts.get(g);
+        return count !== undefined && count.total > 0 && count.total === count.complete;
+      }),
+      completedCount: complete,
+      groupMatches: currentGroupMatches,
+      groupPredCount: currentGroupMatches.filter((m) => isComplete(predictions.get(m.id))).length,
+    };
+  }, [matches, predictions, selectedGroup]);
+
   const groupsPct = Math.round((completedCount / 72) * 100);
-
-  // Current group data
-  const groupMatches = matches
-    .filter((m) => m.group_letter === selectedGroup)
-    .sort((a, b) => a.match_number - b.match_number);
   const gs = standings.get(selectedGroup) || [];
   const tiedTeams = findTiedTeams(gs).flat();
 
   const groupIndex = GROUPS.indexOf(selectedGroup);
   const prevGroup = groupIndex > 0 ? GROUPS[groupIndex - 1] : null;
   const nextGroup = groupIndex < GROUPS.length - 1 ? GROUPS[groupIndex + 1] : null;
-
-  const groupPredCount = groupMatches.filter((m) => isComplete(predictions.get(m.id))).length;
 
   // Derive editing team + flag for the ScorePad
   const editingMatch = editing ? matches.find((m) => m.id === editing.matchId) : null;
@@ -423,6 +490,9 @@ export default function GruposPage() {
           tiedTeamIds={tiedTeams}
           isLocked={isLocked}
           onMoveTeam={(teamId, dir) => handleMoveTeam(selectedGroup, teamId, dir)}
+          onReorderTeam={(teamId, targetTeamId) =>
+            handleReorderTeam(selectedGroup, teamId, targetTeamId)
+          }
         />
       </div>
 
