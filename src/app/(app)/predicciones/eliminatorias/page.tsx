@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "@/lib/tournament/bracket";
 import { getBestThirds, type TeamStanding } from "@/lib/tournament/standings";
@@ -163,16 +163,32 @@ export default function EliminatoriasPage() {
 
       // Build match_number -> id map
       const idMap = new Map<number, number>();
+      const matchNumberById = new Map<number, number>();
       for (const m of matchesRes.data || []) {
         idMap.set(m.match_number, m.id);
+        matchNumberById.set(m.id, m.match_number);
       }
       setMatchIdMap(idMap);
 
       // Build group standings
+      const standingsByGroup = new Map<string, Array<{
+        team_id: number;
+        position: number;
+        points: number;
+        goals_for: number;
+        goals_against: number;
+        goal_difference: number;
+      }>>();
+      for (const row of standingsRes.data || []) {
+        const group = row.group_letter as string;
+        const rows = standingsByGroup.get(group) ?? [];
+        rows.push(row);
+        standingsByGroup.set(group, rows);
+      }
+
       const groupStandings = new Map<string, TeamStanding[]>();
       for (const group of GROUPS) {
-        const gs = (standingsRes.data || [])
-          .filter((s: { group_letter: string }) => s.group_letter === group)
+        const gs = (standingsByGroup.get(group) ?? [])
           .sort((a: { position: number }, b: { position: number }) => a.position - b.position)
           .map((s: {
             team_id: number;
@@ -207,7 +223,7 @@ export default function EliminatoriasPage() {
       // Build predictions map (match_number based)
       const predMap = new Map<number, KnockoutPrediction>();
       for (const p of predsRes.data || []) {
-        const matchNum = Array.from(idMap.entries()).find(([, id]) => id === p.match_id)?.[0];
+        const matchNum = matchNumberById.get(p.match_id);
         if (matchNum) {
           predMap.set(matchNum, {
             match_id: p.match_id,
@@ -345,12 +361,14 @@ export default function EliminatoriasPage() {
 
   // ── ScorePad / TileTap ────────────────────────────────────────────────────
 
-  const activeRoundMatches = bracketMatches
-    .filter((m) => {
-      const tab = ROUND_TABS.find((t) => t.key === activeRound);
-      return tab ? (tab.stages as readonly string[]).includes(m.stage) : false;
-    })
-    .sort((a, b) => a.match_number - b.match_number);
+  const activeRoundMatches = useMemo(() => {
+    const tab = ROUND_TABS.find((t) => t.key === activeRound);
+    if (!tab) return [];
+    const stages = new Set<string>(tab.stages);
+    return bracketMatches
+      .filter((m) => stages.has(m.stage))
+      .sort((a, b) => a.match_number - b.match_number);
+  }, [activeRound, bracketMatches]);
 
   const handleTileTap = useCallback(
     (matchNum: number, side: "home" | "away") => {
@@ -412,20 +430,29 @@ export default function EliminatoriasPage() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  const teamsMap = new Map(teams.map((t) => [t.id, t]));
+  const teamsMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
-  const completedCount = Array.from(predictions.values()).filter(
-    (pred) =>
-      isKoComplete(pred) &&
-      (pred.home_score !== pred.away_score || pred.penalty_winner === "home" || pred.penalty_winner === "away")
-  ).length;
+  const completedCount = useMemo(
+    () =>
+      Array.from(predictions.values()).filter(
+        (pred) =>
+          isKoComplete(pred) &&
+          (pred.home_score !== pred.away_score ||
+            pred.penalty_winner === "home" ||
+            pred.penalty_winner === "away")
+      ).length,
+    [predictions]
+  );
   const elimPct = Math.round((completedCount / 32) * 100);
 
   // Build a lookup: match_number + slot -> BracketPosition
-  const bpMap = new Map<string, BracketPosition>();
-  for (const bp of bracketPositions) {
-    bpMap.set(`${bp.match_number}:${bp.slot}`, bp);
-  }
+  const bpMap = useMemo(() => {
+    const map = new Map<string, BracketPosition>();
+    for (const bp of bracketPositions) {
+      map.set(`${bp.match_number}:${bp.slot}`, bp);
+    }
+    return map;
+  }, [bracketPositions]);
 
   // ── Editing team for ScorePad ─────────────────────────────────────────────
 
@@ -438,21 +465,33 @@ export default function EliminatoriasPage() {
       : editingMatch.away_team_id
     : null;
   const editingTeam = editingTeamId ? teamsMap.get(editingTeamId) : null;
+  const editingPrediction = editing ? predictions.get(editing.matchNum) : undefined;
+  const editingIsDraw =
+    editingPrediction !== undefined &&
+    editingPrediction.home_score !== null &&
+    editingPrediction.away_score !== null &&
+    editingPrediction.home_score === editingPrediction.away_score;
 
   // ── Classic bracket derived data ─────────────────────────────────────────
 
-  const bracketMatchViews: BracketMatchView[] = bracketMatches.map((m) => {
-    const homeBp = bpMap.get(`${m.match_number}:home`);
-    const awayBp = bpMap.get(`${m.match_number}:away`);
-    return {
-      match_number: m.match_number,
-      stage: m.stage,
-      homeTeam: m.home_team_id ? (teamsMap.get(m.home_team_id) ? { name: teamsMap.get(m.home_team_id)!.name, flag_emoji: teamsMap.get(m.home_team_id)!.flag_emoji } : null) : null,
-      awayTeam: m.away_team_id ? (teamsMap.get(m.away_team_id) ? { name: teamsMap.get(m.away_team_id)!.name, flag_emoji: teamsMap.get(m.away_team_id)!.flag_emoji } : null) : null,
-      homeSourceLabel: buildSourceLabel(homeBp, m.home_placeholder),
-      awaySourceLabel: buildSourceLabel(awayBp, m.away_placeholder),
-    };
-  });
+  const bracketMatchViews: BracketMatchView[] = useMemo(
+    () =>
+      bracketMatches.map((m) => {
+        const homeBp = bpMap.get(`${m.match_number}:home`);
+        const awayBp = bpMap.get(`${m.match_number}:away`);
+        const homeTeam = m.home_team_id ? teamsMap.get(m.home_team_id) : undefined;
+        const awayTeam = m.away_team_id ? teamsMap.get(m.away_team_id) : undefined;
+        return {
+          match_number: m.match_number,
+          stage: m.stage,
+          homeTeam: homeTeam ? { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji } : null,
+          awayTeam: awayTeam ? { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji } : null,
+          homeSourceLabel: buildSourceLabel(homeBp, m.home_placeholder),
+          awaySourceLabel: buildSourceLabel(awayBp, m.away_placeholder),
+        };
+      }),
+    [bracketMatches, bpMap, teamsMap]
+  );
 
   const cuadroSelectedMatchData = cuadroSelectedMatch !== null
     ? bracketMatchViews.find((m) => m.match_number === cuadroSelectedMatch) ?? null
@@ -644,7 +683,7 @@ export default function EliminatoriasPage() {
 
           {/* Score pad (docked) */}
           <ScorePad
-            open={editing !== null}
+            open={editing !== null && !editingIsDraw}
             teamName={editingTeam?.name ?? "Por decidir"}
             flag={<Flag emoji={editingTeam?.flag_emoji ?? ""} size={18} />}
             onDigit={handleDigit}
