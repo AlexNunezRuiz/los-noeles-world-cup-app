@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { TuJornadaCard } from "@/components/results/tu-jornada-card";
 import { MatchResultCard } from "@/components/results/match-result-card";
@@ -245,9 +245,13 @@ export default function ResultadosPage() {
   }, []);
 
   // Build boletin (only matches with predictions, i.e. outcome !== null)
-  const boletin = finishedMatches
-    .filter((m) => m.outcome !== null)
-    .map((m) => ({ tipo: m.outcome as OutcomeType, puntos: m.points }));
+  const boletin = useMemo(
+    () =>
+      finishedMatches
+        .filter((m) => m.outcome !== null)
+        .map((m) => ({ tipo: m.outcome as OutcomeType, puntos: m.points })),
+    [finishedMatches]
+  );
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: "partidos", label: "Partidos" },

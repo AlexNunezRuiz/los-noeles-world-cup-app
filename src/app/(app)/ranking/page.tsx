@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { RankingList, RankingRow } from "@/components/ranking/ranking-list";
@@ -68,22 +68,28 @@ export default function RankingPage() {
 
   useEffect(() => {
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const uid = user?.id ?? "";
-      if (uid) setCurrentUserId(uid);
-
-      const { data: scores } = await supabase
+      const userPromise = supabase.auth.getUser();
+      const scoresPromise = supabase
         .from("user_scores")
         .select(
           "user_id, total_points, group_stage_points, knockout_exact_points, qualification_points, award_points"
         )
         .order("total_points", { ascending: false });
 
-      const { data: profiles } = await supabase
+      const profilesPromise = supabase
         .from("profiles")
         .select("id, display_name, has_paid");
+
+      const [
+        {
+          data: { user },
+        },
+        { data: scores },
+        { data: profiles },
+      ] = await Promise.all([userPromise, scoresPromise, profilesPromise]);
+
+      const uid = user?.id ?? "";
+      if (uid) setCurrentUserId(uid);
 
       const profileMap = new Map<string, ProfileRow>(
         ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
@@ -131,38 +137,45 @@ export default function RankingPage() {
   }, []);
 
   // Derive display data
-  const youIdx = entries.findIndex((e) => e.isYou);
-  const you = youIdx >= 0 ? entries[youIdx] : null;
+  const { youIdx, you, rankingRows, top3, rest } = useMemo(() => {
+    const currentYouIdx = entries.findIndex((e) => e.isYou);
+    const currentYou = currentYouIdx >= 0 ? entries[currentYouIdx] : null;
+    const rows: RankingRow[] = entries.map((e) => {
+      const isYou = e.user_id === currentUserId;
+      const gapInfo =
+        isYou && currentYouIdx >= 0
+          ? buildGapInfo(entries, currentYouIdx)
+          : undefined;
+      return {
+        position: e.position,
+        movement: 0,
+        name: e.name,
+        points: e.total_points,
+        isYou,
+        userId: e.user_id,
+        breakdown: {
+          grupos: e.group_stage_points,
+          cuadro: e.knockout_exact_points,
+          clasif: e.qualification_points,
+          premios: e.award_points,
+        },
+        gapInfo,
+      };
+    });
 
-  const rankingRows: RankingRow[] = entries.map((e) => {
-    const isYou = e.user_id === currentUserId;
-    const gapInfo =
-      isYou && youIdx >= 0 ? buildGapInfo(entries, youIdx) : undefined;
     return {
-      position: e.position,
-      movement: 0,
-      name: e.name,
-      points: e.total_points,
-      isYou,
-      userId: e.user_id,
-      breakdown: {
-        grupos: e.group_stage_points,
-        cuadro: e.knockout_exact_points,
-        clasif: e.qualification_points,
-        premios: e.award_points,
-      },
-      gapInfo,
+      youIdx: currentYouIdx,
+      you: currentYou,
+      rankingRows: rows,
+      top3: entries.slice(0, 3).map((e) => ({
+        name: e.name,
+        points: e.total_points,
+        movement: 0,
+        isYou: e.user_id === currentUserId,
+      })),
+      rest: entries.slice(3),
     };
-  });
-
-  const top3 = entries.slice(0, 3).map((e) => ({
-    name: e.name,
-    points: e.total_points,
-    movement: 0,
-    isYou: e.user_id === currentUserId,
-  }));
-
-  const rest = entries.slice(3);
+  }, [entries, currentUserId]);
 
   const youAbove =
     you && youIdx > 0

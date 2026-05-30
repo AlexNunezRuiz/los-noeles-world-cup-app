@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Flag } from "@/components/ui/flag";
 
@@ -359,8 +360,12 @@ function LeftColumn({
   onSelectMatch: (n: number) => void;
   width?: number;
 }) {
+  const matchMap = useMemo(
+    () => new Map(allMatches.map((match) => [match.match_number, match])),
+    [allMatches]
+  );
   const ordered = matchNums
-    .map((n) => allMatches.find((m) => m.match_number === n))
+    .map((n) => matchMap.get(n))
     .filter((m): m is BracketMatchView => m !== undefined);
 
   // Build pairs (top, bottom). Odd match at end becomes a single.
@@ -429,8 +434,12 @@ function RightColumn({
   onSelectMatch: (n: number) => void;
   width?: number;
 }) {
+  const matchMap = useMemo(
+    () => new Map(allMatches.map((match) => [match.match_number, match])),
+    [allMatches]
+  );
   const ordered = matchNums
-    .map((n) => allMatches.find((m) => m.match_number === n))
+    .map((n) => matchMap.get(n))
     .filter((m): m is BracketMatchView => m !== undefined);
 
   const rows: React.ReactNode[] = [];
@@ -485,7 +494,11 @@ export function ClassicBracket({
   predictions,
   onSelectMatch,
 }: ClassicBracketProps) {
-  const find = (n: number) => matches.find((m) => m.match_number === n);
+  const matchMap = useMemo(
+    () => new Map(matches.map((match) => [match.match_number, match])),
+    [matches]
+  );
+  const find = (n: number) => matchMap.get(n);
 
   const finalMatch      = find(FINAL_NUM);
   const thirdPlaceMatch = find(THIRD_PLACE_NUM);

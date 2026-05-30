@@ -43,6 +43,11 @@ interface ScoringRule {
   category: string;
 }
 
+interface TournamentConfig {
+  key: string;
+  value: string;
+}
+
 export default async function NormasPage() {
   const supabase = createClient();
 
@@ -51,7 +56,8 @@ export default async function NormasPage() {
     supabase.from("tournament_config").select("key, value"),
   ]);
 
-  const configMap = new Map((config ?? []).map((c: { key: string; value: string }) => [c.key, c.value]));
+  const configRows = (config ?? []) as TournamentConfig[];
+  const configMap = new Map(configRows.map((c) => [c.key, c.value]));
   const lockDatetime = configMap.get("lock_datetime");
 
   const lockLabel = lockDatetime
