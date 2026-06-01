@@ -61,15 +61,68 @@ export function GroupStandingsTable({
     setDragOffsetY(0);
     setPressingTeamId(null);
     document.body.style.userSelect = "";
+    document.body.style.touchAction = "";
   }, [clearPressTimer, onReorderTeam]);
 
   useEffect(
     () => () => {
       clearPressTimer();
       document.body.style.userSelect = "";
+      document.body.style.touchAction = "";
     },
     [clearPressTimer]
   );
+
+  const updateDragTarget = useCallback(
+    (clientX: number, clientY: number) => {
+      const draggedTeamId = draggingTeamIdRef.current;
+      if (!draggedTeamId || !onReorderTeam) return;
+
+      const targetRow = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
+        ?.closest<HTMLTableRowElement>("[data-team-id]");
+      const targetTeamId = Number(targetRow?.dataset.teamId);
+      if (
+        !targetTeamId ||
+        targetTeamId === draggedTeamId ||
+        !tiedTeamIds.includes(targetTeamId)
+      ) {
+        dropTargetTeamIdRef.current = null;
+        setDropTargetTeamId(null);
+        setDragOffsetY(0);
+        return;
+      }
+
+      dropTargetTeamIdRef.current = targetTeamId;
+      setDropTargetTeamId(targetTeamId);
+
+      const draggedRow = rowRefs.current.get(draggedTeamId);
+      const target = rowRefs.current.get(targetTeamId);
+      if (draggedRow && target) {
+        setDragOffsetY(target.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
+      }
+    },
+    [onReorderTeam, tiedTeamIds]
+  );
+
+  useEffect(() => {
+    if (draggingTeamId === null) return;
+
+    const handleMove = (event: globalThis.PointerEvent) => {
+      event.preventDefault();
+      updateDragTarget(event.clientX, event.clientY);
+    };
+    const handleEnd = () => endDrag();
+
+    window.addEventListener("pointermove", handleMove, { passive: false });
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleEnd);
+      window.removeEventListener("pointercancel", handleEnd);
+    };
+  }, [draggingTeamId, endDrag, updateDragTarget]);
 
   const startPress = (teamId: number, event: PointerEvent<HTMLTableRowElement>) => {
     if (!canDrag || !tiedTeamIds.includes(teamId)) return;
@@ -82,6 +135,7 @@ export function GroupStandingsTable({
       draggingTeamIdRef.current = teamId;
       setDraggingTeamId(teamId);
       document.body.style.userSelect = "none";
+      document.body.style.touchAction = "none";
       pressTimer.current = null;
     }, 220);
   };
@@ -90,29 +144,7 @@ export function GroupStandingsTable({
     const draggedTeamId = draggingTeamIdRef.current;
     if (!draggedTeamId || !onReorderTeam) return;
     event.preventDefault();
-
-    const targetRow = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)
-      ?.closest<HTMLTableRowElement>("[data-team-id]");
-    const targetTeamId = Number(targetRow?.dataset.teamId);
-    if (
-      !targetTeamId ||
-      targetTeamId === draggedTeamId ||
-      !tiedTeamIds.includes(targetTeamId)
-    ) {
-      dropTargetTeamIdRef.current = null;
-      setDropTargetTeamId(null);
-      setDragOffsetY(0);
-      return;
-    }
-
-    dropTargetTeamIdRef.current = targetTeamId;
-    setDropTargetTeamId(targetTeamId);
-
-    const draggedRow = rowRefs.current.get(draggedTeamId);
-    const target = rowRefs.current.get(targetTeamId);
-    if (draggedRow && target) {
-      setDragOffsetY(target.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
-    }
+    updateDragTarget(event.clientX, event.clientY);
   };
 
   return (
@@ -170,7 +202,7 @@ export function GroupStandingsTable({
                 className={cn(
                   "border-b border-border text-ink last:border-b-0 transition-[background,box-shadow,transform] duration-200",
                   isTied && "bg-amber/[0.08] border-l-2 border-l-amber",
-                  isTied && canDrag && "cursor-grab select-none active:cursor-grabbing",
+                  isTied && canDrag && "cursor-grab touch-none select-none active:cursor-grabbing",
                   pressingTeamId === s.team_id && "ring-2 ring-amber/40",
                   draggingTeamId === s.team_id && "relative z-10 bg-amber/15 shadow-md",
                   dropTargetTeamId === s.team_id && "bg-amber/[0.18]",

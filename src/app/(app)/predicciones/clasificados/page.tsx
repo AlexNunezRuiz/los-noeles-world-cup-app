@@ -47,10 +47,10 @@ const POSITION_STYLES: Record<number, string> = {
 };
 
 const POSITION_LABELS: Record<number, string> = {
-  1: "1Âº",
-  2: "2Âº",
-  3: "3Âº",
-  4: "4Âº",
+  1: "1º",
+  2: "2º",
+  3: "3º",
+  4: "4º",
 };
 
 export default function ClasificadosPage() {
@@ -213,15 +213,67 @@ export default function ClasificadosPage() {
     setDropTargetThirdId(null);
     setDragOffsetY(0);
     document.body.style.userSelect = "";
+    document.body.style.touchAction = "";
   }, [clearThirdPressTimer, reorderThird]);
 
   useEffect(
     () => () => {
       clearThirdPressTimer();
       document.body.style.userSelect = "";
+      document.body.style.touchAction = "";
     },
     [clearThirdPressTimer]
   );
+
+  const updateThirdDragTarget = useCallback(
+    (clientX: number, clientY: number) => {
+      const draggedTeamId = draggingThirdIdRef.current;
+      if (!draggedTeamId) return;
+      const dragged = thirds.find((s) => s.team_id === draggedTeamId);
+      if (!dragged) return;
+
+      const targetRow = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
+        ?.closest<HTMLDivElement>("[data-third-team-id]");
+      const targetTeamId = Number(targetRow?.dataset.thirdTeamId);
+      const target = thirds.find((s) => s.team_id === targetTeamId);
+      if (!target || targetTeamId === draggedTeamId || thirdTieKey(target) !== thirdTieKey(dragged)) {
+        dropTargetThirdIdRef.current = null;
+        setDropTargetThirdId(null);
+        setDragOffsetY(0);
+        return;
+      }
+
+      dropTargetThirdIdRef.current = targetTeamId;
+      setDropTargetThirdId(targetTeamId);
+
+      const draggedRow = thirdRowRefs.current.get(draggedTeamId);
+      const targetNode = thirdRowRefs.current.get(targetTeamId);
+      if (draggedRow && targetNode) {
+        setDragOffsetY(targetNode.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
+      }
+    },
+    [thirds]
+  );
+
+  useEffect(() => {
+    if (draggingThirdId === null) return;
+
+    const handleMove = (event: globalThis.PointerEvent) => {
+      event.preventDefault();
+      updateThirdDragTarget(event.clientX, event.clientY);
+    };
+    const handleEnd = () => endThirdDrag();
+
+    window.addEventListener("pointermove", handleMove, { passive: false });
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleEnd);
+      window.removeEventListener("pointercancel", handleEnd);
+    };
+  }, [draggingThirdId, endThirdDrag, updateThirdDragTarget]);
 
   const startThirdPress = (teamId: number, event: PointerEvent<HTMLDivElement>) => {
     const third = thirds.find((s) => s.team_id === teamId);
@@ -234,6 +286,7 @@ export default function ClasificadosPage() {
       draggingThirdIdRef.current = teamId;
       setDraggingThirdId(teamId);
       document.body.style.userSelect = "none";
+      document.body.style.touchAction = "none";
       thirdPressTimer.current = null;
     }, 220);
   };
@@ -242,28 +295,7 @@ export default function ClasificadosPage() {
     const draggedTeamId = draggingThirdIdRef.current;
     if (!draggedTeamId) return;
     event.preventDefault();
-    const dragged = thirds.find((s) => s.team_id === draggedTeamId);
-    if (!dragged) return;
-
-    const targetRow = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)
-      ?.closest<HTMLDivElement>("[data-third-team-id]");
-    const targetTeamId = Number(targetRow?.dataset.thirdTeamId);
-    const target = thirds.find((s) => s.team_id === targetTeamId);
-    if (!target || targetTeamId === draggedTeamId || thirdTieKey(target) !== thirdTieKey(dragged)) {
-      dropTargetThirdIdRef.current = null;
-      setDropTargetThirdId(null);
-      setDragOffsetY(0);
-      return;
-    }
-
-    dropTargetThirdIdRef.current = targetTeamId;
-    setDropTargetThirdId(targetTeamId);
-
-    const draggedRow = thirdRowRefs.current.get(draggedTeamId);
-    const targetNode = thirdRowRefs.current.get(targetTeamId);
-    if (draggedRow && targetNode) {
-      setDragOffsetY(targetNode.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
-    }
+    updateThirdDragTarget(event.clientX, event.clientY);
   };
 
   // Progress: a group is complete when it has at least 4 positioned teams saved
@@ -293,14 +325,14 @@ export default function ClasificadosPage() {
       {isEmpty && (
         <div className="mx-4 rounded-xl border border-border bg-surface p-6 text-center">
           <p className="text-sm text-ink-muted mb-4">
-            Primero completa los pronÃ³sticos de la fase de grupos y guarda las
+            Primero completa los pronósticos de la fase de grupos y guarda las
             clasificaciones.
           </p>
           <Link
             href="/predicciones/grupos"
             className="inline-flex items-center gap-1 rounded-lg bg-ink px-4 py-2 font-marcador text-sm uppercase text-white transition-opacity hover:opacity-80"
           >
-            Ir a Fase de Grupos â€º
+            Ir a Fase de Grupos ›
           </Link>
         </div>
       )}
@@ -328,7 +360,7 @@ export default function ClasificadosPage() {
                       href="/predicciones/grupos"
                       className="text-[10px] font-bold uppercase tracking-wide text-blue hover:text-blue/70 transition-colors"
                     >
-                      Editar resultados â€º
+                      Editar resultados ›
                     </Link>
                   </div>
 
@@ -342,7 +374,7 @@ export default function ClasificadosPage() {
                         const posStyle =
                           POSITION_STYLES[s.position] ?? "text-ink-faint";
                         const posLabel =
-                          POSITION_LABELS[s.position] ?? `${s.position}Âº`;
+                          POSITION_LABELS[s.position] ?? `${s.position}º`;
                         const isQualifiedThird =
                           s.position === 3 && bestThirdsSet.has(s.team_id);
 
@@ -362,11 +394,11 @@ export default function ClasificadosPage() {
                               className="shrink-0"
                             />
                             <span className="text-sm text-ink truncate flex-1">
-                              {team?.name ?? "â€”"}
+                              {team?.name ?? "—"}
                             </span>
                             {(s.position <= 2 || isQualifiedThird) && (
                               <span className="text-[10px] font-bold text-green shrink-0">
-                                âœ“
+                                ✓
                               </span>
                             )}
                           </div>
@@ -386,11 +418,11 @@ export default function ClasificadosPage() {
                 8 Mejores Terceros
               </h2>
               <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
-                Clasificados por puntos Â· diferencia de goles Â· goles a favor
+                Clasificados por puntos · diferencia de goles · goles a favor
               </p>
               {hasThirdTies && !isLocked && (
                 <p className="mt-2 text-xs text-amber">
-                  Hay empate total entre terceros tras criterios FIFA calculables. MantÃ©n pulsado para arrastrar o usa las flechas.
+                  Hay empate total entre terceros tras criterios FIFA calculables. Mantén pulsado para arrastrar o usa las flechas.
                 </p>
               )}
             </div>
@@ -437,7 +469,7 @@ export default function ClasificadosPage() {
                           "flex items-center gap-3 py-1.5 rounded-lg px-2 transition-[background,box-shadow,transform] duration-200",
                           qualifies && "bg-green/8",
                           tiedThirdKeys.has(thirdTieKey(s)) && "border-l-2 border-l-amber",
-                          tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && "cursor-grab select-none active:cursor-grabbing",
+                          tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && "cursor-grab touch-none select-none active:cursor-grabbing",
                           pressingThirdId === s.team_id && "ring-2 ring-amber/40",
                           draggingThirdId === s.team_id && "relative z-10 bg-amber/15 shadow-md",
                           dropTargetThirdId === s.team_id && "bg-amber/[0.18]"
@@ -456,13 +488,13 @@ export default function ClasificadosPage() {
                           className="shrink-0"
                         />
                         <span className="text-sm text-ink flex-1 truncate">
-                          {team?.name ?? "â€”"}
+                          {team?.name ?? "—"}
                         </span>
                         <span className="text-[10px] text-ink-muted font-mono shrink-0">
                           Gr.{s.group_letter}
                         </span>
                         <span className="text-[10px] font-bold text-ink-muted shrink-0 w-12 text-right">
-                          {s.points}pts Â· {s.goal_difference > 0 ? "+" : ""}
+                          {s.points}pts · {s.goal_difference > 0 ? "+" : ""}
                           {s.goal_difference}
                         </span>
                         {tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && (
@@ -503,12 +535,12 @@ export default function ClasificadosPage() {
                         )}
                         {qualifies && (
                           <span className="text-[10px] font-bold text-green shrink-0">
-                            âœ“
+                            ✓
                           </span>
                         )}
                         {!qualifies && (
                           <span className="text-[10px] text-ink-faint shrink-0">
-                            âœ—
+                            ✕
                           </span>
                         )}
                       </div>
@@ -525,13 +557,13 @@ export default function ClasificadosPage() {
               href="/predicciones/grupos"
               className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-4 py-2 font-marcador text-sm uppercase text-ink transition-colors hover:bg-surface-sunken"
             >
-              â† Fase de Grupos
+              ← Fase de Grupos
             </Link>
             <Link
               href="/predicciones/eliminatorias"
               className="inline-flex items-center gap-1 rounded-lg bg-ink px-4 py-2 font-marcador text-sm uppercase text-white transition-opacity hover:opacity-80"
             >
-              Eliminatorias â†’
+              Eliminatorias →
             </Link>
           </div>
         </>
