@@ -13,6 +13,7 @@ import { Trophy, Medal, Shield } from "lucide-react";
 interface Player {
   id: number;
   name: string;
+  teams?: { name: string; code: string } | { name: string; code: string }[] | null;
 }
 
 const AWARDS = [
@@ -31,7 +32,7 @@ export default function AdminPremiosPage() {
   useEffect(() => {
     async function load() {
       const [playersRes, awardsRes] = await Promise.all([
-        supabase.from("players").select("*").order("name"),
+        supabase.from("players").select("id, name, teams(name, code)").order("name"),
         supabase.from("actual_awards").select("*"),
       ]);
       setPlayers(playersRes.data || []);
@@ -99,6 +100,10 @@ export default function AdminPremiosPage() {
                   {players.map((p) => (
                     <SelectItem key={p.id} value={p.id.toString()}>
                       {p.name}
+                      {(() => {
+                        const team = Array.isArray(p.teams) ? p.teams[0] : p.teams;
+                        return team ? ` · ${team.name} (${team.code})` : "";
+                      })()}
                     </SelectItem>
                   ))}
                 </SelectContent>

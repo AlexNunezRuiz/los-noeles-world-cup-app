@@ -60,7 +60,13 @@ export function PlayerCombobox({
   const filtered =
     query.trim() === ""
       ? options
-      : options.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()));
+      : options.filter((o) => {
+          const q = query.toLowerCase();
+          return (
+            o.name.toLowerCase().includes(q) ||
+            (o.team?.toLowerCase().includes(q) ?? false)
+          );
+        });
 
   const handleSelect = useCallback(
     (option: PlayerOption) => {

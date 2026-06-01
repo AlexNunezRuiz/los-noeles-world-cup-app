@@ -10,6 +10,7 @@ interface Player {
   id: number;
   name: string;
   team_id: number;
+  teams?: { name: string; code: string } | { name: string; code: string }[] | null;
 }
 
 interface AwardPrediction {
@@ -57,7 +58,7 @@ export default function PremiosPage() {
       setUserId(user.id);
 
       const [playersRes, predsRes, configRes] = await Promise.all([
-        supabase.from("players").select("*").order("name"),
+        supabase.from("players").select("id, name, team_id, teams(name, code)").order("name"),
         supabase.from("award_predictions").select("*").eq("user_id", user.id),
         supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
       ]);
@@ -171,7 +172,14 @@ export default function PremiosPage() {
 
               {/* Player combobox */}
               <PlayerCombobox
-                options={players.map((p) => ({ id: p.id, name: p.name }))}
+                options={players.map((p) => {
+                  const team = Array.isArray(p.teams) ? p.teams[0] : p.teams;
+                  return {
+                    id: p.id,
+                    name: p.name,
+                    team: team ? `${team.name} (${team.code})` : undefined,
+                  };
+                })}
                 value={pred?.player_id ?? null}
                 onChange={(id) => handlePlayerSelect(type, id)}
                 disabled={isLocked || players.length === 0}
