@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 const ENTRY_FEE = 5;
@@ -6,8 +6,8 @@ const LAST_PLACE_PRIZE = 5;
 
 const CATEGORY_LABELS: Record<string, string> = {
   group: "Fase de grupos",
-  knockout: "Eliminatorias — resultado exacto",
-  qualification: "Clasificación por ronda",
+  knockout: "Eliminatorias â€” resultado exacto",
+  qualification: "ClasificaciÃ³n por ronda",
   awards: "Premios individuales",
 };
 
@@ -16,10 +16,10 @@ const CATEGORY_ORDER = ["group", "knockout", "qualification", "awards"];
 const RULE_LABELS: Record<string, string> = {
   correct_sign: "Signo correcto (1X2)",
   exact_score: "Resultado exacto (bonus adicional)",
-  group_pos_1st: "1º de grupo acertado",
-  group_pos_2nd: "2º de grupo acertado",
-  group_pos_3rd: "3º de grupo acertado",
-  group_pos_4th: "4º de grupo acertado",
+  group_pos_1st: "1Âº de grupo acertado",
+  group_pos_2nd: "2Âº de grupo acertado",
+  group_pos_3rd: "3Âº de grupo acertado",
+  group_pos_4th: "4Âº de grupo acertado",
   exact_r32: "Resultado exacto en octavos",
   exact_r16: "Resultado exacto en dieciseisavos",
   exact_qf: "Resultado exacto en cuartos / semifinal",
@@ -29,10 +29,10 @@ const RULE_LABELS: Record<string, string> = {
   qualify_r16: "Equipo clasificado a dieciseisavos",
   qualify_qf: "Equipo clasificado a cuartos",
   qualify_sf: "Equipo clasificado a semis",
-  qualify_champion: "Campeón del torneo acertado",
+  qualify_champion: "CampeÃ³n del torneo acertado",
   qualify_third: "3er puesto acertado",
   golden_boot: "Bota de Oro acertada",
-  golden_ball: "Balón de Oro acertado",
+  golden_ball: "BalÃ³n de Oro acertado",
   golden_glove: "Guante de Oro acertado",
 };
 
@@ -86,7 +86,7 @@ export default async function NormasPage() {
   const sections = [
     {
       num: "01",
-      title: "Participación",
+      title: "ParticipaciÃ³n",
       color: "text-red",
     },
     {
@@ -96,7 +96,7 @@ export default async function NormasPage() {
     },
     {
       num: "03",
-      title: "Puntuación",
+      title: "PuntuaciÃ³n",
       color: "text-gold",
     },
     {
@@ -128,18 +128,18 @@ export default async function NormasPage() {
         ))}
       </div>
 
-      {/* ── 01 PARTICIPACIÓN ── */}
+      {/* â”€â”€ 01 PARTICIPACIÃ“N â”€â”€ */}
       <div id="sec-01" className="pt-6 space-y-3">
-        <SectionHeader num="01" title="Participación" color="text-red" />
+        <SectionHeader num="01" title="ParticipaciÃ³n" color="text-red" />
 
         <RuleCard>
           <RuleRow
-            label="Cuota de inscripción"
-            value={`€${ENTRY_FEE}`}
+            label="Cuota de inscripciÃ³n"
+            value={`â‚¬${ENTRY_FEE}`}
             highlight
           />
           <RuleRow
-            label="Fecha límite de pago"
+            label="Fecha lÃ­mite de pago"
             value={lockLabel}
           />
           <RuleRow
@@ -150,33 +150,33 @@ export default async function NormasPage() {
 
         <InfoBox color="red">
           El pago debe realizarse <strong>antes del inicio del torneo</strong>. Quien no haya pagado
-          antes del cierre no contará en la clasificación ni optará a ningún premio,
+          antes del cierre no contarÃ¡ en la clasificaciÃ³n ni optarÃ¡ a ningÃºn premio,
           aunque pueda seguir haciendo predicciones.
         </InfoBox>
       </div>
 
-      {/* ── 02 PREDICCIONES ── */}
+      {/* â”€â”€ 02 PREDICCIONES â”€â”€ */}
       <div id="sec-02" className="pt-6 space-y-3">
         <SectionHeader num="02" title="Predicciones" color="text-blue" />
 
         <RuleCard>
           <RuleRow label="Cierre de predicciones" value={lockLabel} highlight />
           <RuleRow label="Partidos de grupos" value="Predice el marcador exacto de cada partido" />
-          <RuleRow label="Clasificación de grupos" value="Predice el orden final de los 4 equipos de cada grupo" />
-          <RuleRow label="Eliminatorias" value="Predice el marcador exacto (incluyendo prórroga si la hay)" />
-          <RuleRow label="Premios individuales" value="Bota de Oro · Balón de Oro · Guante de Oro" />
+          <RuleRow label="ClasificaciÃ³n de grupos" value="Predice el orden final de los 4 equipos de cada grupo" />
+          <RuleRow label="Eliminatorias" value="Predice el marcador exacto en 90 minutos" />
+          <RuleRow label="Premios individuales" value="Bota de Oro Â· BalÃ³n de Oro Â· Guante de Oro" />
         </RuleCard>
 
         <InfoBox color="blue">
-          En cuanto arranque el primer partido, <strong>las predicciones se bloquean automáticamente</strong>.
-          No se puede editar nada después del cierre, sin excepciones.
-          Solo se puntúan las predicciones realizadas antes de ese momento.
+          En cuanto arranque el primer partido, <strong>las predicciones se bloquean automÃ¡ticamente</strong>.
+          No se puede editar nada despuÃ©s del cierre, sin excepciones.
+          Solo se puntÃºan las predicciones realizadas antes de ese momento.
         </InfoBox>
       </div>
 
-      {/* ── 03 PUNTUACIÓN ── */}
+      {/* â”€â”€ 03 PUNTUACIÃ“N â”€â”€ */}
       <div id="sec-03" className="pt-6 space-y-3">
-        <SectionHeader num="03" title="Puntuación" color="text-gold" />
+        <SectionHeader num="03" title="PuntuaciÃ³n" color="text-gold" />
 
         {orderedCategories.map((cat) => {
           const catRules = byCategory.get(cat) ?? [];
@@ -206,33 +206,33 @@ export default async function NormasPage() {
 
         {orderedCategories.length === 0 && (
           <div className="bg-surface border border-border rounded-xl px-4 py-8 text-center text-sm text-ink-muted">
-            La tabla de puntuación se cargará cuando el administrador configure las reglas.
+            La tabla de puntuaciÃ³n se cargarÃ¡ cuando el administrador configure las reglas.
           </div>
         )}
 
         <InfoBox color="gold">
-          En eliminatorias, si el partido termina en empate y se van a penaltis, el resultado que
-          hay que acertar es el del tiempo reglamentario (90 min + prórroga), no el de penaltis.
+          En eliminatorias, el resultado que hay que acertar es el del tiempo reglamentario:
+          90 minutos. Si hay empate, se elige aparte qué equipo pasa.
         </InfoBox>
       </div>
 
-      {/* ── 04 PREMIOS ── */}
+      {/* â”€â”€ 04 PREMIOS â”€â”€ */}
       <div id="sec-04" className="pt-6 space-y-3">
         <SectionHeader num="04" title="Premios" color="text-green" />
 
         <RuleCard>
-          <RuleRow label="Todo lo recaudado va al bote" value="Sin comisión de la plataforma" />
-          <RuleRow label="1º clasificado" value="60% del bote" highlight />
-          <RuleRow label="2º clasificado" value="25% del bote" />
-          <RuleRow label="3º clasificado" value="10% del bote" />
-          <RuleRow label="Campeón de fase de grupos" value="5% del bote" />
-          <RuleRow label="Farolillo rojo (último)" value={`€${LAST_PLACE_PRIZE} fijo — recupera la entrada`} />
+          <RuleRow label="Todo lo recaudado va al bote" value="Sin comisiÃ³n de la plataforma" />
+          <RuleRow label="1Âº clasificado" value="60% del bote" highlight />
+          <RuleRow label="2Âº clasificado" value="25% del bote" />
+          <RuleRow label="3Âº clasificado" value="10% del bote" />
+          <RuleRow label="CampeÃ³n de fase de grupos" value="5% del bote" />
+          <RuleRow label="Farolillo rojo (Ãºltimo)" value={`â‚¬${LAST_PLACE_PRIZE} fijo â€” recupera la entrada`} />
         </RuleCard>
 
         <InfoBox color="green">
-          El bote se reparte entre los porcentajes indicados <strong>una vez descontados los €{LAST_PLACE_PRIZE} del farolillo rojo</strong>.
+          El bote se reparte entre los porcentajes indicados <strong>una vez descontados los â‚¬{LAST_PLACE_PRIZE} del farolillo rojo</strong>.
           Los importes se redondean al euro inferior. Consulta el bote en tiempo real en{" "}
-          <Link href="/bote" className="underline font-semibold">la página del Bote</Link>.
+          <Link href="/bote" className="underline font-semibold">la pÃ¡gina del Bote</Link>.
         </InfoBox>
 
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -241,11 +241,11 @@ export default async function NormasPage() {
           </div>
           <div className="px-4 py-4 space-y-1.5">
             <p className="text-sm text-ink">
-              El <strong>último clasificado</strong> recibe <strong>€{LAST_PLACE_PRIZE}</strong> del bote —
-              exactamente lo que pagó de inscripción. Le sale gratis.
+              El <strong>Ãºltimo clasificado</strong> recibe <strong>â‚¬{LAST_PLACE_PRIZE}</strong> del bote â€”
+              exactamente lo que pagÃ³ de inscripciÃ³n. Le sale gratis.
             </p>
             <p className="text-sm text-ink-muted">
-              Si hay empate en el último puesto al final del torneo, el premio se reparte a partes iguales entre los empatados.
+              Si hay empate en el Ãºltimo puesto al final del torneo, el premio se reparte a partes iguales entre los empatados.
             </p>
           </div>
         </div>

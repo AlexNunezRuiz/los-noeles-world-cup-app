@@ -266,6 +266,12 @@ export default function ResultadosPage() {
         <h1 className="font-marcador text-3xl uppercase text-ink leading-tight">
           Resultados
         </h1>
+        <a
+          href="/resultados/predicciones"
+          className="mt-1 inline-block text-[10px] font-bold uppercase tracking-widest text-blue"
+        >
+          Ver predicciones de todos ›
+        </a>
       </div>
 
       {/* TuJornadaCard */}

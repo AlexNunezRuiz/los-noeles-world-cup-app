@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield, Banknote, ScrollText } from "lucide-react";
 import { Emblem } from "@/components/ui/emblem";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/porra", label: "Porra", icon: ClipboardList },
@@ -16,11 +18,47 @@ const navItems = [
 
 export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const supabase = createClient();
+
+  useEffect(() => {
+    let userId = "";
+
+    async function loadUnread() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      userId = user.id;
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("read_at", null);
+      setUnreadCount(count ?? 0);
+    }
+
+    loadUnread();
+    const channel = supabase
+      .channel("navbar_notifications")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications" },
+        () => {
+          if (userId) loadUnread();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
       {/* Fixed header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-surface border-b border-border">
+      <header className="fixed left-0 right-0 z-50 h-14 bg-surface border-b border-border [top:env(safe-area-inset-top)] [transform:translateZ(0)]">
         <div className="max-w-[680px] mx-auto px-4 h-full flex items-center justify-between">
           {/* Wordmark */}
           <Link
@@ -61,8 +99,8 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
       </header>
 
       {/* Fixed bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border">
-        <div className="max-w-[680px] mx-auto flex pt-2 pb-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border [transform:translateZ(0)]">
+        <div className="max-w-[680px] mx-auto flex pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {navItems.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -73,7 +111,14 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
                   active ? "text-red" : "text-ink-faint"
                 }`}
               >
-                <item.icon size={20} />
+                <span className="relative">
+                  <item.icon size={20} />
+                  {item.href === "/chat" && unreadCount > 0 && (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-marcador text-[9px] font-bold text-white">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </span>
                 <span className="font-marcador text-[10px] font-bold uppercase tracking-wide">
                   {item.label}
                 </span>

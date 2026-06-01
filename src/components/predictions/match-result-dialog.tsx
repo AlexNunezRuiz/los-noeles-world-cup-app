@@ -115,6 +115,14 @@ export function MatchResultDialog({
     localHome !== null &&
     localAway !== null &&
     localHome === localAway;
+  const homeWins =
+    localHome !== null &&
+    localAway !== null &&
+    (localHome > localAway || (isDraw && localPenalty === "home"));
+  const awayWins =
+    localHome !== null &&
+    localAway !== null &&
+    (localAway > localHome || (isDraw && localPenalty === "away"));
 
   const handlePenalty = (side: "home" | "away") => {
     if (isLocked) return;
@@ -144,20 +152,39 @@ export function MatchResultDialog({
         {/* Teams + score tiles */}
         <div className="flex flex-col gap-3 mt-1">
           {/* Home */}
-          <div className="flex items-center gap-3">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => !isLocked && setFocused("home")}
+            onKeyDown={(event) => {
+              if ((event.key === "Enter" || event.key === " ") && !isLocked) setFocused("home");
+            }}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors",
+              homeWins ? "bg-green/10 ring-1 ring-green/25" : !isLocked && "hover:bg-surface-sunken"
+            )}
+          >
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {homeTeam ? (
                 <Flag emoji={homeTeam.flag_emoji} size={20} />
               ) : (
                 <span className="block w-5 h-5 rounded-full bg-border shrink-0" />
               )}
-              <span className="truncate text-sm font-bold text-ink">
+              <span className={cn("truncate text-sm font-bold", homeWins ? "text-green" : "text-ink")}>
                 {homeDisplayName}
               </span>
             </div>
+            {homeWins && (
+              <span className="rounded bg-green px-1.5 py-0.5 font-marcador text-[9px] font-bold uppercase text-white">
+                Pasa
+              </span>
+            )}
             <button
               type="button"
-              onClick={() => !isLocked && setFocused("home")}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!isLocked) setFocused("home");
+              }}
               aria-label="Goles local"
             >
               <FlapTile value={localHome} size="md" focused={!isLocked && focused === "home"} />
@@ -165,20 +192,39 @@ export function MatchResultDialog({
           </div>
 
           {/* Away */}
-          <div className="flex items-center gap-3">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => !isLocked && setFocused("away")}
+            onKeyDown={(event) => {
+              if ((event.key === "Enter" || event.key === " ") && !isLocked) setFocused("away");
+            }}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors",
+              awayWins ? "bg-green/10 ring-1 ring-green/25" : !isLocked && "hover:bg-surface-sunken"
+            )}
+          >
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {awayTeam ? (
                 <Flag emoji={awayTeam.flag_emoji} size={20} />
               ) : (
                 <span className="block w-5 h-5 rounded-full bg-border shrink-0" />
               )}
-              <span className="truncate text-sm font-bold text-ink">
+              <span className={cn("truncate text-sm font-bold", awayWins ? "text-green" : "text-ink")}>
                 {awayDisplayName}
               </span>
             </div>
+            {awayWins && (
+              <span className="rounded bg-green px-1.5 py-0.5 font-marcador text-[9px] font-bold uppercase text-white">
+                Pasa
+              </span>
+            )}
             <button
               type="button"
-              onClick={() => !isLocked && setFocused("away")}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!isLocked) setFocused("away");
+              }}
               aria-label="Goles visitante"
             >
               <FlapTile value={localAway} size="md" focused={!isLocked && focused === "away"} />

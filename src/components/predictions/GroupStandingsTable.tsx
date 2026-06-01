@@ -32,9 +32,12 @@ export function GroupStandingsTable({
 }: Props) {
   const [pressingTeamId, setPressingTeamId] = useState<number | null>(null);
   const [draggingTeamId, setDraggingTeamId] = useState<number | null>(null);
+  const [dropTargetTeamId, setDropTargetTeamId] = useState<number | null>(null);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
   const pressTimer = useRef<number | null>(null);
   const draggingTeamIdRef = useRef<number | null>(null);
-  const lastTargetTeamIdRef = useRef<number | null>(null);
+  const dropTargetTeamIdRef = useRef<number | null>(null);
+  const rowRefs = useRef(new Map<number, HTMLTableRowElement>());
   const canDrag = !isLocked && tiedTeamIds.length > 0 && onReorderTeam !== undefined;
 
   const clearPressTimer = useCallback(() => {
@@ -45,13 +48,20 @@ export function GroupStandingsTable({
   }, []);
 
   const endDrag = useCallback(() => {
+    const draggedTeamId = draggingTeamIdRef.current;
+    const targetTeamId = dropTargetTeamIdRef.current;
+    if (draggedTeamId && targetTeamId && draggedTeamId !== targetTeamId && onReorderTeam) {
+      onReorderTeam(draggedTeamId, targetTeamId);
+    }
     clearPressTimer();
     draggingTeamIdRef.current = null;
-    lastTargetTeamIdRef.current = null;
+    dropTargetTeamIdRef.current = null;
     setDraggingTeamId(null);
+    setDropTargetTeamId(null);
+    setDragOffsetY(0);
     setPressingTeamId(null);
     document.body.style.userSelect = "";
-  }, [clearPressTimer]);
+  }, [clearPressTimer, onReorderTeam]);
 
   useEffect(
     () => () => {
@@ -65,7 +75,7 @@ export function GroupStandingsTable({
     if (!canDrag || !tiedTeamIds.includes(teamId)) return;
     clearPressTimer();
     setPressingTeamId(teamId);
-    lastTargetTeamIdRef.current = teamId;
+    dropTargetTeamIdRef.current = null;
     event.currentTarget.setPointerCapture?.(event.pointerId);
 
     pressTimer.current = window.setTimeout(() => {
@@ -87,14 +97,22 @@ export function GroupStandingsTable({
     if (
       !targetTeamId ||
       targetTeamId === draggedTeamId ||
-      targetTeamId === lastTargetTeamIdRef.current ||
       !tiedTeamIds.includes(targetTeamId)
     ) {
+      dropTargetTeamIdRef.current = null;
+      setDropTargetTeamId(null);
+      setDragOffsetY(0);
       return;
     }
 
-    lastTargetTeamIdRef.current = targetTeamId;
-    onReorderTeam(draggedTeamId, targetTeamId);
+    dropTargetTeamIdRef.current = targetTeamId;
+    setDropTargetTeamId(targetTeamId);
+
+    const draggedRow = rowRefs.current.get(draggedTeamId);
+    const target = rowRefs.current.get(targetTeamId);
+    if (draggedRow && target) {
+      setDragOffsetY(target.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
+    }
   };
 
   return (
@@ -116,26 +134,46 @@ export function GroupStandingsTable({
           </tr>
         </thead>
         <tbody>
-          {standings.map((s) => {
+          {standings.map((s, rowIndex) => {
             const team = teams.get(s.team_id);
             const isTied = tiedTeamIds.includes(s.team_id);
             const qualifies = s.position <= 2;
+            const draggingIndex = standings.findIndex((row) => row.team_id === draggingTeamId);
+            const targetIndex = standings.findIndex((row) => row.team_id === dropTargetTeamId);
+            const targetShift =
+              draggingIndex >= 0 && targetIndex >= 0 && dropTargetTeamId === s.team_id
+                ? draggingIndex < targetIndex
+                  ? -1
+                  : 1
+                : 0;
 
             return (
               <tr
                 key={s.team_id}
+                ref={(node) => {
+                  if (node) rowRefs.current.set(s.team_id, node);
+                  else rowRefs.current.delete(s.team_id);
+                }}
                 data-team-id={s.team_id}
                 onPointerDown={(event) => startPress(s.team_id, event)}
                 onPointerMove={handlePointerMove}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
+                style={{
+                  transform:
+                    draggingTeamId === s.team_id
+                      ? `translateY(${dragOffsetY}px) scale(1.01)`
+                      : targetShift !== 0
+                        ? `translateY(${targetShift * 100}%)`
+                        : undefined,
+                }}
                 className={cn(
-                  "border-b border-border text-ink last:border-b-0 transition-[background,box-shadow,transform]",
+                  "border-b border-border text-ink last:border-b-0 transition-[background,box-shadow,transform] duration-200",
                   isTied && "bg-amber/[0.08] border-l-2 border-l-amber",
                   isTied && canDrag && "cursor-grab select-none active:cursor-grabbing",
                   pressingTeamId === s.team_id && "ring-2 ring-amber/40",
-                  draggingTeamId === s.team_id && "relative z-10 scale-[1.01] bg-amber/15 shadow-md",
-                  draggingTeamId !== null && isTied && draggingTeamId !== s.team_id && "bg-amber/[0.12]",
+                  draggingTeamId === s.team_id && "relative z-10 bg-amber/15 shadow-md",
+                  dropTargetTeamId === s.team_id && "bg-amber/[0.18]",
                   !isTied && qualifies && "border-l-2 border-l-green"
                 )}
               >
@@ -166,16 +204,31 @@ export function GroupStandingsTable({
                     {isTied && onMoveTeam && (
                       <div className="flex gap-0.5">
                         <button
-                          onClick={() => onMoveTeam(s.team_id, "up")}
+                          type="button"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onMoveTeam(s.team_id, "up");
+                          }}
                           className="p-0.5 text-ink-muted hover:text-ink transition-colors"
-                          disabled={s.position === 1}
+                          disabled={
+                            rowIndex === 0 || !tiedTeamIds.includes(standings[rowIndex - 1]?.team_id)
+                          }
                         >
                           <ChevronUp className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => onMoveTeam(s.team_id, "down")}
+                          type="button"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onMoveTeam(s.team_id, "down");
+                          }}
                           className="p-0.5 text-ink-muted hover:text-ink transition-colors"
-                          disabled={s.position === 4}
+                          disabled={
+                            rowIndex === standings.length - 1 ||
+                            !tiedTeamIds.includes(standings[rowIndex + 1]?.team_id)
+                          }
                         >
                           <ChevronDown className="h-3.5 w-3.5" />
                         </button>

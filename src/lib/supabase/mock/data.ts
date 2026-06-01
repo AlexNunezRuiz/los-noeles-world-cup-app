@@ -488,6 +488,8 @@ function buildPlayers(): Row[] {
     name,
     team_id,
     position,
+    shirt_number: null,
+    squad_source: "mock",
     created_at: "2026-01-01T00:00:00Z",
   }));
 }
@@ -513,7 +515,11 @@ function buildProfiles(): Row[] {
     id: p.id,
     display_name: p.display_name,
     email: p.email,
+    username: p.email.split("@")[0],
     has_paid: p.has_paid,
+    paid_at: p.has_paid ? "2026-01-15T10:00:00Z" : null,
+    payment_validated_by: p.has_paid ? MOCK_USER_ID : null,
+    payment_note: null,
     is_admin: p.is_admin,
     is_chat_banned: false,
     created_at: "2026-01-15T10:00:00Z",
@@ -606,6 +612,9 @@ export function createDb(): Db {
     user_scores: buildUserScores(),
     score_events: [],
     chat_messages: buildChatMessages(),
+    chat_message_mentions: [],
+    chat_message_reactions: [],
+    notifications: [],
     tournament_config: [
       { id: 1, key: "predictions_locked", value: "false", updated_at: nowIso() },
       { id: 2, key: "lock_datetime", value: "2026-06-11T15:00:00Z", updated_at: nowIso() },
@@ -624,4 +633,7 @@ export const UUID_TABLES = new Set([
   "user_scores",
   "score_events",
   "chat_messages",
+  "chat_message_mentions",
+  "chat_message_reactions",
+  "notifications",
 ]);

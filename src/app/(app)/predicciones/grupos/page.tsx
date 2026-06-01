@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { calculateGroupStandings, findTiedTeams, type TeamStanding } from "@/lib/tournament/standings";
 import { useToast } from "@/components/ui/use-toast";
 import { getTeams } from "@/lib/data/static-cache";
+import { isPredictionsLocked } from "@/lib/predictions/lock";
 
 interface Team {
   id: number;
@@ -36,6 +37,11 @@ interface Prediction {
   match_id: number;
   home_score: number | null;
   away_score: number | null;
+}
+
+interface ConfigRow {
+  key: string;
+  value: string;
 }
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -83,12 +89,12 @@ export default function GruposPage() {
           .select("group_letter, team_id, position, is_manual_override")
           .eq("user_id", user.id)
           .eq("is_manual_override", true),
-        supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
+        supabase.from("tournament_config").select("key, value"),
       ]);
 
       setTeams(teamsRes);
       setMatches(matchesRes.data || []);
-      setIsLocked(configRes.data?.value === "true");
+      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
 
       const predMap = new Map<number, Prediction>();
       for (const p of predsRes.data || []) {

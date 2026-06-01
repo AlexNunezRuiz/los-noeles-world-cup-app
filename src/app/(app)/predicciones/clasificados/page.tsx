@@ -1,12 +1,14 @@
-"use client";
+﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Flag } from "@/components/ui/flag";
 import { StageBar } from "@/components/porra/stage-bar";
 import { getTeams } from "@/lib/data/static-cache";
 import { cn } from "@/lib/utils";
+import { isPredictionsLocked } from "@/lib/predictions/lock";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface Team {
   id: number;
@@ -30,6 +32,11 @@ interface BestThirdOverride {
   rank: number;
 }
 
+interface ConfigRow {
+  key: string;
+  value: string;
+}
+
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 const POSITION_STYLES: Record<number, string> = {
@@ -40,10 +47,10 @@ const POSITION_STYLES: Record<number, string> = {
 };
 
 const POSITION_LABELS: Record<number, string> = {
-  1: "1º",
-  2: "2º",
-  3: "3º",
-  4: "4º",
+  1: "1Âº",
+  2: "2Âº",
+  3: "3Âº",
+  4: "4Âº",
 };
 
 export default function ClasificadosPage() {
@@ -52,6 +59,14 @@ export default function ClasificadosPage() {
   const [bestThirdOverrides, setBestThirdOverrides] = useState<Map<number, number>>(new Map());
   const [userId, setUserId] = useState("");
   const [isLocked, setIsLocked] = useState(false);
+  const [pressingThirdId, setPressingThirdId] = useState<number | null>(null);
+  const [draggingThirdId, setDraggingThirdId] = useState<number | null>(null);
+  const [dropTargetThirdId, setDropTargetThirdId] = useState<number | null>(null);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
+  const thirdPressTimer = useRef<number | null>(null);
+  const draggingThirdIdRef = useRef<number | null>(null);
+  const dropTargetThirdIdRef = useRef<number | null>(null);
+  const thirdRowRefs = useRef(new Map<number, HTMLDivElement>());
   const supabase = createClient();
 
   useEffect(() => {
@@ -75,12 +90,12 @@ export default function ClasificadosPage() {
           .select("team_id, rank")
           .eq("user_id", user.id)
           .order("rank"),
-        supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
+        supabase.from("tournament_config").select("key, value"),
       ]);
 
       setTeams(teamsRes);
       setStandings(standingsRes.data || []);
-      setIsLocked(configRes.data?.value === "true");
+      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
       setBestThirdOverrides(
         new Map(
           ((bestThirdRes.data || []) as BestThirdOverride[]).map((row) => [
@@ -161,6 +176,96 @@ export default function ClasificadosPage() {
     [saveBestThirdOrder, thirds]
   );
 
+  const reorderThird = useCallback(
+    (teamId: number, targetTeamId: number) => {
+      const idx = thirds.findIndex((s) => s.team_id === teamId);
+      const targetIdx = thirds.findIndex((s) => s.team_id === targetTeamId);
+      if (idx < 0 || targetIdx < 0 || idx === targetIdx) return;
+      if (thirdTieKey(thirds[idx]) !== thirdTieKey(thirds[targetIdx])) return;
+
+      const next = [...thirds];
+      const [moved] = next.splice(idx, 1);
+      next.splice(targetIdx, 0, moved);
+      setBestThirdOverrides(new Map(next.map((third, index) => [third.team_id, index + 1])));
+      saveBestThirdOrder(next);
+    },
+    [saveBestThirdOrder, thirds]
+  );
+
+  const clearThirdPressTimer = useCallback(() => {
+    if (thirdPressTimer.current !== null) {
+      window.clearTimeout(thirdPressTimer.current);
+      thirdPressTimer.current = null;
+    }
+  }, []);
+
+  const endThirdDrag = useCallback(() => {
+    const draggedTeamId = draggingThirdIdRef.current;
+    const targetTeamId = dropTargetThirdIdRef.current;
+    if (draggedTeamId && targetTeamId) {
+      reorderThird(draggedTeamId, targetTeamId);
+    }
+    clearThirdPressTimer();
+    draggingThirdIdRef.current = null;
+    dropTargetThirdIdRef.current = null;
+    setPressingThirdId(null);
+    setDraggingThirdId(null);
+    setDropTargetThirdId(null);
+    setDragOffsetY(0);
+    document.body.style.userSelect = "";
+  }, [clearThirdPressTimer, reorderThird]);
+
+  useEffect(
+    () => () => {
+      clearThirdPressTimer();
+      document.body.style.userSelect = "";
+    },
+    [clearThirdPressTimer]
+  );
+
+  const startThirdPress = (teamId: number, event: PointerEvent<HTMLDivElement>) => {
+    const third = thirds.find((s) => s.team_id === teamId);
+    if (!third || isLocked || !tiedThirdKeys.has(thirdTieKey(third))) return;
+    clearThirdPressTimer();
+    setPressingThirdId(teamId);
+    dropTargetThirdIdRef.current = null;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    thirdPressTimer.current = window.setTimeout(() => {
+      draggingThirdIdRef.current = teamId;
+      setDraggingThirdId(teamId);
+      document.body.style.userSelect = "none";
+      thirdPressTimer.current = null;
+    }, 220);
+  };
+
+  const handleThirdPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const draggedTeamId = draggingThirdIdRef.current;
+    if (!draggedTeamId) return;
+    event.preventDefault();
+    const dragged = thirds.find((s) => s.team_id === draggedTeamId);
+    if (!dragged) return;
+
+    const targetRow = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)
+      ?.closest<HTMLDivElement>("[data-third-team-id]");
+    const targetTeamId = Number(targetRow?.dataset.thirdTeamId);
+    const target = thirds.find((s) => s.team_id === targetTeamId);
+    if (!target || targetTeamId === draggedTeamId || thirdTieKey(target) !== thirdTieKey(dragged)) {
+      dropTargetThirdIdRef.current = null;
+      setDropTargetThirdId(null);
+      setDragOffsetY(0);
+      return;
+    }
+
+    dropTargetThirdIdRef.current = targetTeamId;
+    setDropTargetThirdId(targetTeamId);
+
+    const draggedRow = thirdRowRefs.current.get(draggedTeamId);
+    const targetNode = thirdRowRefs.current.get(targetTeamId);
+    if (draggedRow && targetNode) {
+      setDragOffsetY(targetNode.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
+    }
+  };
+
   // Progress: a group is complete when it has at least 4 positioned teams saved
   const completedGroups = GROUPS.filter(
     (g) => standings.filter((s) => s.group_letter === g).length >= 4
@@ -188,14 +293,14 @@ export default function ClasificadosPage() {
       {isEmpty && (
         <div className="mx-4 rounded-xl border border-border bg-surface p-6 text-center">
           <p className="text-sm text-ink-muted mb-4">
-            Primero completa los pronósticos de la fase de grupos y guarda las
+            Primero completa los pronÃ³sticos de la fase de grupos y guarda las
             clasificaciones.
           </p>
           <Link
             href="/predicciones/grupos"
             className="inline-flex items-center gap-1 rounded-lg bg-ink px-4 py-2 font-marcador text-sm uppercase text-white transition-opacity hover:opacity-80"
           >
-            Ir a Fase de Grupos ›
+            Ir a Fase de Grupos â€º
           </Link>
         </div>
       )}
@@ -223,7 +328,7 @@ export default function ClasificadosPage() {
                       href="/predicciones/grupos"
                       className="text-[10px] font-bold uppercase tracking-wide text-blue hover:text-blue/70 transition-colors"
                     >
-                      Editar resultados ›
+                      Editar resultados â€º
                     </Link>
                   </div>
 
@@ -237,7 +342,7 @@ export default function ClasificadosPage() {
                         const posStyle =
                           POSITION_STYLES[s.position] ?? "text-ink-faint";
                         const posLabel =
-                          POSITION_LABELS[s.position] ?? `${s.position}º`;
+                          POSITION_LABELS[s.position] ?? `${s.position}Âº`;
                         const isQualifiedThird =
                           s.position === 3 && bestThirdsSet.has(s.team_id);
 
@@ -257,11 +362,11 @@ export default function ClasificadosPage() {
                               className="shrink-0"
                             />
                             <span className="text-sm text-ink truncate flex-1">
-                              {team?.name ?? "—"}
+                              {team?.name ?? "â€”"}
                             </span>
                             {(s.position <= 2 || isQualifiedThird) && (
                               <span className="text-[10px] font-bold text-green shrink-0">
-                                ✓
+                                âœ“
                               </span>
                             )}
                           </div>
@@ -281,11 +386,11 @@ export default function ClasificadosPage() {
                 8 Mejores Terceros
               </h2>
               <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-ink-muted">
-                Clasificados por puntos · diferencia de goles · goles a favor
+                Clasificados por puntos Â· diferencia de goles Â· goles a favor
               </p>
               {hasThirdTies && !isLocked && (
                 <p className="mt-2 text-xs text-amber">
-                  Hay empate total entre terceros tras criterios FIFA calculables. Ajusta el orden con las flechas.
+                  Hay empate total entre terceros tras criterios FIFA calculables. MantÃ©n pulsado para arrastrar o usa las flechas.
                 </p>
               )}
             </div>
@@ -300,13 +405,42 @@ export default function ClasificadosPage() {
                   {thirds.map((s, idx) => {
                     const team = teamsMap.get(s.team_id);
                     const qualifies = idx < 8;
+                    const draggingIndex = thirds.findIndex((row) => row.team_id === draggingThirdId);
+                    const targetIndex = thirds.findIndex((row) => row.team_id === dropTargetThirdId);
+                    const targetShift =
+                      draggingIndex >= 0 && targetIndex >= 0 && dropTargetThirdId === s.team_id
+                        ? draggingIndex < targetIndex
+                          ? -1
+                          : 1
+                        : 0;
                     return (
                       <div
                         key={s.team_id}
+                        ref={(node) => {
+                          if (node) thirdRowRefs.current.set(s.team_id, node);
+                          else thirdRowRefs.current.delete(s.team_id);
+                        }}
+                        data-third-team-id={s.team_id}
+                        onPointerDown={(event) => startThirdPress(s.team_id, event)}
+                        onPointerMove={handleThirdPointerMove}
+                        onPointerUp={endThirdDrag}
+                        onPointerCancel={endThirdDrag}
+                        style={{
+                          transform:
+                            draggingThirdId === s.team_id
+                              ? `translateY(${dragOffsetY}px) scale(1.01)`
+                              : targetShift !== 0
+                                ? `translateY(${targetShift * 100}%)`
+                                : undefined,
+                        }}
                         className={cn(
-                          "flex items-center gap-3 py-1.5 rounded-lg px-2",
+                          "flex items-center gap-3 py-1.5 rounded-lg px-2 transition-[background,box-shadow,transform] duration-200",
                           qualifies && "bg-green/8",
-                          tiedThirdKeys.has(thirdTieKey(s)) && "border-l-2 border-l-amber"
+                          tiedThirdKeys.has(thirdTieKey(s)) && "border-l-2 border-l-amber",
+                          tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && "cursor-grab select-none active:cursor-grabbing",
+                          pressingThirdId === s.team_id && "ring-2 ring-amber/40",
+                          draggingThirdId === s.team_id && "relative z-10 bg-amber/15 shadow-md",
+                          dropTargetThirdId === s.team_id && "bg-amber/[0.18]"
                         )}
                       >
                         <span
@@ -322,51 +456,59 @@ export default function ClasificadosPage() {
                           className="shrink-0"
                         />
                         <span className="text-sm text-ink flex-1 truncate">
-                          {team?.name ?? "—"}
+                          {team?.name ?? "â€”"}
                         </span>
                         <span className="text-[10px] text-ink-muted font-mono shrink-0">
                           Gr.{s.group_letter}
                         </span>
                         <span className="text-[10px] font-bold text-ink-muted shrink-0 w-12 text-right">
-                          {s.points}pts · {s.goal_difference > 0 ? "+" : ""}
+                          {s.points}pts Â· {s.goal_difference > 0 ? "+" : ""}
                           {s.goal_difference}
                         </span>
                         {tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && (
                           <span className="flex shrink-0 gap-0.5">
                             <button
                               type="button"
-                              onClick={() => moveThird(s.team_id, "up")}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                moveThird(s.team_id, "up");
+                              }}
                               disabled={
                                 idx === 0 ||
                                 thirdTieKey(thirds[idx - 1]) !== thirdTieKey(s)
                               }
-                              className="rounded px-1 text-ink-muted transition-colors hover:text-ink disabled:opacity-30"
+                              className="rounded p-0.5 text-ink-muted transition-colors hover:text-ink disabled:opacity-30"
                               aria-label={`Subir ${team?.name ?? "equipo"}`}
                             >
-                              ↑
+                              <ChevronUp className="h-3.5 w-3.5" />
                             </button>
                             <button
                               type="button"
-                              onClick={() => moveThird(s.team_id, "down")}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                moveThird(s.team_id, "down");
+                              }}
                               disabled={
                                 idx === thirds.length - 1 ||
                                 thirdTieKey(thirds[idx + 1]) !== thirdTieKey(s)
                               }
-                              className="rounded px-1 text-ink-muted transition-colors hover:text-ink disabled:opacity-30"
+                              className="rounded p-0.5 text-ink-muted transition-colors hover:text-ink disabled:opacity-30"
                               aria-label={`Bajar ${team?.name ?? "equipo"}`}
                             >
-                              ↓
+                              <ChevronDown className="h-3.5 w-3.5" />
                             </button>
                           </span>
                         )}
                         {qualifies && (
                           <span className="text-[10px] font-bold text-green shrink-0">
-                            ✓
+                            âœ“
                           </span>
                         )}
                         {!qualifies && (
                           <span className="text-[10px] text-ink-faint shrink-0">
-                            ✗
+                            âœ—
                           </span>
                         )}
                       </div>
@@ -383,13 +525,13 @@ export default function ClasificadosPage() {
               href="/predicciones/grupos"
               className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-4 py-2 font-marcador text-sm uppercase text-ink transition-colors hover:bg-surface-sunken"
             >
-              ← Fase de Grupos
+              â† Fase de Grupos
             </Link>
             <Link
               href="/predicciones/eliminatorias"
               className="inline-flex items-center gap-1 rounded-lg bg-ink px-4 py-2 font-marcador text-sm uppercase text-white transition-opacity hover:opacity-80"
             >
-              Eliminatorias →
+              Eliminatorias â†’
             </Link>
           </div>
         </>

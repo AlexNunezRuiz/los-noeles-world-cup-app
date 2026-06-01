@@ -62,6 +62,7 @@ function buildGapInfo(
 
 export default function RankingPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [allProfiles, setAllProfiles] = useState<ProfileRow[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [tab, setTab] = useState<TabMode>("lista");
   const supabase = createClient();
@@ -94,6 +95,7 @@ export default function RankingPage() {
       const profileMap = new Map<string, ProfileRow>(
         ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
       );
+      setAllProfiles((profiles ?? []) as ProfileRow[]);
 
       const paid: LeaderboardEntry[] = ((scores ?? []) as UserScoreRow[])
         .map((s) => {
@@ -137,7 +139,7 @@ export default function RankingPage() {
   }, []);
 
   // Derive display data
-  const { youIdx, you, rankingRows, top3, rest } = useMemo(() => {
+  const { youIdx, you, rankingRows, top3, rest, pendingPlayers } = useMemo(() => {
     const currentYouIdx = entries.findIndex((e) => e.isYou);
     const currentYou = currentYouIdx >= 0 ? entries[currentYouIdx] : null;
     const rows: RankingRow[] = entries.map((e) => {
@@ -174,8 +176,11 @@ export default function RankingPage() {
         isYou: e.user_id === currentUserId,
       })),
       rest: entries.slice(3),
+      pendingPlayers: allProfiles
+        .filter((profile) => !entries.some((entry) => entry.user_id === profile.id))
+        .sort((a, b) => a.display_name.localeCompare(b.display_name)),
     };
-  }, [entries, currentUserId]);
+  }, [allProfiles, entries, currentUserId]);
 
   const youAbove =
     you && youIdx > 0
@@ -224,7 +229,30 @@ export default function RankingPage() {
 
       {/* Lista mode */}
       {tab === "lista" && entries.length > 0 && (
-        <RankingList players={rankingRows} />
+        <div className="space-y-4">
+          <RankingList players={rankingRows} />
+          {pendingPlayers.length > 0 && (
+            <div className="rounded-xl border border-border bg-surface p-3">
+              <p className="mb-2 font-marcador text-xs uppercase tracking-wider text-ink-muted">
+                Registrados sin ranking
+              </p>
+              <div className="space-y-1">
+                {pendingPlayers.map((profile) => (
+                  <Link
+                    key={profile.id}
+                    href={`/jugador/${profile.id}`}
+                    className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-surface-sunken"
+                  >
+                    <span className="font-semibold text-ink">{profile.display_name}</span>
+                    <span className="text-xs text-ink-muted">
+                      {profile.has_paid ? "Sin puntos" : "Pendiente pago"}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Podio mode */}

@@ -30,16 +30,29 @@ function ContenderRow({
   score,
   side,
   focused,
+  winner,
   onTap,
 }: {
   c: Contender;
   score: number | null;
   side: "home" | "away";
   focused: boolean;
+  winner: boolean;
   onTap: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onTap}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onTap();
+      }}
+      className={cn(
+        "flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors",
+        winner ? "bg-green/10 ring-1 ring-green/25" : "hover:bg-surface-sunken"
+      )}
+    >
       <span className="w-14 shrink-0 font-marcador text-[10px] font-bold uppercase text-ink-faint">
         {c.sourceLabel}
       </span>
@@ -47,13 +60,27 @@ function ContenderRow({
         {c.team ? (
           <>
             <Flag emoji={c.team.flag_emoji} size={18} />
-            <span className="truncate text-xs font-bold text-ink">{c.team.name}</span>
+            <span className={cn("truncate text-xs font-bold", winner ? "text-green" : "text-ink")}>
+              {c.team.name}
+            </span>
           </>
         ) : (
           <span className="text-xs font-semibold text-ink-faint">Por decidir</span>
         )}
       </div>
-      <button type="button" onClick={onTap} aria-label={`Marcador ${side}`}>
+      {winner && (
+        <span className="shrink-0 rounded bg-green px-1.5 py-0.5 font-marcador text-[9px] font-bold uppercase text-white">
+          Pasa
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onTap();
+        }}
+        aria-label={`Marcador ${side}`}
+      >
         <FlapTile value={score} size="sm" focused={focused} />
       </button>
     </div>
@@ -76,6 +103,14 @@ export function TieCard({
 }: TieCardProps) {
   const resolved = home.team !== null && away.team !== null;
   const isDraw = homeScore !== null && awayScore !== null && homeScore === awayScore;
+  const homeWins =
+    homeScore !== null &&
+    awayScore !== null &&
+    (homeScore > awayScore || (isDraw && penaltyWinner === "home"));
+  const awayWins =
+    homeScore !== null &&
+    awayScore !== null &&
+    (awayScore > homeScore || (isDraw && penaltyWinner === "away"));
   const uniqueSourceGroups = Array.from(new Set(sourceGroups)).filter(Boolean);
 
   return (
@@ -98,6 +133,7 @@ export function TieCard({
           score={homeScore}
           side="home"
           focused={focusedSide === "home"}
+          winner={homeWins}
           onTap={() => onTileTap("home")}
         />
         <ContenderRow
@@ -105,6 +141,7 @@ export function TieCard({
           score={awayScore}
           side="away"
           focused={focusedSide === "away"}
+          winner={awayWins}
           onTap={() => onTileTap("away")}
         />
       </div>

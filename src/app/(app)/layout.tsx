@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Navbar isAdmin={isAdmin} />
-      <main className="mx-auto max-w-[680px] px-4 pb-24 pt-16">
+      <main className="mx-auto max-w-[680px] px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))]">
         {children}
       </main>
     </>

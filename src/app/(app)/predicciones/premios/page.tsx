@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PlayerCombobox } from "@/components/ui/player-combobox";
 import { StageBar } from "@/components/porra/stage-bar";
 import { Trophy, Star, Shield } from "lucide-react";
+import { isPredictionsLocked } from "@/lib/predictions/lock";
 
 interface Player {
   id: number;
@@ -17,6 +18,11 @@ interface AwardPrediction {
   award_type: string;
   player_id?: number;
   player_name?: string;
+}
+
+interface ConfigRow {
+  key: string;
+  value: string;
 }
 
 const AWARDS = [
@@ -60,11 +66,11 @@ export default function PremiosPage() {
       const [playersRes, predsRes, configRes] = await Promise.all([
         supabase.from("players").select("id, name, team_id, teams(name, code)").order("name"),
         supabase.from("award_predictions").select("*").eq("user_id", user.id),
-        supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
+        supabase.from("tournament_config").select("key, value"),
       ]);
 
       setPlayers(playersRes.data || []);
-      setIsLocked(configRes.data?.value === "true");
+      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
 
       const predMap = new Map<string, AwardPrediction>();
       for (const p of predsRes.data || []) {

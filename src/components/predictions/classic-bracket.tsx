@@ -92,7 +92,7 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
       <div
         className={cn(
           "flex items-center gap-1.5 px-2 py-1.5 border-b border-border/50",
-          homeWins && "bg-red/5"
+        homeWins && "bg-green/10"
         )}
       >
         <span className="shrink-0 w-4 h-4 flex items-center justify-center">
@@ -105,7 +105,7 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
         <span
           className={cn(
             "flex-1 truncate text-[10px] font-bold min-w-0",
-            homeWins ? "text-ink" : "text-ink-muted"
+            homeWins ? "text-green" : "text-ink-muted"
           )}
         >
           {match.homeTeam ? match.homeTeam.name : match.homeSourceLabel}
@@ -113,7 +113,7 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
         <span
           className={cn(
             "shrink-0 text-[11px] font-marcador font-bold w-4 text-center",
-            homeWins ? "text-red" : "text-ink-faint"
+            homeWins ? "text-green" : "text-ink-faint"
           )}
         >
           {homeScore !== null ? homeScore : "·"}
@@ -124,7 +124,7 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
       <div
         className={cn(
           "flex items-center gap-1.5 px-2 py-1.5",
-          awayWins && "bg-red/5"
+        awayWins && "bg-green/10"
         )}
       >
         <span className="shrink-0 w-4 h-4 flex items-center justify-center">
@@ -137,7 +137,7 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
         <span
           className={cn(
             "flex-1 truncate text-[10px] font-bold min-w-0",
-            awayWins ? "text-ink" : "text-ink-muted"
+            awayWins ? "text-green" : "text-ink-muted"
           )}
         >
           {match.awayTeam ? match.awayTeam.name : match.awaySourceLabel}
@@ -145,7 +145,7 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
         <span
           className={cn(
             "shrink-0 text-[11px] font-marcador font-bold w-4 text-center",
-            awayWins ? "text-red" : "text-ink-faint"
+            awayWins ? "text-green" : "text-ink-faint"
           )}
         >
           {awayScore !== null ? awayScore : "·"}
@@ -325,17 +325,25 @@ function Column({
   label,
   children,
   width = 180,
+  topOffset = 0,
+  rowGap = 12,
 }: {
   label: string;
   children: React.ReactNode;
   width?: number;
+  topOffset?: number;
+  rowGap?: number;
 }) {
   return (
     <div className="flex flex-col" style={{ width }}>
       <p className="mb-2 font-marcador text-[10px] uppercase tracking-widest text-ink-muted text-center">
         {label}
       </p>
-      <div className="flex flex-col items-stretch">{children}</div>
+      <div className="flex flex-col items-stretch" style={{ paddingTop: topOffset }}>
+        <div className="flex flex-col" style={{ gap: rowGap }}>
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
@@ -352,6 +360,8 @@ function LeftColumn({
   predictions,
   onSelectMatch,
   width,
+  topOffset = 0,
+  rowGap = 12,
 }: {
   label: string;
   matchNums: number[];
@@ -359,6 +369,8 @@ function LeftColumn({
   predictions: Map<number, BracketPrediction>;
   onSelectMatch: (n: number) => void;
   width?: number;
+  topOffset?: number;
+  rowGap?: number;
 }) {
   const matchMap = useMemo(
     () => new Map(allMatches.map((match) => [match.match_number, match])),
@@ -409,8 +421,8 @@ function LeftColumn({
   }
 
   return (
-    <Column label={label} width={width}>
-      <div className="flex flex-col gap-3">{rows}</div>
+    <Column label={label} width={width} topOffset={topOffset} rowGap={rowGap}>
+      {rows}
     </Column>
   );
 }
@@ -426,6 +438,8 @@ function RightColumn({
   predictions,
   onSelectMatch,
   width,
+  topOffset = 0,
+  rowGap = 12,
 }: {
   label: string;
   matchNums: number[];
@@ -433,6 +447,8 @@ function RightColumn({
   predictions: Map<number, BracketPrediction>;
   onSelectMatch: (n: number) => void;
   width?: number;
+  topOffset?: number;
+  rowGap?: number;
 }) {
   const matchMap = useMemo(
     () => new Map(allMatches.map((match) => [match.match_number, match])),
@@ -481,8 +497,8 @@ function RightColumn({
   }
 
   return (
-    <Column label={label} width={width}>
-      <div className="flex flex-col gap-3">{rows}</div>
+    <Column label={label} width={width} topOffset={topOffset} rowGap={rowGap}>
+      {rows}
     </Column>
   );
 }
@@ -509,6 +525,9 @@ export function ClassicBracket({
   const COL_MID  = 172; // same for octavos & cuartos
   const COL_SF   = 172; // semis
   const COL_FIN  = 196; // centre: node(164) + some padding
+  const R16_OFFSET = 76;
+  const QF_OFFSET = 186;
+  const SF_OFFSET = 214;
 
   return (
     <div className="overflow-x-auto pb-4">
@@ -524,6 +543,7 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_R32}
+          rowGap={12}
         />
 
         {/* Octavos L */}
@@ -534,6 +554,8 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
+          topOffset={R16_OFFSET}
+          rowGap={108}
         />
 
         {/* Cuartos L */}
@@ -544,6 +566,7 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
+          topOffset={QF_OFFSET}
         />
 
         {/* Semis L */}
@@ -554,11 +577,12 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_SF}
+          topOffset={SF_OFFSET}
         />
 
         {/* ── CENTRE ───────────────────────────────────────────────────────── */}
 
-        <Column label="Final" width={COL_FIN}>
+        <Column label="Final" width={COL_FIN} topOffset={SF_OFFSET - 26}>
           <div className="flex flex-col items-center gap-4">
             {/* Final — gold-accented */}
             {finalMatch ? (
@@ -603,6 +627,7 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_SF}
+          topOffset={SF_OFFSET}
         />
 
         {/* Cuartos R */}
@@ -613,6 +638,7 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
+          topOffset={QF_OFFSET}
         />
 
         {/* Octavos R */}
@@ -623,6 +649,8 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
+          topOffset={R16_OFFSET}
+          rowGap={108}
         />
 
         {/* 16avos R */}
@@ -633,6 +661,7 @@ export function ClassicBracket({
           predictions={predictions}
           onSelectMatch={onSelectMatch}
           width={COL_R32}
+          rowGap={12}
         />
       </div>
     </div>

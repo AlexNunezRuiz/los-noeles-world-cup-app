@@ -12,6 +12,7 @@ import { MatchResultDialog } from "@/components/predictions/match-result-dialog"
 import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
 import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
+import { isPredictionsLocked } from "@/lib/predictions/lock";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,11 @@ interface KoPrediction {
 interface BestThirdOverride {
   team_id: number;
   rank: number;
+}
+
+interface ConfigRow {
+  key: string;
+  value: string;
 }
 
 /** A prediction only counts once BOTH scores have been entered. */
@@ -150,7 +156,7 @@ export default function EliminatoriasPage() {
         supabase.from("predicted_group_standings").select("*").eq("user_id", user.id),
         getBracketPositions(),
         supabase.from("match_predictions").select("*").eq("user_id", user.id),
-        supabase.from("tournament_config").select("*").eq("key", "predictions_locked").single(),
+        supabase.from("tournament_config").select("key, value"),
         supabase
           .from("predicted_best_third_order")
           .select("team_id, rank")
@@ -159,7 +165,7 @@ export default function EliminatoriasPage() {
       ]);
 
       setTeams(teamsRes);
-      setIsLocked(configRes.data?.value === "true");
+      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
 
       // Build match_number -> id map
       const idMap = new Map<number, number>();
