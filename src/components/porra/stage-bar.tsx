@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const STAGES = [
   { key: "grupos", label: "Grupos", href: "/predicciones/grupos", color: "var(--red)" },
-  { key: "clasificados", label: "Clasif.", href: "/predicciones/clasificados", color: "var(--blue)" },
+  { key: "clasificados", label: "Clasificados", href: "/predicciones/clasificados", color: "var(--blue)" },
   { key: "eliminatorias", label: "Cuadro", href: "/predicciones/eliminatorias", color: "var(--green)" },
   { key: "premios", label: "Premios", href: "/predicciones/premios", color: "var(--gold)" },
 ];
@@ -15,7 +15,7 @@ const STAGES = [
 export function StageBar({ progress }: { progress: Record<string, number> }) {
   const pathname = usePathname() ?? "";
   return (
-    <div className="flex gap-1.5 px-3 py-2">
+    <div className="flex snap-x gap-1.5 overflow-x-auto px-3 py-2">
       {STAGES.map((s) => {
         const active = pathname.startsWith(s.href);
         return (
@@ -23,7 +23,7 @@ export function StageBar({ progress }: { progress: Record<string, number> }) {
             key={s.key}
             href={s.href}
             className={cn(
-              "flex-1 rounded-md border px-1 pt-1.5 text-center transition-colors",
+              "min-w-[8.25rem] shrink-0 snap-start rounded-md border px-2 pt-1.5 text-center transition-colors sm:min-w-0 sm:flex-1",
               active ? "border-ink bg-ink" : "border-border bg-surface"
             )}
           >
