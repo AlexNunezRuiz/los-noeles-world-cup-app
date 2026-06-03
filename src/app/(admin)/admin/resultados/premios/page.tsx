@@ -13,7 +13,7 @@ import { Trophy, Medal, Shield } from "lucide-react";
 interface Player {
   id: number;
   name: string;
-  teams?: { name: string; code: string } | { name: string; code: string }[] | null;
+  teams?: { name: string; flag_emoji: string } | { name: string; flag_emoji: string }[] | null;
 }
 
 const AWARDS = [
@@ -32,7 +32,11 @@ export default function AdminPremiosPage() {
   useEffect(() => {
     async function load() {
       const [playersRes, awardsRes] = await Promise.all([
-        supabase.from("players").select("id, name, teams(name, code)").order("name"),
+        supabase
+          .from("players")
+          .select("id, name, teams(name, flag_emoji)")
+          .order("name")
+          .range(0, 1999),
         supabase.from("actual_awards").select("*"),
       ]);
       setPlayers(playersRes.data || []);
@@ -102,7 +106,7 @@ export default function AdminPremiosPage() {
                       {p.name}
                       {(() => {
                         const team = Array.isArray(p.teams) ? p.teams[0] : p.teams;
-                        return team ? ` · ${team.name} (${team.code})` : "";
+                        return team ? ` · ${team.flag_emoji} ${team.name}` : "";
                       })()}
                     </SelectItem>
                   ))}

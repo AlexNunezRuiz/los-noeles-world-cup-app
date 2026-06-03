@@ -6,6 +6,7 @@ export interface PlayerOption {
   id: number;
   name: string;
   team?: string;
+  teamFlag?: string;
 }
 
 export interface PlayerComboboxProps {
@@ -29,6 +30,15 @@ export function PlayerCombobox({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function normalizeSearch(value: string) {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()
+      .toLowerCase();
+  }
 
   // Keep query in sync when external value changes
   useEffect(() => {
@@ -61,11 +71,9 @@ export function PlayerCombobox({
     query.trim() === ""
       ? options
       : options.filter((o) => {
-          const q = query.toLowerCase();
-          return (
-            o.name.toLowerCase().includes(q) ||
-            (o.team?.toLowerCase().includes(q) ?? false)
-          );
+          const q = normalizeSearch(query);
+          const haystack = normalizeSearch(`${o.name} ${o.team ?? ""}`);
+          return haystack.includes(q);
         });
 
   const handleSelect = useCallback(
@@ -118,8 +126,11 @@ export function PlayerCombobox({
               className="cursor-pointer select-none px-3 py-2 text-sm text-ink hover:bg-surface-sunken"
             >
               <span className="font-medium">{option.name}</span>
-              {option.team && (
-                <span className="ml-2 text-xs text-ink-muted">{option.team}</span>
+              {(option.team || option.teamFlag) && (
+                <span className="ml-2 text-xs text-ink-muted">
+                  {option.teamFlag && <span className="mr-1">{option.teamFlag}</span>}
+                  {option.team}
+                </span>
               )}
             </li>
           ))}

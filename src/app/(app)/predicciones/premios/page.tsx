@@ -11,7 +11,7 @@ interface Player {
   id: number;
   name: string;
   team_id: number;
-  teams?: { name: string; code: string } | { name: string; code: string }[] | null;
+  teams?: { name: string; code: string; flag_emoji: string } | { name: string; code: string; flag_emoji: string }[] | null;
 }
 
 interface AwardPrediction {
@@ -64,7 +64,11 @@ export default function PremiosPage() {
       setUserId(user.id);
 
       const [playersRes, predsRes, configRes] = await Promise.all([
-        supabase.from("players").select("id, name, team_id, teams(name, code)").order("name"),
+        supabase
+          .from("players")
+          .select("id, name, team_id, teams(name, code, flag_emoji)")
+          .order("name")
+          .range(0, 1999),
         supabase.from("award_predictions").select("*").eq("user_id", user.id),
         supabase.from("tournament_config").select("key, value"),
       ]);
@@ -183,7 +187,8 @@ export default function PremiosPage() {
                   return {
                     id: p.id,
                     name: p.name,
-                    team: team ? `${team.name} (${team.code})` : undefined,
+                    team: team?.name,
+                    teamFlag: team?.flag_emoji,
                   };
                 })}
                 value={pred?.player_id ?? null}
