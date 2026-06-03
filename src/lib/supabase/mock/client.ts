@@ -291,6 +291,39 @@ export function createMockClient(): any {
     from(table: string) {
       return new MockQuery(table);
     },
+    async rpc(name: string) {
+      if (name !== "get_porra_completion_status") {
+        return {
+          data: null,
+          error: { message: `Mock RPC not implemented: ${name}` },
+        };
+      }
+
+      const matchesById = new Map((db.matches ?? []).map((match) => [match.id, match]));
+      const rows = (db.profiles ?? []).map((profile) => {
+        const userMatchPredictions = (db.match_predictions ?? []).filter(
+          (prediction) => prediction.user_id === profile.id
+        );
+
+        return {
+          user_id: profile.id,
+          group_prediction_count: userMatchPredictions.filter(
+            (prediction) => matchesById.get(prediction.match_id)?.stage === "group"
+          ).length,
+          group_standing_rows: (db.predicted_group_standings ?? []).filter(
+            (standing) => standing.user_id === profile.id
+          ).length,
+          knockout_prediction_count: userMatchPredictions.filter(
+            (prediction) => matchesById.get(prediction.match_id)?.stage !== "group"
+          ).length,
+          award_prediction_count: (db.award_predictions ?? []).filter(
+            (award) => award.user_id === profile.id
+          ).length,
+        };
+      });
+
+      return { data: rows, error: null };
+    },
     auth: {
       async getUser() {
         return { data: { user: MOCK_USER }, error: null };

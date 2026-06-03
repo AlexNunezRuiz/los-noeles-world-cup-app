@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import { RankingList, RankingRow } from "@/components/ranking/ranking-list";
 import { Podium } from "@/components/ranking/podium";
 import { BreakdownBar } from "@/components/ranking/breakdown-bar";
+import {
+  getPorraCompletion,
+  type PorraCompletion,
+  type PorraPhaseState,
+} from "@/lib/predictions/completion";
+import { cn } from "@/lib/utils";
 
 interface UserScoreRow {
   user_id: string;
@@ -22,6 +28,14 @@ interface ProfileRow {
   has_paid: boolean;
 }
 
+interface CompletionStatusRow {
+  user_id: string;
+  group_prediction_count: number;
+  group_standing_rows: number;
+  knockout_prediction_count: number;
+  award_prediction_count: number;
+}
+
 interface LeaderboardEntry {
   position: number;
   user_id: string;
@@ -34,7 +48,7 @@ interface LeaderboardEntry {
   isYou: boolean;
 }
 
-type TabMode = "lista" | "podio";
+type TabMode = "lista" | "podio" | "estado";
 
 function buildGapInfo(
   entries: LeaderboardEntry[],
@@ -63,6 +77,7 @@ function buildGapInfo(
 export default function RankingPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [allProfiles, setAllProfiles] = useState<ProfileRow[]>([]);
+  const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [tab, setTab] = useState<TabMode>("lista");
   const supabase = createClient();
@@ -80,6 +95,7 @@ export default function RankingPage() {
       const profilesPromise = supabase
         .from("profiles")
         .select("id, display_name, has_paid");
+      const completionPromise = supabase.rpc("get_porra_completion_status");
 
       const [
         {
@@ -87,7 +103,8 @@ export default function RankingPage() {
         },
         { data: scores },
         { data: profiles },
-      ] = await Promise.all([userPromise, scoresPromise, profilesPromise]);
+        { data: completionRows },
+      ] = await Promise.all([userPromise, scoresPromise, profilesPromise, completionPromise]);
 
       const uid = user?.id ?? "";
       if (uid) setCurrentUserId(uid);
@@ -96,6 +113,19 @@ export default function RankingPage() {
         ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
       );
       setAllProfiles((profiles ?? []) as ProfileRow[]);
+      setCompletionByUser(
+        new Map(
+          ((completionRows ?? []) as CompletionStatusRow[]).map((row) => [
+            row.user_id,
+            getPorraCompletion({
+              groupPredictionCount: row.group_prediction_count,
+              groupStandingRows: row.group_standing_rows,
+              knockoutPredictionCount: row.knockout_prediction_count,
+              awardPredictionCount: row.award_prediction_count,
+            }),
+          ])
+        )
+      );
 
       const paid: LeaderboardEntry[] = ((scores ?? []) as UserScoreRow[])
         .map((s) => {
@@ -139,7 +169,7 @@ export default function RankingPage() {
   }, []);
 
   // Derive display data
-  const { youIdx, you, rankingRows, top3, rest, pendingPlayers } = useMemo(() => {
+  const { youIdx, you, rankingRows, top3, rest, pendingPlayers, statusProfiles } = useMemo(() => {
     const currentYouIdx = entries.findIndex((e) => e.isYou);
     const currentYou = currentYouIdx >= 0 ? entries[currentYouIdx] : null;
     const rows: RankingRow[] = entries.map((e) => {
@@ -179,6 +209,9 @@ export default function RankingPage() {
       pendingPlayers: allProfiles
         .filter((profile) => !entries.some((entry) => entry.user_id === profile.id))
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+      statusProfiles: allProfiles
+        .slice()
+        .sort((a, b) => a.display_name.localeCompare(b.display_name)),
     };
   }, [allProfiles, entries, currentUserId]);
 
@@ -217,6 +250,16 @@ export default function RankingPage() {
           }`}
         >
           Podio
+        </button>
+        <button
+          onClick={() => setTab("estado")}
+          className={`flex-1 text-center py-2 rounded-md font-marcador uppercase text-xs tracking-wider transition-all ${
+            tab === "estado"
+              ? "bg-surface text-ink shadow"
+              : "text-ink-muted"
+          }`}
+        >
+          Estado
         </button>
       </div>
 
@@ -324,6 +367,82 @@ export default function RankingPage() {
           )}
         </div>
       )}
+
+      {/* Estado mode */}
+      {tab === "estado" && (
+        <div className="rounded-xl border border-border bg-surface overflow-hidden">
+          {statusProfiles.length === 0 ? (
+            <div className="p-4 text-sm text-ink-muted">AÃºn no hay usuarios registrados.</div>
+          ) : (
+            statusProfiles.map((profile, index) => {
+              const completion = completionByUser.get(profile.id) ?? getPorraCompletion({
+                groupPredictionCount: 0,
+                groupStandingRows: 0,
+                knockoutPredictionCount: 0,
+                awardPredictionCount: 0,
+              });
+
+              return (
+                <Link
+                  key={profile.id}
+                  href={`/jugador/${profile.id}`}
+                  className={cn(
+                    "block px-3 py-3 hover:bg-surface-sunken",
+                    index > 0 && "border-t border-border"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate font-sans text-sm font-bold text-ink">
+                      {profile.display_name}
+                    </span>
+                    <span className="flex-shrink-0 text-xs font-semibold text-ink-muted">
+                      {profile.has_paid ? "Registrado" : "Pendiente pago"}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    <PhasePill label="Grupos" phase={completion.grupos} />
+                    <PhasePill label="Clasificados" phase={completion.clasificados} />
+                    <PhasePill label="Cuadro" phase={completion.cuadro} />
+                    <PhasePill label="Premios" phase={completion.premios} />
+                  </div>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PHASE_LABELS: Record<PorraPhaseState, string> = {
+  empty: "Sin empezar",
+  partial: "Parcial",
+  complete: "Completa",
+};
+
+const PHASE_CLASS: Record<PorraPhaseState, string> = {
+  empty: "border-border bg-surface-sunken text-ink-muted",
+  partial: "border-yellow-500/30 bg-yellow-500/10 text-yellow-800",
+  complete: "border-green-600/30 bg-green-600/10 text-green-800",
+};
+
+function PhasePill({
+  label,
+  phase,
+}: {
+  label: string;
+  phase: PorraCompletion[keyof PorraCompletion];
+}) {
+  return (
+    <div className={cn("rounded-lg border px-2 py-1.5", PHASE_CLASS[phase.state])}>
+      <div className="flex items-center justify-between gap-1">
+        <span className="truncate font-marcador text-[10px] uppercase tracking-wider">
+          {label}
+        </span>
+        <span className="font-marcador text-[10px] font-bold">{phase.label}</span>
+      </div>
+      <p className="mt-0.5 text-[10px] font-semibold">{PHASE_LABELS[phase.state]}</p>
     </div>
   );
 }

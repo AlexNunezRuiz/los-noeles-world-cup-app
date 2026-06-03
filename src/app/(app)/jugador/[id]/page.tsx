@@ -6,6 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { BreakdownBar } from "@/components/ranking/breakdown-bar";
 import { Flag } from "@/components/ui/flag";
+import { isPredictionsLocked } from "@/lib/predictions/lock";
+import { calculatePotentialSummary, type PredictedMilestone } from "@/lib/scoring/potential";
 
 // ── DB row interfaces ─────────────────────────────────────────────────────────
 
@@ -39,6 +41,11 @@ interface MatchRow {
   away_team_id: number | null;
   home_placeholder: string | null;
   away_placeholder: string | null;
+  match_date: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  penalty_winner_team_id: number | null;
+  is_finished: boolean;
 }
 
 interface MatchPredictionRow {
@@ -46,6 +53,7 @@ interface MatchPredictionRow {
   match_id: number;
   home_score: number;
   away_score: number;
+  penalty_winner: "home" | "away" | null;
 }
 
 interface PredictedGroupStandingRow {
@@ -66,6 +74,22 @@ interface PlayerRow {
   id: number;
   name: string;
   team_id: number | null;
+}
+
+interface ConfigRow {
+  key: string;
+  value: string;
+}
+
+interface ScoringRuleRow {
+  rule_key: string;
+  points: number;
+}
+
+interface ActualAwardRow {
+  award_type: string;
+  player_id: number | null;
+  player_name: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,6 +137,11 @@ export default function JugadorPage() {
   const [teams, setTeams] = useState<Map<number, TeamRow>>(new Map());
   const [matches, setMatches] = useState<Map<number, MatchRow>>(new Map());
   const [players, setPlayers] = useState<Map<number, PlayerRow>>(new Map());
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [isLocked, setIsLocked] = useState(false);
+  const [scoringRules, setScoringRules] = useState<Map<string, number>>(new Map());
+  const [actualAwards, setActualAwards] = useState<ActualAwardRow[]>([]);
+  const [windowStart, setWindowStart] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -122,6 +151,9 @@ export default function JugadorPage() {
       const supabase = createClient();
 
       const [
+        {
+          data: { user },
+        },
         { data: profileData },
         { data: scoresData },
         { data: predictionsData },
@@ -130,22 +162,40 @@ export default function JugadorPage() {
         { data: teamsData },
         { data: matchesData },
         { data: playersData },
+        { data: configData },
+        { data: rulesData },
+        { data: actualAwardsData },
       ] = await Promise.all([
+        supabase.auth.getUser(),
         supabase.from("profiles").select("id, display_name").eq("id", playerId).single(),
         supabase.from("user_scores").select("user_id, total_points, group_stage_points, knockout_exact_points, qualification_points, award_points").eq("user_id", playerId).single(),
-        supabase.from("match_predictions").select("id, match_id, home_score, away_score").eq("user_id", playerId),
+        supabase.from("match_predictions").select("id, match_id, home_score, away_score, penalty_winner").eq("user_id", playerId),
         supabase.from("predicted_group_standings").select("id, group_letter, team_id, position").eq("user_id", playerId).order("group_letter").order("position"),
         supabase.from("award_predictions").select("id, award_type, player_id, player_name").eq("user_id", playerId),
         supabase.from("teams").select("id, name, flag_emoji, group_letter"),
-        supabase.from("matches").select("id, match_number, stage, group_letter, home_team_id, away_team_id, home_placeholder, away_placeholder").order("match_number"),
+        supabase.from("matches").select("id, match_number, stage, group_letter, home_team_id, away_team_id, home_placeholder, away_placeholder, match_date, home_score, away_score, penalty_winner_team_id, is_finished").order("match_number"),
         supabase.from("players").select("id, name, team_id"),
+        supabase.from("tournament_config").select("key, value"),
+        supabase.from("scoring_rules").select("rule_key, points"),
+        supabase.from("actual_awards").select("award_type, player_id, player_name"),
       ]);
 
+      setCurrentUserId(user?.id ?? "");
       setProfile(profileData as ProfileRow | null);
       setScores(scoresData as UserScoreRow | null);
       setMatchPredictions((predictionsData ?? []) as MatchPredictionRow[]);
       setGroupStandings((standingsData ?? []) as PredictedGroupStandingRow[]);
       setAwardPredictions((awardsData ?? []) as AwardPredictionRow[]);
+      setIsLocked(isPredictionsLocked((configData ?? []) as ConfigRow[]));
+      setScoringRules(
+        new Map(
+          ((rulesData ?? []) as ScoringRuleRow[]).map((rule) => [
+            rule.rule_key,
+            rule.points,
+          ])
+        )
+      );
+      setActualAwards((actualAwardsData ?? []) as ActualAwardRow[]);
 
       const teamMap = new Map<number, TeamRow>();
       for (const t of (teamsData ?? []) as TeamRow[]) teamMap.set(t.id, t);
@@ -268,6 +318,128 @@ export default function JugadorPage() {
   }
 
   const stageOrder = ["round_of_32", "round_of_16", "quarter_final", "semi_final", "third_place", "final"];
+  const canSeePicks = isLocked || currentUserId === playerId;
+  const allResultPredictions = [...groupPredictions, ...knockoutPredictions].sort(
+    (a, b) => a.match.match_number - b.match.match_number
+  );
+  const latestFinishedIndex = allResultPredictions.reduce(
+    (latest, item, index) => (item.match.is_finished ? index : latest),
+    -1
+  );
+  const nextUnplayedIndex = allResultPredictions.findIndex((item) => !item.match.is_finished);
+  const focusIndex =
+    latestFinishedIndex >= 0 ? latestFinishedIndex : nextUnplayedIndex >= 0 ? nextUnplayedIndex : 0;
+  const effectiveWindowStart = windowStart || Math.max(0, focusIndex - 2);
+  const visibleResultPredictions = allResultPredictions.slice(effectiveWindowStart, effectiveWindowStart + 5);
+
+  const eliminatedTeamIds = new Set<number>();
+  for (const match of Array.from(matches.values())) {
+    if (
+      match.stage !== "group" &&
+      match.is_finished &&
+      match.home_score !== null &&
+      match.away_score !== null &&
+      match.home_team_id !== null &&
+      match.away_team_id !== null
+    ) {
+      if (match.home_score > match.away_score) eliminatedTeamIds.add(match.away_team_id);
+      if (match.away_score > match.home_score) eliminatedTeamIds.add(match.home_team_id);
+      if (match.home_score === match.away_score && match.penalty_winner_team_id !== null) {
+        eliminatedTeamIds.add(
+          match.penalty_winner_team_id === match.home_team_id
+            ? match.away_team_id
+            : match.home_team_id
+        );
+      }
+    }
+  }
+
+  const predictedMilestones: PredictedMilestone[] = [];
+  const qualificationRuleByStage: Record<string, string> = {
+    round_of_32: "qualify_r32",
+    round_of_16: "qualify_r16",
+    quarter_final: "qualify_qf",
+    semi_final: "qualify_sf",
+  };
+
+  for (const item of knockoutPredictions) {
+    const { match, pred } = item;
+    if (match.home_team_id === null || match.away_team_id === null) continue;
+    const qualificationRuleKey = qualificationRuleByStage[match.stage];
+    if (qualificationRuleKey) {
+      predictedMilestones.push({ teamId: match.home_team_id, ruleKey: qualificationRuleKey, round: match.stage });
+      predictedMilestones.push({ teamId: match.away_team_id, ruleKey: qualificationRuleKey, round: match.stage });
+    }
+    if (match.stage === "final") {
+      predictedMilestones.push({ teamId: match.home_team_id, ruleKey: "qualify_sf", round: "final" });
+      predictedMilestones.push({ teamId: match.away_team_id, ruleKey: "qualify_sf", round: "final" });
+      const championTeamId =
+        pred.home_score === pred.away_score
+          ? pred.penalty_winner === "away"
+            ? match.away_team_id
+            : match.home_team_id
+          : pred.home_score > pred.away_score
+            ? match.home_team_id
+            : match.away_team_id;
+      predictedMilestones.push({
+        teamId: championTeamId,
+        ruleKey: "qualify_champion",
+        round: "champion",
+      });
+    }
+  }
+
+  for (const { match, pred } of allResultPredictions) {
+    if (match.is_finished) continue;
+    if (match.stage === "group") {
+      predictedMilestones.push({ teamId: -match.id * 10 - 1, ruleKey: "correct_sign", round: "future_match" });
+      predictedMilestones.push({ teamId: -match.id * 10 - 2, ruleKey: "exact_score", round: "future_match" });
+    } else {
+      const ruleKey =
+        match.stage === "round_of_32"
+          ? "exact_r32"
+          : match.stage === "round_of_16"
+            ? "exact_r16"
+            : match.stage === "quarter_final" || match.stage === "semi_final"
+              ? "exact_qf"
+              : match.stage === "third_place"
+                ? "exact_third"
+                : match.stage === "final"
+                  ? "exact_final"
+                  : "";
+      if (ruleKey) {
+        predictedMilestones.push({
+          teamId: -match.id * 10 - pred.home_score - pred.away_score - 3,
+          ruleKey,
+          round: "future_match",
+        });
+      }
+    }
+  }
+
+  const potentialSummary = calculatePotentialSummary({
+    currentPoints: totalPoints,
+    rules: scoringRules,
+    predictedMilestones,
+    conflicts: knockoutPredictions
+      .map(({ match }) =>
+        match.home_team_id !== null && match.away_team_id !== null
+          ? [match.home_team_id, match.away_team_id]
+          : null
+      )
+      .filter((conflict): conflict is number[] => conflict !== null),
+    eliminatedTeamIds,
+    awardPredictions: awardPredictions.map((award) => ({
+      awardType: award.award_type,
+      playerId: award.player_id,
+      playerName: award.player_name,
+    })),
+    actualAwards: actualAwards.map((award) => ({
+      awardType: award.award_type,
+      playerId: award.player_id,
+      playerName: award.player_name,
+    })),
+  });
 
   return (
     <div className="space-y-5 pb-8 pt-1">
@@ -298,14 +470,52 @@ export default function JugadorPage() {
         />
       </div>
 
+      <div className="grid grid-cols-2 gap-2">
+        <MetricCard label="Puntos" value={totalPoints} suffix="pts" />
+        <MetricCard label="Máximos puntos potenciales" value={potentialSummary.maximumPotentialPoints} suffix="pts" />
+        <MetricCard label="Semifinalistas eliminados" value={potentialSummary.semifinalistsEliminated} />
+        <MetricCard label="Finalistas eliminados" value={potentialSummary.finalistsEliminated} />
+      </div>
+
+      {!canSeePicks && (
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <p className="text-sm font-semibold text-ink">Predicciones bloqueadas</p>
+          <p className="mt-1 text-xs text-ink-muted">
+            Podrás ver los resultados de otros usuarios cuando empiece el Mundial y se cierre la edición.
+          </p>
+        </div>
+      )}
+
       {/* Fase de grupos */}
+      {canSeePicks && (
+        <>
       <section className="space-y-2">
-        <SectionTitle>Fase de grupos</SectionTitle>
-        {groupPredictions.length === 0 ? (
+        <div className="flex items-center justify-between gap-2">
+          <SectionTitle>Resultados</SectionTitle>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              disabled={effectiveWindowStart === 0}
+              onClick={() => setWindowStart(Math.max(0, effectiveWindowStart - 5))}
+              className="rounded-md border border-border bg-surface px-2 py-1 font-marcador text-xs uppercase text-ink disabled:opacity-40"
+            >
+              ‹ Atrás
+            </button>
+            <button
+              type="button"
+              disabled={effectiveWindowStart + 5 >= allResultPredictions.length}
+              onClick={() => setWindowStart(effectiveWindowStart + 5)}
+              className="rounded-md border border-border bg-surface px-2 py-1 font-marcador text-xs uppercase text-ink disabled:opacity-40"
+            >
+              Siguiente ›
+            </button>
+          </div>
+        </div>
+        {visibleResultPredictions.length === 0 ? (
           <EmptyState label="Sin pronósticos de fase de grupos" />
         ) : (
           <div className="rounded-xl border border-border bg-surface px-3">
-            {groupPredictions.map(({ match, pred }) => renderMatchRow(match, pred))}
+            {visibleResultPredictions.map(({ match, pred }) => renderMatchRow(match, pred))}
           </div>
         )}
       </section>
@@ -336,7 +546,7 @@ export default function JugadorPage() {
 
       {/* Eliminatorias */}
       <section className="space-y-2">
-        <SectionTitle>Eliminatorias</SectionTitle>
+        <SectionTitle>Su cuadro final</SectionTitle>
         {knockoutPredictions.length === 0 ? (
           <EmptyState label="Sin pronósticos de eliminatorias" />
         ) : (
@@ -384,6 +594,20 @@ export default function JugadorPage() {
           </div>
         )}
       </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3">
+      <p className="font-marcador text-[10px] uppercase tracking-widest text-ink-muted">{label}</p>
+      <p className="mt-1 font-marcador text-2xl font-bold text-ink">
+        {value}
+        {suffix && <span className="ml-1 font-sans text-xs font-normal text-ink-muted">{suffix}</span>}
+      </p>
     </div>
   );
 }
