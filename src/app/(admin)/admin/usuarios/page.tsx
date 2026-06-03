@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
 
 interface Profile {
   id: string;
@@ -48,10 +49,17 @@ export default function AdminUsuariosPage() {
             payment_reference: null,
           }
         : { [field]: value };
-    const { error } = await supabase
+    let extendedPaymentSaved = field !== "has_paid";
+    let { error } = await supabase
       .from("profiles")
       .update(patch)
       .eq("id", userId);
+
+    if (field === "has_paid" && error && isMissingProfilesColumnError(error)) {
+      extendedPaymentSaved = false;
+      const fallback = await supabase.from("profiles").update({ has_paid: value }).eq("id", userId);
+      error = fallback.error;
+    }
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -62,7 +70,7 @@ export default function AdminUsuariosPage() {
             ? {
                 ...p,
                 [field]: value,
-                ...(field === "has_paid"
+                ...(field === "has_paid" && extendedPaymentSaved
                   ? {
                       paid_at: value ? new Date().toISOString() : null,
                       payment_method: value ? "transfer" : null,
@@ -122,6 +130,8 @@ export default function AdminUsuariosPage() {
                         ? `${new Date(p.paid_at).toLocaleString("es-ES")} · ${
                             p.payment_method === "transfer" ? "Transferencia" : p.payment_method ?? "Pago"
                           }`
+                        : p.has_paid
+                        ? "Confirmado"
                         : "Pendiente"}
                     </td>
                     <td className="py-3 px-2 text-center">

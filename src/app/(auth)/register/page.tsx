@@ -7,9 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { normalizeUsername, validateUsername } from "@/lib/auth/username";
+import { getMissingRegisterFields } from "@/lib/auth/register-validation";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -24,6 +26,26 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const missingFields = getMissingRegisterFields({
+      username,
+      displayName,
+      email,
+      password,
+      confirmPassword,
+    });
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Faltan campos obligatorios",
+        description:
+          missingFields.length === 1
+            ? `Falta: ${missingFields[0]}.`
+            : `Faltan: ${missingFields.join(", ")}.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const usernameError = validateUsername(username);
     if (usernameError) {
@@ -102,8 +124,9 @@ export default function RegisterPage() {
           Crear cuenta
         </CardTitle>
       </CardHeader>
-      <form onSubmit={handleRegister}>
+      <form onSubmit={handleRegister} noValidate>
         <CardContent className="space-y-4">
+          <p className="text-sm text-ink-muted">Todos los campos son obligatorios.</p>
           <div className="space-y-2">
             <Label htmlFor="username">Usuario</Label>
             <Input
@@ -141,9 +164,8 @@ export default function RegisterPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Contraseña</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="Mínimo 6 caracteres"
               autoComplete="new-password"
               value={password}
@@ -154,9 +176,8 @@ export default function RegisterPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Repetir contraseña</Label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               placeholder="La misma contraseña"
               autoComplete="new-password"
               value={confirmPassword}
