@@ -621,6 +621,11 @@ export function createDb(): Db {
       { id: 3, key: "bizum_phone", value: "+34627151087", updated_at: nowIso() },
       { id: 4, key: "bizum_amount", value: "10", updated_at: nowIso() },
       { id: 5, key: "tournament_name", value: "Porra del Mundial 2026", updated_at: nowIso() },
+      { id: 6, key: "payment_amount", value: "5", updated_at: nowIso() },
+      { id: 7, key: "payment_method", value: "transfer", updated_at: nowIso() },
+      { id: 8, key: "bank_account_holder", value: "", updated_at: nowIso() },
+      { id: 9, key: "bank_iban", value: "", updated_at: nowIso() },
+      { id: 10, key: "bank_concept_prefix", value: "PORRA", updated_at: nowIso() },
     ],
   };
 }

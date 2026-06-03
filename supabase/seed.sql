@@ -10,7 +10,12 @@ INSERT INTO tournament_config (key, value) VALUES
   ('lock_datetime', '2026-06-11T15:00:00Z'),
   ('bizum_phone', '+34627151087'),
   ('bizum_amount', '10'),
-  ('tournament_name', 'Porra del Mundial 2026');
+  ('tournament_name', 'Porra del Mundial 2026'),
+  ('payment_amount', '5'),
+  ('payment_method', 'transfer'),
+  ('bank_account_holder', ''),
+  ('bank_iban', ''),
+  ('bank_concept_prefix', 'PORRA');
 
 -- ============================================================
 -- 48 TEAMS - Mundial 2026

@@ -143,6 +143,10 @@ export default async function NormasPage() {
             value={lockLabel}
           />
           <RuleRow
+            label="Método de pago"
+            value="Transferencia bancaria con concepto PORRA + usuario"
+          />
+          <RuleRow
             label="Solo participan en el bote"
             value="los usuarios que hayan pagado antes del cierre"
           />

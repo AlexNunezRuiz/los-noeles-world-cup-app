@@ -13,6 +13,8 @@ interface Profile {
   email: string;
   has_paid: boolean;
   paid_at: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
   payment_note: string | null;
   is_admin: boolean;
   is_chat_banned: boolean;
@@ -39,7 +41,12 @@ export default function AdminUsuariosPage() {
   async function toggleField(userId: string, field: "has_paid" | "is_chat_banned", value: boolean) {
     const patch =
       field === "has_paid"
-        ? { has_paid: value, paid_at: value ? new Date().toISOString() : null }
+        ? {
+            has_paid: value,
+            paid_at: value ? new Date().toISOString() : null,
+            payment_method: value ? "transfer" : null,
+            payment_reference: null,
+          }
         : { [field]: value };
     const { error } = await supabase
       .from("profiles")
@@ -55,7 +62,13 @@ export default function AdminUsuariosPage() {
             ? {
                 ...p,
                 [field]: value,
-                ...(field === "has_paid" ? { paid_at: value ? new Date().toISOString() : null } : {}),
+                ...(field === "has_paid"
+                  ? {
+                      paid_at: value ? new Date().toISOString() : null,
+                      payment_method: value ? "transfer" : null,
+                      payment_reference: null,
+                    }
+                  : {}),
               }
             : p
         )
@@ -105,7 +118,11 @@ export default function AdminUsuariosPage() {
                       />
                     </td>
                     <td className="py-3 px-2 text-ink-faint text-xs">
-                      {p.paid_at ? new Date(p.paid_at).toLocaleString("es-ES") : "Pendiente"}
+                      {p.paid_at
+                        ? `${new Date(p.paid_at).toLocaleString("es-ES")} · ${
+                            p.payment_method === "transfer" ? "Transferencia" : p.payment_method ?? "Pago"
+                          }`
+                        : "Pendiente"}
                     </td>
                     <td className="py-3 px-2 text-center">
                       <Switch

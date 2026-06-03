@@ -96,7 +96,11 @@ export default async function PorraPage() {
   // Tournament config
   const config = (configRows ?? []) as TournamentConfigRow[];
   const lockDatetime = config.find((c) => c.key === "lock_datetime")?.value;
-  const bizumPhone = config.find((c) => c.key === "bizum_phone")?.value;
+  const paymentAmount = config.find((c) => c.key === "payment_amount")?.value ?? "5";
+  const bankIban = config.find((c) => c.key === "bank_iban")?.value;
+  const bankHolder = config.find((c) => c.key === "bank_account_holder")?.value;
+  const bankConceptPrefix = config.find((c) => c.key === "bank_concept_prefix")?.value ?? "PORRA";
+  const transferConcept = `${bankConceptPrefix} ${profile?.display_name ?? ""}`.trim();
 
   // All matches (to split by stage)
   const matches = (allMatches ?? []) as MatchRow[];
@@ -334,14 +338,26 @@ export default async function PorraPage() {
         <Link href={firstIncomplete}>Seguir rellenando</Link>
       </Button>
 
-      {/* Bizum reminder */}
-      {!hasPaid && bizumPhone && (
+      {/* Payment reminder */}
+      {!hasPaid && (
         <div className="border border-gold/30 bg-gold/5 rounded-[13px] px-4 py-3 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-gold font-medium leading-snug">
-            Para validar tu participación, envía un Bizum a{" "}
-            <span className="font-bold">{bizumPhone}</span>.
-          </p>
+          <div className="text-sm text-gold font-medium leading-snug">
+            <p>
+              Para validar tu participación, haz una transferencia de{" "}
+              <span className="font-bold">€{paymentAmount}</span>
+              {bankIban ? (
+                <>
+                  {" "}a <span className="font-bold">{bankIban}</span>
+                </>
+              ) : null}
+              .
+            </p>
+            {bankHolder && <p className="mt-1 text-xs">Titular: {bankHolder}</p>}
+            <p className="mt-1 text-xs">
+              Concepto: <span className="font-bold">{transferConcept}</span>
+            </p>
+          </div>
         </div>
       )}
     </div>

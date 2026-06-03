@@ -18,6 +18,11 @@ interface Profile {
   is_chat_banned: boolean;
 }
 
+interface ConfigRow {
+  key: string;
+  value: string;
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -30,6 +35,7 @@ function getInitials(name: string): string {
 export default function MiCuentaPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [config, setConfig] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const supabase = createClient();
@@ -38,15 +44,17 @@ export default function MiCuentaPage() {
     async function loadProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      const [{ data }, { data: configRows }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("tournament_config").select("key, value"),
+      ]);
       if (data) {
         setProfile(data);
         setDisplayName(data.display_name);
       }
+      setConfig(
+        Object.fromEntries(((configRows ?? []) as ConfigRow[]).map((row) => [row.key, row.value]))
+      );
     }
     loadProfile();
   }, []);
@@ -79,6 +87,11 @@ export default function MiCuentaPage() {
     );
 
   const initials = getInitials(profile.display_name || profile.email || "?");
+  const paymentAmount = config.payment_amount || "5";
+  const bankIban = config.bank_iban;
+  const bankHolder = config.bank_account_holder;
+  const conceptPrefix = config.bank_concept_prefix || "PORRA";
+  const transferConcept = `${conceptPrefix} ${profile.display_name}`.trim();
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -142,6 +155,28 @@ export default function MiCuentaPage() {
               </Badge>
             )}
           </div>
+
+          {!profile.has_paid && (
+            <div className="rounded-xl border border-gold/30 bg-gold/5 px-3 py-3 text-sm text-gold">
+              <p className="font-semibold">Pago por transferencia</p>
+              <p className="mt-1 text-xs">
+                Importe: <span className="font-bold">€{paymentAmount}</span>
+              </p>
+              {bankIban ? (
+                <>
+                  <p className="mt-1 text-xs">
+                    IBAN: <span className="font-bold">{bankIban}</span>
+                  </p>
+                  {bankHolder && <p className="mt-1 text-xs">Titular: {bankHolder}</p>}
+                  <p className="mt-1 text-xs">
+                    Concepto: <span className="font-bold">{transferConcept}</span>
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-xs">El administrador todavía no ha publicado el IBAN.</p>
+              )}
+            </div>
+          )}
 
           {/* Chat ban row (only when banned) */}
           {profile.is_chat_banned && (

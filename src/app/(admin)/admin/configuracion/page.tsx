@@ -103,24 +103,41 @@ export default function AdminConfigPage() {
         </CardContent>
       </Card>
 
-      {/* Bizum */}
+      {/* Transferencia */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Bizum</CardTitle>
+          <CardTitle className="text-lg">Pago por transferencia</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-ink">Teléfono</Label>
+            <Label className="text-ink">Titular</Label>
             <Input
-              value={config.bizum_phone || ""}
-              onChange={(e) => setConfig((prev) => ({ ...prev, bizum_phone: e.target.value }))}
+              value={config.bank_account_holder || ""}
+              onChange={(e) => setConfig((prev) => ({ ...prev, bank_account_holder: e.target.value }))}
+              placeholder="Nombre del titular"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-ink">IBAN</Label>
+            <Input
+              value={config.bank_iban || ""}
+              onChange={(e) => setConfig((prev) => ({ ...prev, bank_iban: e.target.value.toUpperCase() }))}
+              placeholder="ES00 0000 0000 0000 0000 0000"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-ink">Concepto base</Label>
+            <Input
+              value={config.bank_concept_prefix || ""}
+              onChange={(e) => setConfig((prev) => ({ ...prev, bank_concept_prefix: e.target.value }))}
+              placeholder="PORRA"
             />
           </div>
           <div className="space-y-2">
             <Label className="text-ink">Cantidad (€)</Label>
             <Input
-              value={config.bizum_amount || ""}
-              onChange={(e) => setConfig((prev) => ({ ...prev, bizum_amount: e.target.value }))}
+              value={config.payment_amount || ""}
+              onChange={(e) => setConfig((prev) => ({ ...prev, payment_amount: e.target.value }))}
             />
           </div>
         </CardContent>
