@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -19,7 +20,9 @@ interface ScoringRule {
 
 export default function AdminConfigPage() {
   const [config, setConfig] = useState<Record<string, string>>({});
+  const [savedConfig, setSavedConfig] = useState<Record<string, string>>({});
   const [scoringRules, setScoringRules] = useState<ScoringRule[]>([]);
+  const [savedScoringRules, setSavedScoringRules] = useState<ScoringRule[]>([]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const supabase = createClient();
@@ -36,17 +39,70 @@ export default function AdminConfigPage() {
         configMap[c.key] = c.value;
       }
       setConfig(configMap);
+      setSavedConfig(configMap);
       setScoringRules(rulesRes.data || []);
+      setSavedScoringRules(rulesRes.data || []);
     }
     load();
   }, []);
 
+  const publishAdminUpdate = async (message: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: chatMessage } = await supabase
+      .from("chat_messages")
+      .insert({ user_id: user.id, message })
+      .select("id")
+      .single();
+
+    const { data: profiles } = await supabase.from("profiles").select("id");
+    const rows = ((profiles || []) as Array<{ id: string }>).map((profile) => ({
+      user_id: profile.id,
+      actor_user_id: user.id,
+      type: "admin_update",
+      message_id: chatMessage?.id ?? null,
+    }));
+
+    if (rows.length > 0) {
+      await supabase.from("notifications").insert(rows);
+    }
+  };
+
+  const configChangeSummary = () => {
+    const labels: Record<string, string> = {
+      predictions_locked: "bloqueo de predicciones",
+      lock_datetime: "fecha limite",
+      bank_account_holder: "titular de la cuenta",
+      bank_iban: "numero de cuenta",
+      bank_concept_prefix: "concepto del pago",
+      payment_amount: "precio de la porra",
+    };
+    return Object.keys(labels)
+      .filter((key) => (config[key] ?? "") !== (savedConfig[key] ?? ""))
+      .map((key) => labels[key]);
+  };
+
+  const rulesChangeSummary = () => {
+    const savedById = new Map(savedScoringRules.map((rule) => [rule.id, rule.points]));
+    return scoringRules
+      .filter((rule) => savedById.get(rule.id) !== rule.points)
+      .map((rule) => rule.description || rule.rule_key);
+  };
+
   const handleSaveConfig = async () => {
     setSaving(true);
+    const changed = configChangeSummary();
     for (const [key, value] of Object.entries(config)) {
       await supabase
         .from("tournament_config")
         .upsert({ key, value }, { onConflict: "key" });
+    }
+    if (changed.length > 0) {
+      await publishAdminUpdate(`Se ha actualizado la configuracion de la porra: ${changed.join(", ")}.`);
+      setSavedConfig({ ...config });
     }
     setSaving(false);
     toast({ title: "Configuración guardada" });
@@ -54,11 +110,16 @@ export default function AdminConfigPage() {
 
   const handleSaveRules = async () => {
     setSaving(true);
+    const changed = rulesChangeSummary();
     for (const rule of scoringRules) {
       await supabase
         .from("scoring_rules")
         .update({ points: rule.points })
         .eq("id", rule.id);
+    }
+    if (changed.length > 0) {
+      await publishAdminUpdate(`Se han actualizado las reglas de puntuacion: ${changed.join(", ")}.`);
+      setSavedScoringRules(scoringRules.map((rule) => ({ ...rule })));
     }
     setSaving(false);
     toast({ title: "Reglas de puntuación guardadas" });
@@ -118,7 +179,7 @@ export default function AdminConfigPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-ink">IBAN</Label>
+            <Label className="text-ink">Numero de cuenta / IBAN</Label>
             <Input
               value={config.bank_iban || ""}
               onChange={(e) => setConfig((prev) => ({ ...prev, bank_iban: e.target.value.toUpperCase() }))}
@@ -126,7 +187,7 @@ export default function AdminConfigPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-ink">Concepto base</Label>
+            <Label className="text-ink">Mensaje para incluir en el concepto</Label>
             <Input
               value={config.bank_concept_prefix || ""}
               onChange={(e) => setConfig((prev) => ({ ...prev, bank_concept_prefix: e.target.value }))}
@@ -159,7 +220,10 @@ export default function AdminConfigPage() {
             <div key={rule.id} className="flex items-center justify-between gap-2 py-1 border-b border-border/40 last:border-0">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">{rule.description}</p>
-                <p className="text-xs text-ink-faint">{rule.rule_key}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <Badge variant="outline" className="text-[10px]">{rule.category}</Badge>
+                  <p className="text-xs text-ink-faint">{rule.rule_key}</p>
+                </div>
               </div>
               <Input
                 type="number"

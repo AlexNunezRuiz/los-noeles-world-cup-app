@@ -76,7 +76,7 @@ export default function ChatPage() {
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
         .eq("user_id", user.id)
-        .eq("type", "mention")
+        .in("type", ["mention", "admin_update"])
         .is("read_at", null);
     }
 
