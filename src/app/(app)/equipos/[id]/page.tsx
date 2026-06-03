@@ -34,7 +34,7 @@ const POSITION_ORDER: Record<string, number> = {
 
 export default function EquipoPage() {
   const params = useParams<{ id: string }>();
-  const teamId = Number(params.id);
+  const teamId = Number(params?.id);
   const [team, setTeam] = useState<TeamRow | null>(null);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const supabase = createClient();

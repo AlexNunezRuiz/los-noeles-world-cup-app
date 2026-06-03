@@ -13,7 +13,7 @@ const STAGES = [
 
 /** progress: mapa fase→porcentaje 0..100 */
 export function StageBar({ progress }: { progress: Record<string, number> }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   return (
     <div className="flex gap-1.5 px-3 py-2">
       {STAGES.map((s) => {

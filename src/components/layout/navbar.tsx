@@ -17,7 +17,7 @@ const navItems = [
 ];
 
 export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [unreadCount, setUnreadCount] = useState(0);
   const supabase = createClient();
 

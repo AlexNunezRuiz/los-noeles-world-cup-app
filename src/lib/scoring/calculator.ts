@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { scoreGroupStageMatch, scoreGroupPositions } from "./group-stage";
 import { scoreKnockoutExact } from "./knockout";
 import { scoreAwards } from "./awards";
+import { scoreQualification } from "./qualification";
 
 interface ScoreEvent {
   user_id: string;
@@ -10,6 +11,8 @@ interface ScoreEvent {
   points: number;
   description: string;
 }
+
+type ScoreCategory = "group_stage" | "qualification" | "knockout_exact" | "awards";
 
 export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ success: boolean; error?: string }> {
   try {
@@ -24,58 +27,19 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
     await supabase.from("score_events").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     await supabase.from("user_scores").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
+    const categoryScorers: Record<ScoreCategory, () => Promise<ScoreEvent[]>> = {
+      group_stage: () => scoreGroupStage(supabase, rules),
+      qualification: () => scoreQualification(supabase, rules),
+      knockout_exact: () => scoreKnockoutExactScores(supabase, rules),
+      awards: () => scoreAwards(supabase, rules),
+    };
+
     const allEvents: ScoreEvent[] = [];
-
-    // 1. Score group stage matches
-    const { data: groupMatches } = await supabase
-      .from("matches")
-      .select("*")
-      .eq("stage", "group")
-      .eq("is_finished", true);
-
-    for (const match of groupMatches || []) {
-      const events = await scoreGroupStageMatch(supabase, match, rules);
-      allEvents.push(...events);
+    const configuredCategories = Array.from(new Set((rulesData || []).map((r) => r.category as ScoreCategory)));
+    for (const category of configuredCategories) {
+      const scorer = categoryScorers[category];
+      if (scorer) allEvents.push(...await scorer());
     }
-
-    // 2. Score group positions (for finished groups)
-    const finishedGroups = new Set<string>();
-    for (const m of groupMatches || []) {
-      finishedGroups.add(m.group_letter);
-    }
-
-    // Only score position if ALL 6 matches of a group are finished
-    const { data: allGroupMatches } = await supabase
-      .from("matches")
-      .select("*")
-      .eq("stage", "group");
-
-    for (const group of Array.from(finishedGroups)) {
-      const groupMs = (allGroupMatches || []).filter((m) => m.group_letter === group);
-      const allFinished = groupMs.every((m) => m.is_finished);
-      if (!allFinished) continue;
-
-      // Calculate actual standings from real results
-      const actualPositions = calculateActualPositions(groupMs);
-      const events = await scoreGroupPositions(supabase, group, actualPositions, rules);
-      allEvents.push(...events);
-    }
-
-    // 3. Score knockout exact scores
-    const { data: knockoutMatches } = await supabase
-      .from("matches")
-      .select("*")
-      .neq("stage", "group")
-      .eq("is_finished", true);
-
-    for (const match of knockoutMatches || []) {
-      const events = await scoreKnockoutExact(supabase, match, rules);
-      allEvents.push(...events);
-    }
-
-    // 4. Score awards
-    const awardEvents = await scoreAwards(supabase, rules);
-    allEvents.push(...awardEvents);
 
     // Insert all score events
     if (allEvents.length > 0) {
@@ -175,4 +139,26 @@ function calculateActualPositions(
     });
 
   return sorted.map(([teamId], i) => ({ team_id: teamId, position: i + 1 }));
+}
+
+async function scoreGroupStage(supabase: SupabaseClient, rules: Map<string, number>): Promise<ScoreEvent[]> {
+  const events: ScoreEvent[] = [];
+  const { data: groupMatches } = await supabase.from("matches").select("*").eq("stage", "group").eq("is_finished", true);
+  for (const match of groupMatches || []) events.push(...await scoreGroupStageMatch(supabase, match, rules));
+  const finishedGroups = new Set<string>((groupMatches || []).map((m) => m.group_letter));
+  const { data: allGroupMatches } = await supabase.from("matches").select("*").eq("stage", "group");
+  for (const group of Array.from(finishedGroups)) {
+    const groupMs = (allGroupMatches || []).filter((m) => m.group_letter === group);
+    if (groupMs.every((m) => m.is_finished)) {
+      events.push(...await scoreGroupPositions(supabase, group, calculateActualPositions(groupMs), rules));
+    }
+  }
+  return events;
+}
+
+async function scoreKnockoutExactScores(supabase: SupabaseClient, rules: Map<string, number>): Promise<ScoreEvent[]> {
+  const events: ScoreEvent[] = [];
+  const { data: knockoutMatches } = await supabase.from("matches").select("*").neq("stage", "group").eq("is_finished", true);
+  for (const match of knockoutMatches || []) events.push(...await scoreKnockoutExact(supabase, match, rules));
+  return events;
 }

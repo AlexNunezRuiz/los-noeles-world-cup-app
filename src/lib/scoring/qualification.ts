@@ -10,6 +10,42 @@ interface ScoreEvent {
 
 export async function scoreQualification(
   supabase: SupabaseClient,
+  rules: Map<string, number>
+): Promise<ScoreEvent[]> {
+  const events: ScoreEvent[] = [];
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("id, match_number, stage, home_team_id, away_team_id, home_score, away_score, is_finished")
+    .neq("stage", "group");
+
+  if (!matches) return events;
+
+  for (const stage of ["round_of_32", "round_of_16", "quarter_final", "semi_final"]) {
+    const qualifiedTeamIds = Array.from(new Set(
+      matches
+        .filter((match) => match.stage === stage)
+        .flatMap((match) => [match.home_team_id, match.away_team_id])
+        .filter((teamId): teamId is number => typeof teamId === "number")
+    ));
+    events.push(...await scoreQualificationStage(supabase, stage, qualifiedTeamIds, rules));
+  }
+
+  const final = matches.find((match) => match.stage === "final" && match.is_finished);
+  const thirdPlace = matches.find((match) => match.stage === "third_place" && match.is_finished);
+  if (final?.home_team_id && final.away_team_id && final.home_score !== null && final.away_score !== null) {
+    const winnerId = final.home_score > final.away_score ? final.home_team_id : final.away_team_id;
+    events.push(...await scoreQualificationStage(supabase, "final_winner", [winnerId], rules));
+  }
+  if (thirdPlace?.home_team_id && thirdPlace.away_team_id && thirdPlace.home_score !== null && thirdPlace.away_score !== null) {
+    const winnerId = thirdPlace.home_score > thirdPlace.away_score ? thirdPlace.home_team_id : thirdPlace.away_team_id;
+    events.push(...await scoreQualificationStage(supabase, "third_place_winner", [winnerId], rules));
+  }
+
+  return events;
+}
+
+async function scoreQualificationStage(
+  supabase: SupabaseClient,
   stage: string,
   qualifiedTeamIds: number[],
   rules: Map<string, number>

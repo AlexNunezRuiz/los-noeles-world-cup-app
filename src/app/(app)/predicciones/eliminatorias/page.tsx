@@ -61,7 +61,7 @@ function isKoComplete(p: KoPrediction | undefined): boolean {
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 const ROUND_TABS = [
-  { key: "round_of_32",   label: "16avos",  stages: ["round_of_32"] },
+  { key: "round_of_32",   label: "Dieciseisavos",  stages: ["round_of_32"] },
   { key: "round_of_16",   label: "Octavos", stages: ["round_of_16"] },
   { key: "quarter_final", label: "Cuartos", stages: ["quarter_final"] },
   { key: "semi_final",    label: "Semis",   stages: ["semi_final"] },
@@ -71,7 +71,7 @@ const ROUND_TABS = [
 type RoundKey = (typeof ROUND_TABS)[number]["key"];
 
 const ROUND_LABELS: Record<string, string> = {
-  round_of_32:   "16avos",
+  round_of_32:   "Dieciseisavos",
   round_of_16:   "Octavos",
   quarter_final: "Cuartos",
   semi_final:    "Semis",
@@ -121,6 +121,9 @@ function getSourceGroups(bp: BracketPosition | undefined): string[] {
 export default function EliminatoriasPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([]);
+  const [baseKnockoutMatches, setBaseKnockoutMatches] = useState<BracketMatch[]>([]);
+  const [groupStandings, setGroupStandings] = useState<Map<string, TeamStanding[]>>(new Map());
+  const [bestThirds, setBestThirds] = useState<TeamStanding[]>([]);
   const [predictions, setPredictions] = useState<Map<number, KoPrediction>>(new Map());
   const [bracketPositions, setBracketPositions] = useState<BracketPosition[]>([]);
   const [isLocked, setIsLocked] = useState(false);
@@ -225,6 +228,8 @@ export default function EliminatoriasPage() {
         ])
       );
       const bestThirds = getBestThirds(groupStandings, bestThirdOrder);
+      setGroupStandings(groupStandings);
+      setBestThirds(bestThirds);
 
       // Build predictions map (match_number based)
       const predMap = new Map<number, KnockoutPrediction>();
@@ -259,6 +264,7 @@ export default function EliminatoriasPage() {
         home_placeholder: m.home_placeholder,
         away_placeholder: m.away_placeholder,
       }));
+      setBaseKnockoutMatches(knockoutMatches);
 
       const bpList: BracketPosition[] = bracketPosRes.map((bp: {
         match_number: number;
@@ -294,10 +300,20 @@ export default function EliminatoriasPage() {
   // ── Re-populate bracket when predictions change ────────────────────────────
 
   useEffect(() => {
-    if (bracketMatches.length === 0) return;
-    // Bracket re-resolution is triggered by data loads; predictions state
-    // is used for score overlay only — bracket is recomputed on next load.
-  }, [predictions]);
+    if (baseKnockoutMatches.length === 0 || bracketPositions.length === 0) return;
+    const completePredictions = new Map<number, KnockoutPrediction>();
+    for (const [matchNumber, pred] of Array.from(predictions.entries())) {
+      if (pred.home_score === null || pred.away_score === null) continue;
+      completePredictions.set(matchNumber, {
+        match_id: pred.match_id,
+        match_number: matchNumber,
+        home_score: pred.home_score,
+        away_score: pred.away_score,
+        penalty_winner: pred.penalty_winner ?? undefined,
+      });
+    }
+    setBracketMatches(populateKnockoutBracket(groupStandings, bestThirds, baseKnockoutMatches, completePredictions, bracketPositions));
+  }, [baseKnockoutMatches, bestThirds, bracketPositions, groupStandings, predictions]);
 
   // ── Prediction save ────────────────────────────────────────────────────────
 

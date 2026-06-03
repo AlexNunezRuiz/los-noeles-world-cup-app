@@ -35,9 +35,9 @@ interface Match {
 
 const STAGE_LABELS: Record<string, string> = {
   group: "Fase de Grupos",
-  round_of_32: "Octavos",
-  round_of_16: "Cuartos",
-  quarter_final: "Semifinales",
+  round_of_32: "Dieciseisavos",
+  round_of_16: "Octavos",
+  quarter_final: "Cuartos",
   semi_final: "Semifinales",
   third_place: "3er Puesto",
   final: "Final",
@@ -82,7 +82,14 @@ export default function AdminResultadosPage() {
       is_finished: true,
     };
 
-    if (homeScore === awayScore && match.stage !== "group" && edit.penalty) {
+    if (homeScore === awayScore && match.stage !== "group" && match.home_team_id && match.away_team_id && !edit.penalty) {
+      toast({ title: "Elige ganador por penaltis", variant: "destructive" });
+      return;
+    }
+
+    if (homeScore !== awayScore || match.stage === "group") {
+      updates.penalty_winner_team_id = null;
+    } else if (edit.penalty) {
       updates.penalty_winner_team_id = parseInt(edit.penalty);
     }
 
@@ -188,17 +195,22 @@ export default function AdminResultadosPage() {
                           {away ? <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></> : match.away_placeholder || "TBD"}
                         </span>
 
-                        {match.is_finished ? (
-                          <Badge variant="success-soft" className="text-xs">Final</Badge>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => handleSaveResult(match)}
+                        {edit.home !== "" && edit.away !== "" && parseInt(edit.home) === parseInt(edit.away) && match.stage !== "group" && home && away && (
+                          <select
+                            value={edit.penalty}
+                            onChange={(e) => setEditing((prev) => ({ ...prev, [match.id]: { ...edit, penalty: e.target.value } }))}
+                            className="h-8 rounded-md border border-border bg-surface px-2 text-xs text-ink"
+                            aria-label={`Ganador por penaltis P${match.match_number}`}
                           >
-                            Guardar
-                          </Button>
+                            <option value="">Gana...</option>
+                            <option value={home.id}>{home.code}</option>
+                            <option value={away.id}>{away.code}</option>
+                          </select>
                         )}
+                        {match.is_finished && <Badge variant="success-soft" className="text-xs">Final</Badge>}
+                        <Button size="sm" className="text-xs h-7" onClick={() => handleSaveResult(match)}>
+                          {match.is_finished ? "Actualizar" : "Guardar"}
+                        </Button>
                       </CardContent>
                     </Card>
                   );
