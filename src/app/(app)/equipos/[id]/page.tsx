@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Flag } from "@/components/ui/flag";
+import { stageLabel } from "@/lib/tournament/labels";
 
 interface TeamRow {
   id: number;
@@ -22,6 +23,27 @@ interface PlayerRow {
   nationality: string | null;
 }
 
+interface VenueRow {
+  name: string;
+  city: string;
+}
+
+interface MatchRow {
+  id: number;
+  match_number: number;
+  stage: string;
+  group_letter: string | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  home_placeholder: string | null;
+  away_placeholder: string | null;
+  match_date: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  is_finished: boolean;
+  venues?: VenueRow | VenueRow[] | null;
+}
+
 const POSITION_ORDER: Record<string, number> = {
   goalkeeper: 1,
   portero: 1,
@@ -33,23 +55,57 @@ const POSITION_ORDER: Record<string, number> = {
   delantero: 4,
 };
 
+function formatMatchDate(value: string | null) {
+  if (!value) return "Fecha por confirmar";
+  return new Date(value).toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Madrid",
+  });
+}
+
 export default function EquipoPage() {
   const params = useParams<{ id: string }>();
   const teamId = Number(params?.id);
   const [team, setTeam] = useState<TeamRow | null>(null);
+  const [teams, setTeams] = useState<Map<number, TeamRow>>(new Map());
   const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [matches, setMatches] = useState<MatchRow[]>([]);
   const supabase = createClient();
 
   useEffect(() => {
     if (!teamId) return;
+
     async function load() {
-      const [{ data: teamData }, { data: playerRows }] = await Promise.all([
-        supabase.from("teams").select("id, name, code, flag_emoji, group_letter").eq("id", teamId).single(),
-        supabase.from("players").select("id, name, position, shirt_number, nationality").eq("team_id", teamId),
-      ]);
+      const [{ data: teamData }, { data: teamRows }, { data: playerRows }, { data: matchRows }] =
+        await Promise.all([
+          supabase
+            .from("teams")
+            .select("id, name, code, flag_emoji, group_letter")
+            .eq("id", teamId)
+            .single(),
+          supabase.from("teams").select("id, name, code, flag_emoji, group_letter"),
+          supabase
+            .from("players")
+            .select("id, name, position, shirt_number, nationality")
+            .eq("team_id", teamId),
+          supabase
+            .from("matches")
+            .select(
+              "id, match_number, stage, group_letter, home_team_id, away_team_id, home_placeholder, away_placeholder, match_date, home_score, away_score, is_finished, venues(name, city)"
+            )
+            .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+            .order("match_date", { ascending: true }),
+        ]);
+
       setTeam(teamData as TeamRow | null);
+      setTeams(new Map(((teamRows ?? []) as TeamRow[]).map((row) => [row.id, row])));
       setPlayers((playerRows ?? []) as PlayerRow[]);
+      setMatches((matchRows ?? []) as MatchRow[]);
     }
+
     load();
   }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -90,6 +146,57 @@ export default function EquipoPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        <div className="border-b border-border bg-surface-sunken px-4 py-2">
+          <p className="font-marcador text-xs uppercase tracking-wider text-ink-muted">
+            Calendario y resultados
+          </p>
+        </div>
+        {matches.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-ink-muted">Sin partidos asignados todavía.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {matches.map((match) => {
+              const home = match.home_team_id ? teams.get(match.home_team_id) : null;
+              const away = match.away_team_id ? teams.get(match.away_team_id) : null;
+              const venue = Array.isArray(match.venues) ? match.venues[0] : match.venues;
+              return (
+                <div key={match.id} className="space-y-2 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-marcador text-[10px] uppercase tracking-widest text-ink-muted">
+                      P{match.match_number} · {stageLabel(match.stage, match.group_letter)}
+                    </p>
+                    <p className="text-[10px] font-semibold text-ink-muted">{formatMatchDate(match.match_date)}</p>
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {home && <Flag emoji={home.flag_emoji} size={18} />}
+                      <span className="truncate text-sm font-semibold text-ink">
+                        {home?.name ?? match.home_placeholder ?? "Por decidir"}
+                      </span>
+                    </div>
+                    <span className="font-marcador text-base text-ink">
+                      {match.is_finished ? `${match.home_score ?? "-"}-${match.away_score ?? "-"}` : "vs"}
+                    </span>
+                    <div className="flex min-w-0 items-center justify-end gap-2">
+                      <span className="truncate text-right text-sm font-semibold text-ink">
+                        {away?.name ?? match.away_placeholder ?? "Por decidir"}
+                      </span>
+                      {away && <Flag emoji={away.flag_emoji} size={18} />}
+                    </div>
+                  </div>
+                  {venue && (
+                    <p className="text-[10px] font-semibold text-ink-muted">
+                      {venue.name} · {venue.city}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">

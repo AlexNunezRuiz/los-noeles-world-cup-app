@@ -74,7 +74,7 @@ export function PlayerCombobox({
       : options.filter((o) => {
           const q = normalizeSearch(query);
           const haystack = normalizeSearch(`${o.name} ${o.team ?? ""}`);
-          return haystack.includes(q);
+          return q.split(" ").every((token) => haystack.includes(token));
         });
 
   const handleSelect = useCallback(
