@@ -19,6 +19,7 @@ interface PlayerRow {
   name: string;
   position: string | null;
   shirt_number: number | null;
+  nationality: string | null;
 }
 
 const POSITION_ORDER: Record<string, number> = {
@@ -44,7 +45,7 @@ export default function EquipoPage() {
     async function load() {
       const [{ data: teamData }, { data: playerRows }] = await Promise.all([
         supabase.from("teams").select("id, name, code, flag_emoji, group_letter").eq("id", teamId).single(),
-        supabase.from("players").select("id, name, position, shirt_number").eq("team_id", teamId),
+        supabase.from("players").select("id, name, position, shirt_number, nationality").eq("team_id", teamId),
       ]);
       setTeam(teamData as TeamRow | null);
       setPlayers((playerRows ?? []) as PlayerRow[]);
@@ -104,12 +105,20 @@ export default function EquipoPage() {
         ) : (
           <div className="divide-y divide-border">
             {orderedPlayers.map((player) => (
-              <div key={player.id} className="grid grid-cols-[36px_1fr_auto] items-center gap-3 px-4 py-2.5">
+              <div key={player.id} className="grid grid-cols-[36px_1fr] gap-3 px-4 py-2.5 sm:grid-cols-[36px_1fr_130px_120px] sm:items-center">
                 <span className="font-marcador text-base font-bold text-ink-faint">
                   {player.shirt_number ?? "-"}
                 </span>
-                <span className="text-sm font-semibold text-ink">{player.name}</span>
-                <span className="text-xs text-ink-muted">{player.position ?? "-"}</span>
+                <div className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-ink">{player.name}</span>
+                  <span className="text-xs text-ink-muted sm:hidden">
+                    {player.position ?? "-"} · {player.nationality ?? team.name}
+                  </span>
+                </div>
+                <span className="hidden text-xs text-ink-muted sm:block">{player.position ?? "-"}</span>
+                <span className="hidden text-xs font-semibold text-ink-muted sm:block">
+                  {player.nationality ?? team.name}
+                </span>
               </div>
             ))}
           </div>

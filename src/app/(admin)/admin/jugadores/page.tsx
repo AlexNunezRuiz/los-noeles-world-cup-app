@@ -17,6 +17,8 @@ interface Player {
   name: string;
   team_id: number;
   position: string;
+  shirt_number: number | null;
+  nationality: string | null;
 }
 
 interface Team {
@@ -31,6 +33,8 @@ export default function AdminJugadoresPage() {
   const [newName, setNewName] = useState("");
   const [newTeamId, setNewTeamId] = useState("");
   const [newPosition, setNewPosition] = useState("");
+  const [newShirtNumber, setNewShirtNumber] = useState("");
+  const [newNationality, setNewNationality] = useState("");
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -57,6 +61,8 @@ export default function AdminJugadoresPage() {
         name: newName.trim(),
         team_id: newTeamId ? parseInt(newTeamId) : null,
         position: newPosition || null,
+        shirt_number: newShirtNumber ? parseInt(newShirtNumber) : null,
+        nationality: newNationality || null,
       })
       .select()
       .single();
@@ -68,6 +74,8 @@ export default function AdminJugadoresPage() {
       setNewName("");
       setNewTeamId("");
       setNewPosition("");
+      setNewShirtNumber("");
+      setNewNationality("");
       toast({ title: "Jugador añadido" });
     }
   };
@@ -128,6 +136,23 @@ export default function AdminJugadoresPage() {
                 placeholder="DEL, MED..."
               />
             </div>
+            <div className="w-24">
+              <Label className="text-xs text-ink-muted">Dorsal</Label>
+              <Input
+                value={newShirtNumber}
+                onChange={(e) => setNewShirtNumber(e.target.value)}
+                inputMode="numeric"
+                placeholder="10"
+              />
+            </div>
+            <div className="w-40">
+              <Label className="text-xs text-ink-muted">Nacionalidad</Label>
+              <Input
+                value={newNationality}
+                onChange={(e) => setNewNationality(e.target.value)}
+                placeholder="Espana"
+              />
+            </div>
             <Button onClick={handleAdd} size="icon" variant="default">
               <Plus className="h-4 w-4" />
             </Button>
@@ -146,8 +171,14 @@ export default function AdminJugadoresPage() {
                   <div className="flex items-center gap-2">
                     <Flag emoji={team?.flag_emoji || ""} size={18} />
                     <span className="font-medium text-sm text-ink">{p.name}</span>
+                    {p.shirt_number && (
+                      <Badge variant="outline" className="text-xs">#{p.shirt_number}</Badge>
+                    )}
                     {p.position && (
                       <Badge variant="secondary" className="text-xs">{p.position}</Badge>
+                    )}
+                    {p.nationality && (
+                      <span className="text-xs font-semibold text-ink-muted">{p.nationality}</span>
                     )}
                   </div>
                   <button
