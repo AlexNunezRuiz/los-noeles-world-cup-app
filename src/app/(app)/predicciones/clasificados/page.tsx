@@ -218,6 +218,8 @@ export default function ClasificadosPage() {
     setDragOffsetY(0);
     document.body.style.userSelect = "";
     document.body.style.touchAction = "";
+    document.body.style.overflow = "";
+    document.documentElement.style.touchAction = "";
   }, [clearThirdPressTimer, reorderThird]);
 
   useEffect(
@@ -225,6 +227,8 @@ export default function ClasificadosPage() {
       clearThirdPressTimer();
       document.body.style.userSelect = "";
       document.body.style.touchAction = "";
+      document.body.style.overflow = "";
+      document.documentElement.style.touchAction = "";
     },
     [clearThirdPressTimer]
   );
@@ -273,16 +277,27 @@ export default function ClasificadosPage() {
       event.preventDefault();
       updateThirdDragTarget(event.clientY);
     };
+    const handleTouchMove = (event: globalThis.TouchEvent) => {
+      event.preventDefault();
+      const touch = event.touches[0] ?? event.changedTouches[0];
+      if (touch) updateThirdDragTarget(touch.clientY);
+    };
     const handleEnd = () => endThirdDrag();
 
     window.addEventListener("pointermove", handleMove, { passive: false });
     window.addEventListener("pointerup", handleEnd);
     window.addEventListener("pointercancel", handleEnd);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleEnd);
+    window.addEventListener("touchcancel", handleEnd);
 
     return () => {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleEnd);
       window.removeEventListener("pointercancel", handleEnd);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleEnd);
+      window.removeEventListener("touchcancel", handleEnd);
     };
   }, [draggingThirdId, endThirdDrag, updateThirdDragTarget]);
 
@@ -301,6 +316,8 @@ export default function ClasificadosPage() {
       setDraggingThirdId(teamId);
       document.body.style.userSelect = "none";
       document.body.style.touchAction = "none";
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.touchAction = "none";
       thirdPressTimer.current = null;
     }, 220);
   };
