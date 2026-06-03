@@ -18,7 +18,14 @@ export const metadata: Metadata = {
   title: "Porra del Mundial 2026",
   description: "App de pronósticos del Mundial FIFA 2026",
   manifest: "/manifest.json",
-  icons: { icon: "/icons/icon-192x192.png", apple: "/icons/icon-192x192.png" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "64x64" },
+      { url: "/icons/icon-192x192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icons/icon-192x192.svg", type: "image/svg+xml", sizes: "192x192" },
+    ],
+    apple: [{ url: "/icons/icon-192x192.png", type: "image/png", sizes: "192x192" }],
+  },
 };
 
 export const viewport: Viewport = {
