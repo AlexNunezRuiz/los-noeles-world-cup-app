@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Flag } from "@/components/ui/flag";
 import { FlapTile } from "@/components/ui/flap-tile";
 
 interface Team {
+  id: number;
   name: string;
   flag_emoji: string;
 }
@@ -61,15 +63,21 @@ export function MatchCard({
       </p>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Link
+          href={`/equipos/${homeTeam.id}`}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md hover:text-red"
+        >
           <Flag emoji={homeTeam.flag_emoji} size={22} />
           <span className="truncate text-sm font-bold text-ink">{homeTeam.name}</span>
-        </div>
+        </Link>
         <span className="font-marcador text-[10px] font-semibold text-ink-faint">VS</span>
-        <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2">
+        <Link
+          href={`/equipos/${awayTeam.id}`}
+          className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2 rounded-md hover:text-red"
+        >
           <Flag emoji={awayTeam.flag_emoji} size={22} />
           <span className="truncate text-right text-sm font-bold text-ink">{awayTeam.name}</span>
-        </div>
+        </Link>
       </div>
 
       <div className="mt-2.5 flex justify-center gap-2">

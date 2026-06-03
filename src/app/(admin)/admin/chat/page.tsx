@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { Trash2 } from "lucide-react";
 
 interface Message {
@@ -16,9 +17,15 @@ interface Message {
   created_at: string;
 }
 
+interface ProfileSummary {
+  display_name: string;
+  has_paid: boolean;
+  is_admin: boolean;
+}
+
 export default function AdminChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [profiles, setProfiles] = useState<Map<string, string>>(new Map());
+  const [profiles, setProfiles] = useState<Map<string, ProfileSummary>>(new Map());
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -26,13 +33,17 @@ export default function AdminChatPage() {
     async function load() {
       const [msgsRes, profilesRes] = await Promise.all([
         supabase.from("chat_messages").select("*").order("created_at", { ascending: false }).limit(200),
-        supabase.from("profiles").select("id, display_name"),
+        supabase.from("profiles").select("id, display_name, has_paid, is_admin"),
       ]);
       setMessages(msgsRes.data || []);
 
-      const profMap = new Map<string, string>();
+      const profMap = new Map<string, ProfileSummary>();
       for (const p of profilesRes.data || []) {
-        profMap.set(p.id, p.display_name);
+        profMap.set(p.id, {
+          display_name: p.display_name,
+          has_paid: p.has_paid,
+          is_admin: p.is_admin,
+        });
       }
       setProfiles(profMap);
     }
@@ -74,17 +85,21 @@ export default function AdminChatPage() {
       </div>
 
       <div className="space-y-2">
-        {messages.map((msg) => (
-          <Card
-            key={msg.id}
-            className={`bg-surface border-border transition-opacity ${msg.is_deleted ? "opacity-40" : ""}`}
-          >
-            <CardContent className="p-3 flex items-center justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <span className="text-xs font-medium text-ink">
-                    {profiles.get(msg.user_id) || "?"}
-                  </span>
+        {messages.map((msg) => {
+          const author = profiles.get(msg.user_id);
+
+          return (
+            <Card
+              key={msg.id}
+              className={`bg-surface border-border transition-opacity ${msg.is_deleted ? "opacity-40" : ""}`}
+            >
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-ink">
+                      {author && <UserStatusIcon is_admin={author.is_admin} has_paid={author.has_paid} />}
+                      <span>{author?.display_name || "?"}</span>
+                    </span>
                   <span className="text-xs text-ink-faint font-marcador">
                     {new Date(msg.created_at).toLocaleString("es-ES")}
                   </span>
@@ -104,9 +119,10 @@ export default function AdminChatPage() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
         {messages.length === 0 && (
           <p className="text-center text-ink-muted py-8 font-sans text-sm">
             No hay mensajes.

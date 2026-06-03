@@ -368,11 +368,11 @@ export default function RankingPage() {
         </div>
       )}
 
-      {/* Estado mode */}
+      {/* Inscritos mode */}
       {tab === "estado" && (
         <div className="rounded-xl border border-border bg-surface overflow-hidden">
           {statusProfiles.length === 0 ? (
-            <div className="p-4 text-sm text-ink-muted">AÃºn no hay usuarios registrados.</div>
+            <div className="p-4 text-sm text-ink-muted">Aún no hay usuarios registrados.</div>
           ) : (
             statusProfiles.map((profile, index) => {
               const completion = completionByUser.get(profile.id) ?? getPorraCompletion({

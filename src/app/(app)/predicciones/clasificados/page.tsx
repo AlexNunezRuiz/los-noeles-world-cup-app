@@ -427,14 +427,32 @@ export default function ClasificadosPage() {
                             >
                               {posLabel}
                             </span>
-                            <Flag
-                              emoji={team?.flag_emoji ?? ""}
-                              size={18}
-                              className="shrink-0"
-                            />
-                            <span className="text-sm text-ink truncate flex-1">
-                              {team?.name ?? "—"}
-                            </span>
+                            {team ? (
+                              <Link
+                                href={`/equipos/${team.id}`}
+                                className="flex min-w-0 flex-1 items-center gap-2 rounded-md hover:text-red"
+                              >
+                                <Flag
+                                  emoji={team.flag_emoji}
+                                  size={18}
+                                  className="shrink-0"
+                                />
+                                <span className="truncate text-sm text-ink">
+                                  {team.name}
+                                </span>
+                              </Link>
+                            ) : (
+                              <>
+                                <Flag
+                                  emoji=""
+                                  size={18}
+                                  className="shrink-0"
+                                />
+                                <span className="text-sm text-ink truncate flex-1">
+                                  —
+                                </span>
+                              </>
+                            )}
                             {(s.position <= 2 || isQualifiedThird) && (
                               <span className="text-[10px] font-bold text-green shrink-0">
                                 ✓
@@ -521,14 +539,33 @@ export default function ClasificadosPage() {
                         >
                           {idx + 1}
                         </span>
-                        <Flag
-                          emoji={team?.flag_emoji ?? ""}
-                          size={18}
-                          className="shrink-0"
-                        />
-                        <span className="text-sm text-ink flex-1 truncate">
-                          {team?.name ?? "—"}
-                        </span>
+                        {team ? (
+                          <Link
+                            href={`/equipos/${team.id}`}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            className="flex min-w-0 flex-1 items-center gap-2 rounded-md hover:text-red"
+                          >
+                            <Flag
+                              emoji={team.flag_emoji}
+                              size={18}
+                              className="shrink-0"
+                            />
+                            <span className="truncate text-sm text-ink">
+                              {team.name}
+                            </span>
+                          </Link>
+                        ) : (
+                          <>
+                            <Flag
+                              emoji=""
+                              size={18}
+                              className="shrink-0"
+                            />
+                            <span className="text-sm text-ink flex-1 truncate">
+                              —
+                            </span>
+                          </>
+                        )}
                         <span className="text-[10px] text-ink-muted font-mono shrink-0">
                           Gr.{s.group_letter}
                         </span>

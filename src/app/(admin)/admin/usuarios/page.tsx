@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
+import { getPorraCompletion, type PorraCompletion } from "@/lib/predictions/completion";
 
 interface Profile {
   id: string;
@@ -22,8 +23,17 @@ interface Profile {
   created_at: string;
 }
 
+interface CompletionStatusRow {
+  user_id: string;
+  group_prediction_count: number;
+  group_standing_rows: number;
+  knockout_prediction_count: number;
+  award_prediction_count: number;
+}
+
 export default function AdminUsuariosPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -32,11 +42,24 @@ export default function AdminUsuariosPage() {
   }, []);
 
   async function loadProfiles() {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: completionRows }] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase.rpc("get_porra_completion_status"),
+    ]);
     setProfiles(data || []);
+    setCompletionByUser(
+      new Map(
+        ((completionRows ?? []) as CompletionStatusRow[]).map((row) => [
+          row.user_id,
+          getPorraCompletion({
+            groupPredictionCount: row.group_prediction_count,
+            groupStandingRows: row.group_standing_rows,
+            knockoutPredictionCount: row.knockout_prediction_count,
+            awardPredictionCount: row.award_prediction_count,
+          }),
+        ])
+      )
+    );
   }
 
   async function toggleField(userId: string, field: "has_paid" | "is_chat_banned", value: boolean) {
@@ -107,6 +130,7 @@ export default function AdminUsuariosPage() {
                 <tr className="border-b border-border text-xs text-ink-muted bg-surface-sunken">
                   <th className="text-left py-3 px-4 font-sans font-medium">Nombre</th>
                   <th className="text-left py-3 px-2 font-sans font-medium">Email</th>
+                  <th className="text-left py-3 px-2 font-sans font-medium">Porra</th>
                   <th className="text-center py-3 px-2 font-sans font-medium">Pagado</th>
                   <th className="text-left py-3 px-2 font-sans font-medium">Pago</th>
                   <th className="text-center py-3 px-2 font-sans font-medium">Ban Chat</th>
@@ -115,10 +139,42 @@ export default function AdminUsuariosPage() {
                 </tr>
               </thead>
               <tbody>
-                {profiles.map((p) => (
+                {profiles.map((p) => {
+                  const completion = completionByUser.get(p.id);
+                  const completed = completion
+                    ? completion.grupos.completed +
+                      completion.clasificados.completed +
+                      completion.cuadro.completed +
+                      completion.premios.completed
+                    : 0;
+                  const total = completion
+                    ? completion.grupos.total +
+                      completion.clasificados.total +
+                      completion.cuadro.total +
+                      completion.premios.total
+                    : 119;
+                  const porraPct = Math.round((completed / total) * 100);
+
+                  return (
                   <tr key={p.id} className="border-b border-border/50 hover:bg-surface-sunken/50 transition-colors">
                     <td className="py-3 px-4 font-medium text-ink">{p.display_name}</td>
                     <td className="py-3 px-2 text-ink-muted text-xs">{p.email}</td>
+                    <td className="py-3 px-2 min-w-[150px]">
+                      <div className="flex items-center gap-2">
+                        <span className="w-9 text-right font-marcador text-sm font-bold text-ink">
+                          {porraPct}%
+                        </span>
+                        <div className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-surface-sunken">
+                          <div className="h-full rounded-full bg-red" style={{ width: `${porraPct}%` }} />
+                        </div>
+                      </div>
+                      {completion && (
+                        <p className="mt-1 text-[10px] text-ink-muted">
+                          G {completion.grupos.label} · C {completion.clasificados.label} · Q{" "}
+                          {completion.cuadro.label} · P {completion.premios.label}
+                        </p>
+                      )}
+                    </td>
                     <td className="py-3 px-2 text-center">
                       <Switch
                         checked={p.has_paid}
@@ -147,7 +203,8 @@ export default function AdminUsuariosPage() {
                       {new Date(p.created_at).toLocaleDateString("es-ES")}
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

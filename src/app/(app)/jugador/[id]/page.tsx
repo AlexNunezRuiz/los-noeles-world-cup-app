@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { BreakdownBar } from "@/components/ranking/breakdown-bar";
 import { Flag } from "@/components/ui/flag";
+import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { isPredictionsLocked } from "@/lib/predictions/lock";
 import { calculatePotentialSummary, type PredictedMilestone } from "@/lib/scoring/potential";
 
@@ -14,6 +15,8 @@ import { calculatePotentialSummary, type PredictedMilestone } from "@/lib/scorin
 interface ProfileRow {
   id: string;
   display_name: string;
+  has_paid: boolean;
+  is_admin: boolean;
 }
 
 interface UserScoreRow {
@@ -167,7 +170,7 @@ export default function JugadorPage() {
         { data: actualAwardsData },
       ] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from("profiles").select("id, display_name").eq("id", playerId).single(),
+        supabase.from("profiles").select("id, display_name, has_paid, is_admin").eq("id", playerId).single(),
         supabase.from("user_scores").select("user_id, total_points, group_stage_points, knockout_exact_points, qualification_points, award_points").eq("user_id", playerId).single(),
         supabase.from("match_predictions").select("id, match_id, home_score, away_score, penalty_winner").eq("user_id", playerId),
         supabase.from("predicted_group_standings").select("id, group_letter, team_id, position").eq("user_id", playerId).order("group_letter").order("position"),
@@ -454,9 +457,12 @@ export default function JugadorPage() {
       {/* Header */}
       <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <h1 className="font-marcador text-3xl uppercase text-ink leading-tight">
-            {profile.display_name}
-          </h1>
+          <div className="min-w-0 space-y-1">
+            <h1 className="font-marcador text-3xl uppercase text-ink leading-tight">
+              {profile.display_name}
+            </h1>
+            <UserStatusIcon is_admin={profile.is_admin} has_paid={profile.has_paid} showLabel />
+          </div>
           <span className="font-marcador text-3xl font-bold text-ink leading-tight flex-shrink-0">
             {totalPoints}
             <span className="text-sm font-sans font-normal text-ink-muted ml-1">pts</span>

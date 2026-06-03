@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Send } from "lucide-react";
+import { UserStatusIcon } from "@/components/users/user-status-icon";
+import { Send, SmilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatMessage {
@@ -20,6 +21,8 @@ interface ProfileOption {
   id: string;
   display_name: string;
   username: string | null;
+  has_paid: boolean;
+  is_admin: boolean;
 }
 
 interface ChatReaction {
@@ -29,7 +32,7 @@ interface ChatReaction {
   emoji: string;
 }
 
-const EMOJIS = ["👍", "😂", "❤️", "👀", "🏆"];
+const REACTION_EMOJIS = ["🇪🇸", "🇦🇷", "🇧🇷", "🇫🇷", "🇩🇪", "🇵🇹", "🇲🇽", "🇺🇾", "🇯🇵", "🇲🇦"];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -39,6 +42,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [profiles, setProfiles] = useState<Map<string, ProfileOption>>(new Map());
   const [reactions, setReactions] = useState<ChatReaction[]>([]);
+  const [openReactionMessageId, setOpenReactionMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const supabase = createClient();
@@ -54,7 +58,7 @@ export default function ChatPage() {
       const [{ data: profile }, { data: allProfiles }, { data: msgs }, { data: reactionRows }] =
         await Promise.all([
           supabase.from("profiles").select("is_chat_banned").eq("id", user.id).single(),
-          supabase.from("profiles").select("id, display_name, username"),
+          supabase.from("profiles").select("id, display_name, username, has_paid, is_admin"),
           supabase
             .from("chat_messages")
             .select("*")
@@ -194,6 +198,7 @@ export default function ChatPage() {
 
   const toggleReaction = async (messageId: string, emoji: string) => {
     if (!userId) return;
+    setOpenReactionMessageId(null);
     const existing = reactions.find(
       (reaction) =>
         reaction.message_id === messageId && reaction.user_id === userId && reaction.emoji === emoji
@@ -210,6 +215,16 @@ export default function ChatPage() {
       .single();
     if (data) setReactions((prev) => [...prev, data as ChatReaction]);
   };
+
+  const groupedReactionsFor = (messageReactions: ChatReaction[]) =>
+    REACTION_EMOJIS.map((emoji) => {
+      const matching = messageReactions.filter((reaction) => reaction.emoji === emoji);
+      return {
+        emoji,
+        count: matching.length,
+        active: matching.some((reaction) => reaction.user_id === userId),
+      };
+    }).filter((reaction) => reaction.count > 0);
 
   const renderMessage = (message: string) =>
     message.split(/(@[\w.-]+)/g).map((part, index) =>
@@ -237,53 +252,90 @@ export default function ChatPage() {
           )}
           {messages.map((msg) => {
             const isMe = msg.user_id === userId;
-            const name = profiles.get(msg.user_id)?.display_name || "Anónimo";
+            const author = profiles.get(msg.user_id);
+            const name = author?.display_name || "Anónimo";
             const messageReactions = reactions.filter((reaction) => reaction.message_id === msg.id);
+            const groupedReactions = groupedReactionsFor(messageReactions);
 
             return (
               <div
                 key={msg.id}
-                className={cn("flex max-w-[80%] flex-col", isMe ? "ml-auto items-end" : "items-start")}
+                className={cn("relative flex max-w-[80%] flex-col", isMe ? "ml-auto items-end" : "items-start")}
               >
-                <span className="mb-0.5 font-sans text-xs text-ink-faint">
-                  {name} &middot;{" "}
-                  {new Date(msg.created_at).toLocaleTimeString("es-ES", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                <span className="mb-0.5 inline-flex items-center gap-1 font-sans text-xs text-ink-faint">
+                  {author && <UserStatusIcon is_admin={author.is_admin} has_paid={author.has_paid} />}
+                  <span>{name}</span>
+                  <span>&middot;</span>
+                  <span>
+                    {new Date(msg.created_at).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </span>
-                <div
-                  className={cn(
-                    "rounded-lg px-3 py-2 font-sans text-sm",
-                    isMe ? "bg-red text-white" : "border border-border bg-surface text-ink"
-                  )}
-                >
-                  {renderMessage(msg.message)}
+                <div className={cn("flex items-end gap-1.5", isMe && "flex-row-reverse")}>
+                  <div
+                    className={cn(
+                      "rounded-lg px-3 py-2 font-sans text-sm",
+                      isMe ? "bg-red text-white" : "border border-border bg-surface text-ink"
+                    )}
+                  >
+                    {renderMessage(msg.message)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenReactionMessageId((current) => (current === msg.id ? null : msg.id))
+                    }
+                    className="mb-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-ink-muted shadow-sm transition-colors hover:border-red/40 hover:text-red"
+                    aria-label="Reaccionar al mensaje"
+                  >
+                    <SmilePlus className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <div className={cn("mt-1 flex flex-wrap gap-1", isMe ? "justify-end" : "justify-start")}>
-                  {EMOJIS.map((emoji) => {
-                    const count = messageReactions.filter((reaction) => reaction.emoji === emoji).length;
-                    const active = messageReactions.some(
-                      (reaction) => reaction.emoji === emoji && reaction.user_id === userId
-                    );
-                    return (
+
+                {openReactionMessageId === msg.id && (
+                  <div
+                    className={cn(
+                      "absolute top-full z-20 mt-1 grid grid-cols-5 gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-lg",
+                      isMe ? "right-0" : "left-0"
+                    )}
+                  >
+                    {REACTION_EMOJIS.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
                         onClick={() => toggleReaction(msg.id, emoji)}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-surface-sunken"
+                        aria-label={`Reaccionar con ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {groupedReactions.length > 0 && (
+                  <div className={cn("mt-1 flex flex-wrap gap-1", isMe ? "justify-end" : "justify-start")}>
+                    {groupedReactions.map((reaction) => (
+                      <button
+                        key={reaction.emoji}
+                        type="button"
+                        onClick={() => toggleReaction(msg.id, reaction.emoji)}
                         className={cn(
-                          "rounded-full border px-1.5 py-0.5 text-xs transition-colors",
-                          active
+                          "inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs transition-colors",
+                          reaction.active
                             ? "border-red bg-red/10 text-red"
                             : "border-border bg-surface text-ink-muted hover:text-ink"
                         )}
+                        aria-label={`Reaccion ${reaction.emoji}: ${reaction.count}`}
                       >
-                        {emoji}
-                        {count > 0 && <span className="ml-1 font-marcador">{count}</span>}
+                        <span>{reaction.emoji}</span>
+                        {reaction.count > 1 && <span className="ml-1 font-marcador">{reaction.count}</span>}
                       </button>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

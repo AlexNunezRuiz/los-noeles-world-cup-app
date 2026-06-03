@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { cn } from "@/lib/utils";
 import type { TeamStanding } from "@/lib/tournament/standings";
@@ -258,10 +259,21 @@ export function GroupStandingsTable({
                   </span>
                 </td>
                 <td className="py-2 px-2">
-                  <div className="flex items-center gap-1.5">
-                    <Flag emoji={team?.flag_emoji || ""} size={18} />
-                    <span className="font-sans font-medium truncate text-ink">{team?.name}</span>
-                  </div>
+                  {team ? (
+                    <Link
+                      href={`/equipos/${team.id}`}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      className="flex min-w-0 items-center gap-1.5 rounded-md hover:text-red"
+                    >
+                      <Flag emoji={team.flag_emoji || ""} size={18} />
+                      <span className="truncate font-sans font-medium text-ink">{team.name}</span>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Flag emoji="" size={18} />
+                      <span className="font-sans font-medium truncate text-ink">-</span>
+                    </div>
+                  )}
                 </td>
                 <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.played}</td>
                 <td className="text-center py-2 px-1 font-marcador font-bold text-ink">{s.won}</td>
