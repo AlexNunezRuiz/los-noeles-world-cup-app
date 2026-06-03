@@ -150,7 +150,7 @@ export default function AdminConfigPage() {
       setSavedConfig((prev) => ({ ...prev, predictions_locked: nextValue }));
       await publishAdminUpdate(
         locked
-          ? "Las predicciones se han bloqueado manualmente."
+          ? "Las predicciones han quedado bloqueadas. Ya no se pueden modificar resultados."
           : "Las predicciones se han desbloqueado manualmente."
       );
       toast({ title: locked ? "Predicciones bloqueadas" : "Predicciones desbloqueadas" });

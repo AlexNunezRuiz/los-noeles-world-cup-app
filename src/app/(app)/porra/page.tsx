@@ -96,6 +96,7 @@ export default async function PorraPage() {
 
   // Tournament config
   const config = (configRows ?? []) as TournamentConfigRow[];
+  const isLocked = config.find((c) => c.key === "predictions_locked")?.value === "true";
   const lockDatetime = config.find((c) => c.key === "lock_datetime")?.value;
   const paymentAmount = config.find((c) => c.key === "payment_amount")?.value ?? "5";
   const bankIban = config.find((c) => c.key === "bank_iban")?.value;
@@ -198,6 +199,41 @@ export default async function PorraPage() {
           </div>
         </div>
       </div>
+
+      {isLocked && (
+        <div className="rounded-[13px] border border-red/30 bg-red/8 px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-red flex-shrink-0 mt-0.5" />
+          <div className="text-sm leading-snug">
+            <p className="font-semibold text-red">Predicciones bloqueadas</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              Ya no puedes editar tu porra. Puedes consultar resultados, ranking y el chat.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!hasPaid && (
+        <div className="border border-gold/30 bg-gold/5 rounded-[13px] px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-gold font-medium leading-snug">
+            {bankIban ? (
+              <>
+                <p>
+                  Para validar tu participacion, haz una transferencia de{" "}
+                  <span className="font-bold">€{paymentAmount}</span> a{" "}
+                  <span className="font-bold">{bankIban}</span>.
+                </p>
+                {bankHolder && <p className="mt-1 text-xs">Titular: {bankHolder}</p>}
+                <p className="mt-1 text-xs">
+                  Concepto: <span className="font-bold">{transferConcept}</span>
+                </p>
+              </>
+            ) : (
+              <p>El administrador todavia no ha publicado los datos de pago.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Phase cards */}
       <div className="flex flex-col gap-2">
@@ -339,36 +375,13 @@ export default async function PorraPage() {
         <Link href={firstIncomplete}>Seguir rellenando</Link>
       </Button>
 
-      {/* Payment reminder */}
-      {!hasPaid && (
-        <div className="border border-gold/30 bg-gold/5 rounded-[13px] px-4 py-3 flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-gold font-medium leading-snug">
-            <p>
-              Para validar tu participación, haz una transferencia de{" "}
-              <span className="font-bold">€{paymentAmount}</span>
-              {bankIban ? (
-                <>
-                  {" "}a <span className="font-bold">{bankIban}</span>
-                </>
-              ) : null}
-              .
-            </p>
-            {bankHolder && <p className="mt-1 text-xs">Titular: {bankHolder}</p>}
-            <p className="mt-1 text-xs">
-              Concepto: <span className="font-bold">{transferConcept}</span>
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="rounded-[13px] border border-border bg-surface px-4 py-3 flex items-start gap-3">
         <Download className="w-4 h-4 text-ink-muted flex-shrink-0 mt-0.5" />
         <div className="text-sm leading-snug">
           <p className="font-semibold text-ink">Instala la porra como app</p>
           <p className="mt-1 text-xs text-ink-muted">
             En el movil, abre el menu del navegador y toca &quot;Anadir a pantalla de inicio&quot;.
-            Ahora las notificaciones son dentro de la app; para push del movil falta activar permisos Web Push.
+            Asi tendras un acceso directo y podras abrirla como una app normal.
           </p>
         </div>
       </div>
