@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,29 @@ interface ChatReaction {
   emoji: string;
 }
 
-const REACTION_EMOJIS = ["🇪🇸", "🇦🇷", "🇧🇷", "🇫🇷", "🇩🇪", "🇵🇹", "🇲🇽", "🇺🇾", "🇯🇵", "🇲🇦"];
-
+const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+const MORE_REACTION_EMOJIS = [
+  "🏆",
+  "⚽",
+  "🔥",
+  "👏",
+  "🤦",
+  "😡",
+  "🤯",
+  "💀",
+  "👀",
+  "💪",
+  "🤝",
+  "🎯",
+  "🇪🇸",
+  "🇦🇷",
+  "🇧🇷",
+  "🇫🇷",
+  "🇩🇪",
+  "🇵🇹",
+  "🇲🇽",
+  "🇺🇾",
+];
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -43,6 +65,7 @@ export default function ChatPage() {
   const [profiles, setProfiles] = useState<Map<string, ProfileOption>>(new Map());
   const [reactions, setReactions] = useState<ChatReaction[]>([]);
   const [openReactionMessageId, setOpenReactionMessageId] = useState<string | null>(null);
+  const [expandedReactionMessageId, setExpandedReactionMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const supabase = createClient();
@@ -199,25 +222,40 @@ export default function ChatPage() {
   const toggleReaction = async (messageId: string, emoji: string) => {
     if (!userId) return;
     setOpenReactionMessageId(null);
-    const existing = reactions.find(
-      (reaction) =>
-        reaction.message_id === messageId && reaction.user_id === userId && reaction.emoji === emoji
+    setExpandedReactionMessageId(null);
+
+    const existingUserReaction = reactions.find(
+      (reaction) => reaction.message_id === messageId && reaction.user_id === userId
     );
-    if (existing) {
-      await supabase.from("chat_message_reactions").delete().eq("id", existing.id);
-      setReactions((prev) => prev.filter((reaction) => reaction.id !== existing.id));
+    const isRemovingCurrentReaction = existingUserReaction?.emoji === emoji;
+
+    if (existingUserReaction) {
+      const { error } = await supabase.from("chat_message_reactions").delete().eq("id", existingUserReaction.id);
+      if (error) {
+        toast({ title: "Error al reaccionar", description: error.message, variant: "destructive" });
+        return;
+      }
+      setReactions((prev) => prev.filter((reaction) => reaction.id !== existingUserReaction.id));
+    }
+
+    if (isRemovingCurrentReaction) {
       return;
     }
-    const { data } = await supabase
+
+    const { data, error } = await supabase
       .from("chat_message_reactions")
       .insert({ message_id: messageId, user_id: userId, emoji })
       .select("*")
       .single();
+    if (error) {
+      toast({ title: "Error al reaccionar", description: error.message, variant: "destructive" });
+      return;
+    }
     if (data) setReactions((prev) => [...prev, data as ChatReaction]);
   };
 
   const groupedReactionsFor = (messageReactions: ChatReaction[]) =>
-    REACTION_EMOJIS.map((emoji) => {
+    Array.from(new Set(messageReactions.map((reaction) => reaction.emoji))).map((emoji) => {
       const matching = messageReactions.filter((reaction) => reaction.emoji === emoji);
       return {
         emoji,
@@ -264,7 +302,12 @@ export default function ChatPage() {
               >
                 <span className="mb-0.5 inline-flex items-center gap-1 font-sans text-xs text-ink-faint">
                   {author && <UserStatusIcon is_admin={author.is_admin} has_paid={author.has_paid} />}
-                  <span>{name}</span>
+                  <Link
+                    href={`/jugador/${msg.user_id}`}
+                    className="font-semibold text-ink-muted transition-colors hover:text-ink hover:underline"
+                  >
+                    {name}
+                  </Link>
                   <span>&middot;</span>
                   <span>
                     {new Date(msg.created_at).toLocaleTimeString("es-ES", {
@@ -284,9 +327,13 @@ export default function ChatPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setOpenReactionMessageId((current) => (current === msg.id ? null : msg.id))
-                    }
+                    onClick={() => {
+                      setOpenReactionMessageId((current) => {
+                        const next = current === msg.id ? null : msg.id;
+                        if (!next) setExpandedReactionMessageId(null);
+                        return next;
+                      });
+                    }}
                     className="mb-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-ink-muted shadow-sm transition-colors hover:border-red/40 hover:text-red"
                     aria-label="Reaccionar al mensaje"
                   >
@@ -297,21 +344,48 @@ export default function ChatPage() {
                 {openReactionMessageId === msg.id && (
                   <div
                     className={cn(
-                      "absolute top-full z-20 mt-1 grid grid-cols-5 gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-lg",
+                      "absolute top-full z-20 mt-1 rounded-lg border border-border bg-surface p-1.5 shadow-lg",
                       isMe ? "right-0" : "left-0"
                     )}
                   >
-                    {REACTION_EMOJIS.map((emoji) => (
+                    <div className="flex items-center gap-1">
+                      {QUICK_REACTION_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => toggleReaction(msg.id, emoji)}
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-surface-sunken"
+                          aria-label={`Reaccionar con ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
                       <button
-                        key={emoji}
                         type="button"
-                        onClick={() => toggleReaction(msg.id, emoji)}
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-surface-sunken"
-                        aria-label={`Reaccionar con ${emoji}`}
+                        onClick={() =>
+                          setExpandedReactionMessageId((current) => (current === msg.id ? null : msg.id))
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+                        aria-label="Ver mas reacciones"
                       >
-                        {emoji}
+                        <SmilePlus className="h-4 w-4" />
                       </button>
-                    ))}
+                    </div>
+                    {expandedReactionMessageId === msg.id && (
+                      <div className="mt-1 grid grid-cols-7 gap-1 border-t border-border pt-1">
+                        {MORE_REACTION_EMOJIS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => toggleReaction(msg.id, emoji)}
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-surface-sunken"
+                            aria-label={`Reaccionar con ${emoji}`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
