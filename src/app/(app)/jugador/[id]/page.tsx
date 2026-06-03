@@ -102,7 +102,7 @@ function EmptyState({ label }: { label: string }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function JugadorPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>() ?? { id: "" };
   const playerId = params.id;
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);

@@ -1,17 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
-const ENTRY_FEE = 5;
-const LAST_PLACE_PRIZE = 5;
+const DEFAULT_ENTRY_FEE = 5;
+
+function formatPaymentAmount(value?: string | null) {
+  const amount = Number(String(value ?? "").replace(",", "."));
+  if (!Number.isFinite(amount) || amount <= 0) return String(DEFAULT_ENTRY_FEE);
+  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(".", ",");
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
-  group: "Fase de grupos",
-  knockout: "Eliminatorias — resultado exacto",
+  group_stage: "Fase de grupos",
+  knockout_exact: "Eliminatorias — resultado exacto",
   qualification: "Clasificación por ronda",
   awards: "Premios individuales",
 };
 
-const CATEGORY_ORDER = ["group", "knockout", "qualification", "awards"];
+const CATEGORY_ORDER = ["group_stage", "qualification", "knockout_exact", "awards"];
 
 const RULE_LABELS: Record<string, string> = {
   correct_sign: "Signo correcto (1X2)",
@@ -20,13 +25,13 @@ const RULE_LABELS: Record<string, string> = {
   group_pos_2nd: "2º de grupo acertado",
   group_pos_3rd: "3º de grupo acertado",
   group_pos_4th: "4º de grupo acertado",
-  exact_r32: "Resultado exacto en octavos",
-  exact_r16: "Resultado exacto en dieciseisavos",
+  exact_r32: "Resultado exacto en dieciseisavos",
+  exact_r16: "Resultado exacto en octavos",
   exact_qf: "Resultado exacto en cuartos / semifinal",
   exact_third: "Resultado exacto en 3er puesto",
   exact_final: "Resultado exacto en la final",
-  qualify_r32: "Equipo clasificado a octavos",
-  qualify_r16: "Equipo clasificado a dieciseisavos",
+  qualify_r32: "Equipo clasificado a dieciseisavos",
+  qualify_r16: "Equipo clasificado a octavos",
   qualify_qf: "Equipo clasificado a cuartos",
   qualify_sf: "Equipo clasificado a semis",
   qualify_champion: "Campeón del torneo acertado",
@@ -59,6 +64,7 @@ export default async function NormasPage() {
   const configRows = (config ?? []) as TournamentConfig[];
   const configMap = new Map(configRows.map((c) => [c.key, c.value]));
   const lockDatetime = configMap.get("lock_datetime");
+  const paymentAmount = formatPaymentAmount(configMap.get("payment_amount"));
 
   const lockLabel = lockDatetime
     ? new Date(lockDatetime).toLocaleString("es-ES", {
@@ -135,7 +141,7 @@ export default async function NormasPage() {
         <RuleCard>
           <RuleRow
             label="Cuota de inscripción"
-            value={`€${ENTRY_FEE}`}
+            value={`€${paymentAmount}`}
             highlight
           />
           <RuleRow
@@ -230,11 +236,11 @@ export default async function NormasPage() {
           <RuleRow label="2º clasificado" value="25% del bote" />
           <RuleRow label="3º clasificado" value="10% del bote" />
           <RuleRow label="Campeón de fase de grupos" value="5% del bote" />
-          <RuleRow label="Farolillo rojo (último)" value={`€${LAST_PLACE_PRIZE} fijo — recupera la entrada`} />
+          <RuleRow label="Farolillo rojo (último)" value={`€${paymentAmount} fijo — recupera la entrada`} />
         </RuleCard>
 
         <InfoBox color="green">
-          El bote se reparte entre los porcentajes indicados <strong>una vez descontados los €{LAST_PLACE_PRIZE} del farolillo rojo</strong>.
+          El bote se reparte entre los porcentajes indicados <strong>una vez descontados los €{paymentAmount} del farolillo rojo</strong>.
           Los importes se redondean al euro inferior. Consulta el bote en tiempo real en{" "}
           <Link href="/bote" className="underline font-semibold">la página del Bote</Link>.
         </InfoBox>
@@ -245,7 +251,7 @@ export default async function NormasPage() {
           </div>
           <div className="px-4 py-4 space-y-1.5">
             <p className="text-sm text-ink">
-              El <strong>último clasificado</strong> recibe <strong>€{LAST_PLACE_PRIZE}</strong> del bote —
+              El <strong>último clasificado</strong> recibe <strong>€{paymentAmount}</strong> del bote —
               exactamente lo que pagó de inscripción. Le sale gratis.
             </p>
             <p className="text-sm text-ink-muted">

@@ -1,19 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
 
-const ENTRY_FEE = 5;
-const LAST_PLACE_PRIZE = 5;
+const DEFAULT_ENTRY_FEE = 5;
 
 interface ConfigRow {
   key: string;
   value: string;
 }
 
-function calcPrizes(paidCount: number) {
-  const total = paidCount * ENTRY_FEE;
-  const remaining = Math.max(0, total - LAST_PLACE_PRIZE);
+function parsePaymentAmount(value?: string | null) {
+  const amount = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(amount) && amount > 0 ? amount : DEFAULT_ENTRY_FEE;
+}
+
+function formatEuros(amount: number) {
+  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(".", ",");
+}
+
+function calcPrizes(paidCount: number, entryFee: number) {
+  const total = paidCount * entryFee;
+  const remaining = Math.max(0, total - entryFee);
   return {
     total,
-    lastPlace: LAST_PLACE_PRIZE,
+    lastPlace: entryFee,
     first: Math.floor(remaining * 0.6),
     second: Math.floor(remaining * 0.25),
     third: Math.floor(remaining * 0.1),
@@ -31,9 +39,10 @@ export default async function BotePage() {
   ]);
 
   const paidCount = count ?? 0;
-  const prizes = calcPrizes(paidCount);
   const config = new Map(((configRows ?? []) as ConfigRow[]).map((row) => [row.key, row.value]));
-  const paymentAmount = config.get("payment_amount") ?? String(ENTRY_FEE);
+  const entryFee = parsePaymentAmount(config.get("payment_amount"));
+  const paymentAmount = formatEuros(entryFee);
+  const prizes = calcPrizes(paidCount, entryFee);
   const bankIban = config.get("bank_iban");
   const bankHolder = config.get("bank_account_holder");
   const conceptPrefix = config.get("bank_concept_prefix") ?? "PORRA";
@@ -61,7 +70,7 @@ export default async function BotePage() {
       <div className="px-1">
         <h1 className="font-marcador text-3xl uppercase leading-tight text-ink">El Bote</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          {paidCount} participante{paidCount !== 1 ? "s" : ""} · €{ENTRY_FEE} de inscripción
+          {paidCount} participante{paidCount !== 1 ? "s" : ""} · €{paymentAmount} de inscripción
         </p>
       </div>
 
@@ -69,10 +78,10 @@ export default async function BotePage() {
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
           Bote total
         </p>
-        <p className="font-marcador text-7xl leading-none text-ink">€{prizes.total}</p>
+        <p className="font-marcador text-7xl leading-none text-ink">€{formatEuros(prizes.total)}</p>
         {paidCount === 0 && (
           <p className="mt-3 text-xs text-ink-faint">
-            Crece €{ENTRY_FEE} por cada participante que pague
+            Crece €{paymentAmount} por cada participante que pague
           </p>
         )}
       </div>
@@ -89,7 +98,7 @@ export default async function BotePage() {
               <p className="text-sm font-semibold leading-tight text-ink">{label}</p>
               <p className="text-xs text-ink-muted">{detail}</p>
             </div>
-            <span className="flex-shrink-0 font-marcador text-2xl text-ink">€{amount}</span>
+            <span className="flex-shrink-0 font-marcador text-2xl text-ink">€{formatEuros(amount)}</span>
           </div>
         ))}
       </div>
