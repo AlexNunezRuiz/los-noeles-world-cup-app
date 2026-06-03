@@ -30,6 +30,7 @@ export function PlayerCombobox({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   function normalizeSearch(value: string) {
     return value
@@ -106,7 +107,7 @@ export function PlayerCombobox({
         <ul
           role="listbox"
           className="absolute z-50 mt-1 w-full overflow-y-auto rounded-md border border-border bg-surface shadow-md"
-          style={{ maxHeight: "14rem" }}
+          style={{ maxHeight: "14rem", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           {filtered.map((option) => (
             <li
@@ -118,9 +119,19 @@ export function PlayerCombobox({
                 e.preventDefault();
               }}
               onClick={() => handleSelect(option)}
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+              }}
               onTouchEnd={(e) => {
-                // Mobile: handle selection on touchend and prevent synthetic click
-                e.preventDefault();
+                const start = touchStartRef.current;
+                touchStartRef.current = null;
+                const touch = e.changedTouches[0];
+                if (start && touch) {
+                  const dx = Math.abs(touch.clientX - start.x);
+                  const dy = Math.abs(touch.clientY - start.y);
+                  if (dx > 8 || dy > 8) return;
+                }
                 handleSelect(option);
               }}
               className="cursor-pointer select-none px-3 py-2 text-sm text-ink hover:bg-surface-sunken"
