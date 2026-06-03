@@ -1,32 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-
-const DEFAULT_ENTRY_FEE = 5;
+import {
+  calculatePrizeBreakdown,
+  formatEuros,
+  parsePaymentAmount,
+  parsePrizeDistribution,
+} from "@/lib/prizes/config";
 
 interface ConfigRow {
   key: string;
   value: string;
-}
-
-function parsePaymentAmount(value?: string | null) {
-  const amount = Number(String(value ?? "").replace(",", "."));
-  return Number.isFinite(amount) && amount > 0 ? amount : DEFAULT_ENTRY_FEE;
-}
-
-function formatEuros(amount: number) {
-  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(".", ",");
-}
-
-function calcPrizes(paidCount: number, entryFee: number) {
-  const total = paidCount * entryFee;
-  const remaining = Math.max(0, total - entryFee);
-  return {
-    total,
-    lastPlace: entryFee,
-    first: Math.floor(remaining * 0.6),
-    second: Math.floor(remaining * 0.25),
-    third: Math.floor(remaining * 0.1),
-    groupChamp: Math.floor(remaining * 0.05),
-  };
 }
 
 export default async function BotePage() {
@@ -42,7 +24,11 @@ export default async function BotePage() {
   const config = new Map(((configRows ?? []) as ConfigRow[]).map((row) => [row.key, row.value]));
   const entryFee = parsePaymentAmount(config.get("payment_amount"));
   const paymentAmount = formatEuros(entryFee);
-  const prizes = calcPrizes(paidCount, entryFee);
+  const prizes = calculatePrizeBreakdown({
+    paidCount,
+    entryFee,
+    distribution: parsePrizeDistribution(config.get("prize_distribution"), entryFee),
+  });
   const bankIban = config.get("bank_iban");
   const bankHolder = config.get("bank_account_holder");
   const conceptPrefix = config.get("bank_concept_prefix") ?? "PORRA";
@@ -57,20 +43,12 @@ export default async function BotePage() {
     hasPaid = profile?.has_paid ?? false;
   }
 
-  const breakdown = [
-    { label: "1º Clasificado", amount: prizes.first, detail: "60% del bote", emoji: "🥇" },
-    { label: "2º Clasificado", amount: prizes.second, detail: "25% del bote", emoji: "🥈" },
-    { label: "3º Clasificado", amount: prizes.third, detail: "10% del bote", emoji: "🥉" },
-    { label: "Campeón de grupos", amount: prizes.groupChamp, detail: "5% del bote", emoji: "⭐" },
-    { label: "Farolillo rojo", amount: prizes.lastPlace, detail: "Recupera la entrada", emoji: "🔴" },
-  ];
-
   return (
     <div className="space-y-5 pb-6">
       <div className="px-1">
         <h1 className="font-marcador text-3xl uppercase leading-tight text-ink">El Bote</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          {paidCount} participante{paidCount !== 1 ? "s" : ""} · €{paymentAmount} de inscripción
+          {paidCount} participante{paidCount !== 1 ? "s" : ""} · €{paymentAmount} de inscripcion
         </p>
       </div>
 
@@ -87,13 +65,12 @@ export default async function BotePage() {
       </div>
 
       <div className="space-y-2">
-        <h2 className="px-1 font-marcador text-base uppercase text-ink-muted">Distribución</h2>
-        {breakdown.map(({ label, amount, detail, emoji }) => (
+        <h2 className="px-1 font-marcador text-base uppercase text-ink-muted">Distribucion</h2>
+        {prizes.items.map(({ key, label, amount, detail }) => (
           <div
-            key={label}
+            key={key}
             className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3"
           >
-            <span className="w-7 flex-shrink-0 text-center text-xl">{emoji}</span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold leading-tight text-ink">{label}</p>
               <p className="text-xs text-ink-muted">{detail}</p>
@@ -105,13 +82,13 @@ export default async function BotePage() {
 
       {hasPaid ? (
         <div className="rounded-xl border border-border bg-surface px-4 py-4 text-center">
-          <p className="text-sm font-semibold text-ink">Inscripción pagada</p>
-          <p className="mt-0.5 text-xs text-ink-muted">Estás dentro del bote</p>
+          <p className="text-sm font-semibold text-ink">Inscripcion pagada</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Estas dentro del bote</p>
         </div>
       ) : (
         <div className="space-y-3 rounded-xl border border-border bg-surface px-4 py-4 text-center">
           <div>
-            <p className="text-sm font-semibold text-ink">¿Todavía no has pagado?</p>
+            <p className="text-sm font-semibold text-ink">Todavia no has pagado?</p>
             <p className="mt-0.5 text-xs text-ink-muted">
               Paga €{paymentAmount} por transferencia para entrar al bote.
             </p>
@@ -127,19 +104,19 @@ export default async function BotePage() {
                 </p>
               )}
               <p>
-                <span className="font-semibold text-ink">Concepto:</span> {conceptPrefix} + tu nombre de usuario
+                <span className="font-semibold text-ink">Concepto:</span> {conceptPrefix} + tu usuario
               </p>
             </div>
           ) : (
             <p className="text-xs text-amber">
-              El administrador todavía no ha publicado el IBAN.
+              El administrador todavia no ha publicado el IBAN.
             </p>
           )}
         </div>
       )}
 
       <p className="px-4 text-center text-[11px] text-ink-faint">
-        El bote se actualiza automáticamente conforme se confirman los pagos.
+        El bote se actualiza automaticamente conforme se confirman los pagos.
         Los importes se redondean al euro inferior.
       </p>
     </div>

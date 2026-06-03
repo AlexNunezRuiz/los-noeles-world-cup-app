@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { cn } from "@/lib/utils";
+import { getDragRowShift } from "@/lib/predictions/drag-row-shift";
 import type { TeamStanding } from "@/lib/tournament/standings";
 import { Flag } from "@/components/ui/flag";
 import { ChevronUp, ChevronDown } from "lucide-react";
@@ -41,6 +42,7 @@ export function GroupStandingsTable({
   const rowRefs = useRef(new Map<number, HTMLTableRowElement>());
   const dragRectsRef = useRef(new Map<number, DOMRect>());
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressLinkClickRef = useRef(false);
   const canDrag = !isLocked && tiedTeamIds.length > 0 && onReorderTeam !== undefined;
 
   const clearPressTimer = useCallback(() => {
@@ -65,6 +67,11 @@ export function GroupStandingsTable({
     setDropTargetTeamId(null);
     setDragOffsetY(0);
     setPressingTeamId(null);
+    if (suppressLinkClickRef.current) {
+      window.setTimeout(() => {
+        suppressLinkClickRef.current = false;
+      }, 0);
+    }
     document.body.style.userSelect = "";
     document.body.style.touchAction = "";
     document.body.style.overflow = "";
@@ -163,6 +170,7 @@ export function GroupStandingsTable({
         Array.from(rowRefs.current.entries()).map(([id, row]) => [id, row.getBoundingClientRect()])
       );
       draggingTeamIdRef.current = teamId;
+      suppressLinkClickRef.current = true;
       setDraggingTeamId(teamId);
       document.body.style.userSelect = "none";
       document.body.style.touchAction = "none";
@@ -188,6 +196,15 @@ export function GroupStandingsTable({
     updateDragTarget(event.clientY);
   };
 
+  const handleTeamLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!suppressLinkClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.setTimeout(() => {
+      suppressLinkClickRef.current = false;
+    }, 0);
+  };
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
       <table className="w-full text-sm">
@@ -211,14 +228,12 @@ export function GroupStandingsTable({
             const team = teams.get(s.team_id);
             const isTied = tiedTeamIds.includes(s.team_id);
             const qualifies = s.position <= 2;
-            const draggingIndex = standings.findIndex((row) => row.team_id === draggingTeamId);
-            const targetIndex = standings.findIndex((row) => row.team_id === dropTargetTeamId);
-            const targetShift =
-              draggingIndex >= 0 && targetIndex >= 0 && dropTargetTeamId === s.team_id
-                ? draggingIndex < targetIndex
-                  ? -1
-                  : 1
-                : 0;
+            const targetShift = getDragRowShift(
+              standings.map((row) => row.team_id),
+              draggingTeamId,
+              dropTargetTeamId,
+              s.team_id
+            );
 
             return (
               <tr
@@ -262,7 +277,7 @@ export function GroupStandingsTable({
                   {team ? (
                     <Link
                       href={`/equipos/${team.id}`}
-                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={handleTeamLinkClick}
                       className="flex min-w-0 items-center gap-1.5 rounded-md hover:text-red"
                     >
                       <Flag emoji={team.flag_emoji || ""} size={18} />

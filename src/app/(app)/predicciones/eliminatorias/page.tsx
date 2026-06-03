@@ -12,7 +12,7 @@ import { MatchResultDialog } from "@/components/predictions/match-result-dialog"
 import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
 import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
-import { isPredictionsLocked } from "@/lib/predictions/lock";
+import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -136,6 +136,7 @@ export default function EliminatoriasPage() {
   const [cuadroSelectedMatch, setCuadroSelectedMatch] = useState<number | null>(null);
   const saveTimeout = useRef<NodeJS.Timeout>();
   const supabase = createClient();
+  const { setLockConfigRows } = usePredictionLockRealtime(supabase, setIsLocked);
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -168,7 +169,7 @@ export default function EliminatoriasPage() {
       ]);
 
       setTeams(teamsRes);
-      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
+      setLockConfigRows((configRes.data ?? []) as ConfigRow[]);
 
       // Build match_number -> id map
       const idMap = new Map<number, number>();

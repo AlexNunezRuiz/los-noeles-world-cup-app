@@ -1,18 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-
-const DEFAULT_ENTRY_FEE = 5;
-
-function formatPaymentAmount(value?: string | null) {
-  const amount = Number(String(value ?? "").replace(",", "."));
-  if (!Number.isFinite(amount) || amount <= 0) return String(DEFAULT_ENTRY_FEE);
-  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(".", ",");
-}
+import {
+  PRIZE_RECIPIENT_LABELS,
+  formatEuros,
+  parsePaymentAmount,
+  parsePrizeDistribution,
+} from "@/lib/prizes/config";
 
 const CATEGORY_LABELS: Record<string, string> = {
   group_stage: "Fase de grupos",
-  knockout_exact: "Eliminatorias — resultado exacto",
-  qualification: "Clasificación por ronda",
+  knockout_exact: "Eliminatorias - resultado exacto",
+  qualification: "Clasificacion por ronda",
   awards: "Premios individuales",
 };
 
@@ -21,10 +19,10 @@ const CATEGORY_ORDER = ["group_stage", "qualification", "knockout_exact", "award
 const RULE_LABELS: Record<string, string> = {
   correct_sign: "Signo correcto (1X2)",
   exact_score: "Resultado exacto (bonus adicional)",
-  group_pos_1st: "1º de grupo acertado",
-  group_pos_2nd: "2º de grupo acertado",
-  group_pos_3rd: "3º de grupo acertado",
-  group_pos_4th: "4º de grupo acertado",
+  group_pos_1st: "1o de grupo acertado",
+  group_pos_2nd: "2o de grupo acertado",
+  group_pos_3rd: "3o de grupo acertado",
+  group_pos_4th: "4o de grupo acertado",
   exact_r32: "Resultado exacto en dieciseisavos",
   exact_r16: "Resultado exacto en octavos",
   exact_qf: "Resultado exacto en cuartos / semifinal",
@@ -34,10 +32,10 @@ const RULE_LABELS: Record<string, string> = {
   qualify_r16: "Equipo clasificado a octavos",
   qualify_qf: "Equipo clasificado a cuartos",
   qualify_sf: "Equipo clasificado a semis",
-  qualify_champion: "Campeón del torneo acertado",
+  qualify_champion: "Campeon del torneo acertado",
   qualify_third: "3er puesto acertado",
   golden_boot: "Bota de Oro acertada",
-  golden_ball: "Balón de Oro acertado",
+  golden_ball: "Balon de Oro acertado",
   golden_glove: "Guante de Oro acertado",
 };
 
@@ -61,10 +59,14 @@ export default async function NormasPage() {
     supabase.from("tournament_config").select("key, value"),
   ]);
 
-  const configRows = (config ?? []) as TournamentConfig[];
-  const configMap = new Map(configRows.map((c) => [c.key, c.value]));
+  const configMap = new Map(((config ?? []) as TournamentConfig[]).map((c) => [c.key, c.value]));
   const lockDatetime = configMap.get("lock_datetime");
-  const paymentAmount = formatPaymentAmount(configMap.get("payment_amount"));
+  const entryFee = parsePaymentAmount(configMap.get("payment_amount"));
+  const paymentAmount = formatEuros(entryFee);
+  const bankIban = configMap.get("bank_iban");
+  const bankHolder = configMap.get("bank_account_holder");
+  const conceptPrefix = configMap.get("bank_concept_prefix") ?? "PORRA";
+  const prizes = parsePrizeDistribution(configMap.get("prize_distribution"), entryFee);
 
   const lockLabel = lockDatetime
     ? new Date(lockDatetime).toLocaleString("es-ES", {
@@ -90,109 +92,70 @@ export default async function NormasPage() {
   ];
 
   const sections = [
-    {
-      num: "01",
-      title: "Participación",
-      color: "text-red",
-    },
-    {
-      num: "02",
-      title: "Predicciones",
-      color: "text-blue",
-    },
-    {
-      num: "03",
-      title: "Puntuación",
-      color: "text-gold",
-    },
-    {
-      num: "04",
-      title: "Premios",
-      color: "text-green",
-    },
+    { num: "01", title: "Participacion", color: "text-red" },
+    { num: "02", title: "Predicciones", color: "text-blue" },
+    { num: "03", title: "Puntuacion", color: "text-gold" },
+    { num: "04", title: "Premios", color: "text-green" },
+    { num: "05", title: "App", color: "text-ink-muted" },
   ];
 
   return (
-    <div className="pb-8 space-y-1">
-      {/* Header */}
+    <div className="space-y-1 pb-8">
       <div className="px-1 pb-4 pt-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted mb-1">Mundial &apos;26</p>
-        <h1 className="font-marcador text-5xl uppercase text-ink leading-none">Normas</h1>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-muted">Mundial &apos;26</p>
+        <h1 className="font-marcador text-5xl uppercase leading-none text-ink">Normas</h1>
       </div>
 
-      {/* Index strip */}
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
         {sections.map((s, i) => (
           <a
             key={s.num}
             href={`#sec-${s.num}`}
-            className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-border" : ""} hover:bg-surface-sunken transition-colors`}
+            className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-border" : ""} transition-colors hover:bg-surface-sunken`}
           >
-            <span className={`font-marcador text-sm ${s.color} w-6`}>{s.num}</span>
+            <span className={`w-6 font-marcador text-sm ${s.color}`}>{s.num}</span>
             <span className="font-marcador text-sm uppercase tracking-wide text-ink">{s.title}</span>
           </a>
         ))}
       </div>
 
-      {/* ── 01 PARTICIPACIÓN ── */}
-      <div id="sec-01" className="pt-6 space-y-3">
-        <SectionHeader num="01" title="Participación" color="text-red" />
-
+      <div id="sec-01" className="space-y-3 pt-6">
+        <SectionHeader num="01" title="Participacion" color="text-red" />
         <RuleCard>
-          <RuleRow
-            label="Cuota de inscripción"
-            value={`€${paymentAmount}`}
-            highlight
-          />
-          <RuleRow
-            label="Fecha límite de pago"
-            value={lockLabel}
-          />
-          <RuleRow
-            label="Método de pago"
-            value="Transferencia bancaria con concepto PORRA + usuario"
-          />
-          <RuleRow
-            label="Solo participan en el bote"
-            value="los usuarios que hayan pagado antes del cierre"
-          />
+          <RuleRow label="Cuota de inscripcion" value={`€${paymentAmount}`} highlight />
+          <RuleRow label="Fecha limite de pago" value={lockLabel} />
+          <RuleRow label="Metodo de pago" value="Transferencia bancaria" />
+          {bankIban && <RuleRow label="IBAN" value={bankIban} />}
+          {bankHolder && <RuleRow label="Titular" value={bankHolder} />}
+          <RuleRow label="Concepto" value={`${conceptPrefix} + tu usuario`} />
+          <RuleRow label="Solo participan en el bote" value="los usuarios que hayan pagado antes del cierre" />
         </RuleCard>
-
         <InfoBox color="red">
-          El pago debe realizarse <strong>antes del inicio del torneo</strong>. Quien no haya pagado
-          antes del cierre no contará en la clasificación ni optará a ningún premio,
-          aunque pueda seguir haciendo predicciones.
+          El pago debe realizarse antes del cierre. Quien no haya pagado no contara en la clasificacion ni optara a premios.
         </InfoBox>
       </div>
 
-      {/* ── 02 PREDICCIONES ── */}
-      <div id="sec-02" className="pt-6 space-y-3">
+      <div id="sec-02" className="space-y-3 pt-6">
         <SectionHeader num="02" title="Predicciones" color="text-blue" />
-
         <RuleCard>
           <RuleRow label="Cierre de predicciones" value={lockLabel} highlight />
           <RuleRow label="Partidos de grupos" value="Predice el marcador exacto de cada partido" />
-          <RuleRow label="Clasificación de grupos" value="Predice el orden final de los 4 equipos de cada grupo" />
+          <RuleRow label="Clasificacion de grupos" value="Predice el orden final de los equipos de cada grupo" />
           <RuleRow label="Eliminatorias" value="Predice el marcador exacto en 90 minutos" />
-          <RuleRow label="Premios individuales" value="Bota de Oro · Balón de Oro · Guante de Oro" />
+          <RuleRow label="Premios individuales" value="Bota de Oro, Balon de Oro y Guante de Oro" />
         </RuleCard>
-
         <InfoBox color="blue">
-          En cuanto arranque el primer partido, <strong>las predicciones se bloquean automáticamente</strong>.
-          No se puede editar nada después del cierre, sin excepciones.
-          Solo se puntúan las predicciones realizadas antes de ese momento.
+          En eliminatorias los penaltis solo sirven para saber quien avanza. La puntuacion del resultado usa el marcador en 90 minutos.
         </InfoBox>
       </div>
 
-      {/* ── 03 PUNTUACIÓN ── */}
-      <div id="sec-03" className="pt-6 space-y-3">
-        <SectionHeader num="03" title="Puntuación" color="text-gold" />
-
+      <div id="sec-03" className="space-y-3 pt-6">
+        <SectionHeader num="03" title="Puntuacion" color="text-gold" />
         {orderedCategories.map((cat) => {
           const catRules = byCategory.get(cat) ?? [];
           return (
-            <div key={cat} className="bg-surface border border-border rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 bg-surface-sunken border-b border-border">
+            <div key={cat} className="overflow-hidden rounded-xl border border-border bg-surface">
+              <div className="border-b border-border bg-surface-sunken px-4 py-2.5">
                 <p className="font-marcador text-xs uppercase tracking-wider text-ink-muted">
                   {CATEGORY_LABELS[cat] ?? cat}
                 </p>
@@ -202,10 +165,10 @@ export default async function NormasPage() {
                   key={rule.rule_key}
                   className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t border-border" : ""}`}
                 >
-                  <span className="text-sm text-ink flex-1 mr-4">
+                  <span className="mr-4 flex-1 text-sm text-ink">
                     {RULE_LABELS[rule.rule_key] ?? rule.description}
                   </span>
-                  <span className="font-marcador text-lg text-gold flex-shrink-0">
+                  <span className="flex-shrink-0 font-marcador text-lg text-gold">
                     +{rule.points} pts
                   </span>
                 </div>
@@ -213,58 +176,47 @@ export default async function NormasPage() {
             </div>
           );
         })}
-
-        {orderedCategories.length === 0 && (
-          <div className="bg-surface border border-border rounded-xl px-4 py-8 text-center text-sm text-ink-muted">
-            La tabla de puntuación se cargará cuando el administrador configure las reglas.
-          </div>
-        )}
-
-        <InfoBox color="gold">
-          En eliminatorias, el resultado que hay que acertar es el del tiempo reglamentario:
-          90 minutos. Si hay empate, se elige aparte qué equipo pasa.
-        </InfoBox>
       </div>
 
-      {/* ── 04 PREMIOS ── */}
-      <div id="sec-04" className="pt-6 space-y-3">
+      <div id="sec-04" className="space-y-3 pt-6">
         <SectionHeader num="04" title="Premios" color="text-green" />
-
         <RuleCard>
-          <RuleRow label="Todo lo recaudado va al bote" value="Sin comisión de la plataforma" />
-          <RuleRow label="1º clasificado" value="60% del bote" highlight />
-          <RuleRow label="2º clasificado" value="25% del bote" />
-          <RuleRow label="3º clasificado" value="10% del bote" />
-          <RuleRow label="Campeón de fase de grupos" value="5% del bote" />
-          <RuleRow label="Farolillo rojo (último)" value={`€${paymentAmount} fijo — recupera la entrada`} />
+          <RuleRow label="Todo lo recaudado va al bote" value="Sin comision de la plataforma" />
+          {prizes.map((prize, index) => (
+            <RuleRow
+              key={prize.key}
+              label={prize.label}
+              value={
+                prize.type === "fixed"
+                  ? `€${formatEuros(prize.value)} fijo - ${PRIZE_RECIPIENT_LABELS[prize.recipient]}`
+                  : `${prize.value}% del bote restante - ${PRIZE_RECIPIENT_LABELS[prize.recipient]}`
+              }
+              highlight={index === 0}
+            />
+          ))}
         </RuleCard>
-
         <InfoBox color="green">
-          El bote se reparte entre los porcentajes indicados <strong>una vez descontados los €{paymentAmount} del farolillo rojo</strong>.
-          Los importes se redondean al euro inferior. Consulta el bote en tiempo real en{" "}
-          <Link href="/bote" className="underline font-semibold">la página del Bote</Link>.
+          Los importes fijos se descuentan primero del bote. El resto se reparte con los porcentajes configurados por el administrador.
+          Consulta el bote en tiempo real en{" "}
+          <Link href="/bote" className="font-semibold underline">la pagina del Bote</Link>.
         </InfoBox>
-
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 bg-surface-sunken border-b border-border">
-            <p className="font-marcador text-xs uppercase tracking-wider text-ink-muted">Farolillo rojo</p>
-          </div>
-          <div className="px-4 py-4 space-y-1.5">
-            <p className="text-sm text-ink">
-              El <strong>último clasificado</strong> recibe <strong>€{paymentAmount}</strong> del bote —
-              exactamente lo que pagó de inscripción. Le sale gratis.
-            </p>
-            <p className="text-sm text-ink-muted">
-              Si hay empate en el último puesto al final del torneo, el premio se reparte a partes iguales entre los empatados.
-            </p>
-          </div>
-        </div>
       </div>
 
-      {/* Footer */}
-      <p className="text-center text-[11px] text-ink-faint pt-6 px-4">
-        Las normas pueden actualizarse antes del inicio del torneo.
-        Cualquier duda, pregunta en el chat.
+      <div id="sec-05" className="space-y-3 pt-6">
+        <SectionHeader num="05" title="App" color="text-ink-muted" />
+        <RuleCard>
+          <RuleRow label="Instalar como app" value="Abre el menu del navegador y elige Anadir a pantalla de inicio" highlight />
+          <RuleRow label="Notificaciones actuales" value="Avisos dentro de la app y mensajes en el chat" />
+          <RuleRow label="Push del movil" value="Pendiente de activar suscripciones Web Push" />
+        </RuleCard>
+        <InfoBox color="blue">
+          La app ya funciona como PWA. Para enviar notificaciones push aunque no este abierta hace falta pedir permiso al usuario,
+          guardar su suscripcion y enviar Web Push desde servidor.
+        </InfoBox>
+      </div>
+
+      <p className="px-4 pt-6 text-center text-[11px] text-ink-faint">
+        Las normas pueden actualizarse antes del inicio del torneo. Cualquier duda, pregunta en el chat.
       </p>
     </div>
   );
@@ -274,17 +226,13 @@ function SectionHeader({ num, title, color }: { num: string; title: string; colo
   return (
     <div className="flex items-baseline gap-3 px-1">
       <span className={`font-marcador text-sm ${color}`}>{num}</span>
-      <h2 className="font-marcador text-2xl uppercase text-ink leading-none">{title}</h2>
+      <h2 className="font-marcador text-2xl uppercase leading-none text-ink">{title}</h2>
     </div>
   );
 }
 
 function RuleCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
-      {children}
-    </div>
-  );
+  return <div className="overflow-hidden rounded-xl border border-border bg-surface">{children}</div>;
 }
 
 function RuleRow({
@@ -297,9 +245,9 @@ function RuleRow({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-4 py-3 border-b border-border last:border-0">
-      <span className="text-sm text-ink-muted flex-shrink-0 max-w-[45%]">{label}</span>
-      <span className={`text-sm text-right ${highlight ? "font-semibold text-ink" : "text-ink"}`}>
+    <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3 last:border-0">
+      <span className="max-w-[45%] flex-shrink-0 text-sm text-ink-muted">{label}</span>
+      <span className={`text-right text-sm ${highlight ? "font-semibold text-ink" : "text-ink"}`}>
         {value}
       </span>
     </div>

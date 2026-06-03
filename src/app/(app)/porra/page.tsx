@@ -8,6 +8,7 @@ import {
   Trophy,
   ChevronRight,
   AlertCircle,
+  Download,
 } from "lucide-react";
 
 // ── Row shapes ─────────────────────────────────────────────────────────────
@@ -360,6 +361,17 @@ export default async function PorraPage() {
           </div>
         </div>
       )}
+
+      <div className="rounded-[13px] border border-border bg-surface px-4 py-3 flex items-start gap-3">
+        <Download className="w-4 h-4 text-ink-muted flex-shrink-0 mt-0.5" />
+        <div className="text-sm leading-snug">
+          <p className="font-semibold text-ink">Instala la porra como app</p>
+          <p className="mt-1 text-xs text-ink-muted">
+            En el movil, abre el menu del navegador y toca &quot;Anadir a pantalla de inicio&quot;.
+            Ahora las notificaciones son dentro de la app; para push del movil falta activar permisos Web Push.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

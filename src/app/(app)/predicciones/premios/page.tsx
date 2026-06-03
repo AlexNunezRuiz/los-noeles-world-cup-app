@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PlayerCombobox } from "@/components/ui/player-combobox";
 import { StageBar } from "@/components/porra/stage-bar";
 import { Trophy, Star, Shield } from "lucide-react";
-import { isPredictionsLocked } from "@/lib/predictions/lock";
+import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
 
 interface Player {
   id: number;
@@ -56,6 +56,7 @@ export default function PremiosPage() {
   const [userId, setUserId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
+  const { setLockConfigRows } = usePredictionLockRealtime(supabase, setIsLocked);
 
   useEffect(() => {
     async function load() {
@@ -74,7 +75,7 @@ export default function PremiosPage() {
       ]);
 
       setPlayers(playersRes.data || []);
-      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
+      setLockConfigRows((configRes.data ?? []) as ConfigRow[]);
 
       const predMap = new Map<string, AwardPrediction>();
       for (const p of predsRes.data || []) {

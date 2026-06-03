@@ -1,13 +1,14 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Flag } from "@/components/ui/flag";
 import { StageBar } from "@/components/porra/stage-bar";
 import { getTeams } from "@/lib/data/static-cache";
 import { cn } from "@/lib/utils";
-import { isPredictionsLocked } from "@/lib/predictions/lock";
+import { getDragRowShift } from "@/lib/predictions/drag-row-shift";
+import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface Team {
@@ -69,7 +70,9 @@ export default function ClasificadosPage() {
   const thirdRowRefs = useRef(new Map<number, HTMLDivElement>());
   const thirdDragRectsRef = useRef(new Map<number, DOMRect>());
   const thirdPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressThirdLinkClickRef = useRef(false);
   const supabase = createClient();
+  const { setLockConfigRows } = usePredictionLockRealtime(supabase, setIsLocked);
 
   useEffect(() => {
     async function load() {
@@ -97,7 +100,7 @@ export default function ClasificadosPage() {
 
       setTeams(teamsRes);
       setStandings(standingsRes.data || []);
-      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
+      setLockConfigRows((configRes.data ?? []) as ConfigRow[]);
       setBestThirdOverrides(
         new Map(
           ((bestThirdRes.data || []) as BestThirdOverride[]).map((row) => [
@@ -216,6 +219,11 @@ export default function ClasificadosPage() {
     setDraggingThirdId(null);
     setDropTargetThirdId(null);
     setDragOffsetY(0);
+    if (suppressThirdLinkClickRef.current) {
+      window.setTimeout(() => {
+        suppressThirdLinkClickRef.current = false;
+      }, 0);
+    }
     document.body.style.userSelect = "";
     document.body.style.touchAction = "";
     document.body.style.overflow = "";
@@ -313,6 +321,7 @@ export default function ClasificadosPage() {
         Array.from(thirdRowRefs.current.entries()).map(([id, row]) => [id, row.getBoundingClientRect()])
       );
       draggingThirdIdRef.current = teamId;
+      suppressThirdLinkClickRef.current = true;
       setDraggingThirdId(teamId);
       document.body.style.userSelect = "none";
       document.body.style.touchAction = "none";
@@ -335,6 +344,15 @@ export default function ClasificadosPage() {
     }
     event.preventDefault();
     updateThirdDragTarget(event.clientY);
+  };
+
+  const handleThirdTeamLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!suppressThirdLinkClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.setTimeout(() => {
+      suppressThirdLinkClickRef.current = false;
+    }, 0);
   };
 
   // Progress: a group is complete when it has at least 4 positioned teams saved
@@ -494,14 +512,12 @@ export default function ClasificadosPage() {
                   {thirds.map((s, idx) => {
                     const team = teamsMap.get(s.team_id);
                     const qualifies = idx < 8;
-                    const draggingIndex = thirds.findIndex((row) => row.team_id === draggingThirdId);
-                    const targetIndex = thirds.findIndex((row) => row.team_id === dropTargetThirdId);
-                    const targetShift =
-                      draggingIndex >= 0 && targetIndex >= 0 && dropTargetThirdId === s.team_id
-                        ? draggingIndex < targetIndex
-                          ? -1
-                          : 1
-                        : 0;
+                    const targetShift = getDragRowShift(
+                      thirds.map((row) => row.team_id),
+                      draggingThirdId,
+                      dropTargetThirdId,
+                      s.team_id
+                    );
                     return (
                       <div
                         key={s.team_id}
@@ -542,7 +558,7 @@ export default function ClasificadosPage() {
                         {team ? (
                           <Link
                             href={`/equipos/${team.id}`}
-                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={handleThirdTeamLinkClick}
                             className="flex min-w-0 flex-1 items-center gap-2 rounded-md hover:text-red"
                           >
                             <Flag

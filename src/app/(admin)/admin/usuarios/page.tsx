@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
 import { getPorraCompletion, type PorraCompletion } from "@/lib/predictions/completion";
+import { formatLastPredictionUpdate } from "@/lib/predictions/last-update";
 
 interface Profile {
   id: string;
@@ -29,11 +30,13 @@ interface CompletionStatusRow {
   group_standing_rows: number;
   knockout_prediction_count: number;
   award_prediction_count: number;
+  last_prediction_updated_at: string | null;
 }
 
 export default function AdminUsuariosPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
+  const [lastPredictionUpdateByUser, setLastPredictionUpdateByUser] = useState<Map<string, string | null>>(new Map());
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -57,6 +60,14 @@ export default function AdminUsuariosPage() {
             knockoutPredictionCount: row.knockout_prediction_count,
             awardPredictionCount: row.award_prediction_count,
           }),
+        ])
+      )
+    );
+    setLastPredictionUpdateByUser(
+      new Map(
+        ((completionRows ?? []) as CompletionStatusRow[]).map((row) => [
+          row.user_id,
+          row.last_prediction_updated_at,
         ])
       )
     );
@@ -131,6 +142,7 @@ export default function AdminUsuariosPage() {
                   <th className="text-left py-3 px-4 font-sans font-medium">Nombre</th>
                   <th className="text-left py-3 px-2 font-sans font-medium">Email</th>
                   <th className="text-left py-3 px-2 font-sans font-medium">Porra</th>
+                  <th className="text-left py-3 px-2 font-sans font-medium">Ultima act.</th>
                   <th className="text-center py-3 px-2 font-sans font-medium">Pagado</th>
                   <th className="text-left py-3 px-2 font-sans font-medium">Pago</th>
                   <th className="text-center py-3 px-2 font-sans font-medium">Ban Chat</th>
@@ -174,6 +186,9 @@ export default function AdminUsuariosPage() {
                           {completion.cuadro.label} · P {completion.premios.label}
                         </p>
                       )}
+                    </td>
+                    <td className="py-3 px-2 text-ink-faint text-xs font-marcador whitespace-nowrap">
+                      {formatLastPredictionUpdate(lastPredictionUpdateByUser.get(p.id))}
                     </td>
                     <td className="py-3 px-2 text-center">
                       <Switch

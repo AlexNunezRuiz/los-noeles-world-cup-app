@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { calculateGroupStandings, findTiedTeams, type TeamStanding } from "@/lib/tournament/standings";
 import { useToast } from "@/components/ui/use-toast";
 import { getTeams } from "@/lib/data/static-cache";
-import { isPredictionsLocked } from "@/lib/predictions/lock";
+import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
 
 interface Team {
   id: number;
@@ -65,6 +65,7 @@ export default function GruposPage() {
   const standingsSaveTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
   const supabase = createClient();
+  const { setLockConfigRows } = usePredictionLockRealtime(supabase, setIsLocked);
 
   useEffect(() => {
     const groupParam = new URLSearchParams(window.location.search).get("grupo")?.toUpperCase();
@@ -94,7 +95,7 @@ export default function GruposPage() {
 
       setTeams(teamsRes);
       setMatches(matchesRes.data || []);
-      setIsLocked(isPredictionsLocked((configRes.data ?? []) as ConfigRow[]));
+      setLockConfigRows((configRes.data ?? []) as ConfigRow[]);
 
       const predMap = new Map<number, Prediction>();
       for (const p of predsRes.data || []) {
