@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Flag } from "@/components/ui/flag";
 import { useToast } from "@/components/ui/use-toast";
-import { recalculateAllScores } from "@/lib/scoring/calculator";
+import { recalculateAllScores, type ScoreEvent } from "@/lib/scoring/calculator";
+import { buildNotificationRows, scoreEventsForMatchNotifications } from "@/lib/notifications/internal";
 
 interface Team {
   id: number;
@@ -65,6 +66,65 @@ export default function AdminResultadosPage() {
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
+  const matchLabel = (match: Match) => {
+    const home = teamsMap.get(match.home_team_id);
+    const away = teamsMap.get(match.away_team_id);
+    return `${home?.code ?? match.home_placeholder ?? "TBD"} ${match.home_score ?? "-"}-${match.away_score ?? "-"} ${away?.code ?? match.away_placeholder ?? "TBD"}`;
+  };
+
+  const publishGlobalNotification = async ({
+    type,
+    title,
+    body,
+    link,
+  }: {
+    type: "result_update" | "ranking_update";
+    title: string;
+    body: string;
+    link: string;
+  }) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: chatMessage } = await supabase
+      .from("chat_messages")
+      .insert({ user_id: user.id, message: body })
+      .select("id")
+      .single();
+
+    const { data: profiles } = await supabase.from("profiles").select("id");
+    const rows = buildNotificationRows({
+      profiles: (profiles || []) as Array<{ id: string }>,
+      type,
+      actorUserId: user.id,
+      messageId: chatMessage?.id ?? null,
+      title,
+      body,
+      link,
+    });
+
+    if (rows.length > 0) await supabase.from("notifications").insert(rows);
+    return user.id;
+  };
+
+  const publishCorrectPredictionNotifications = async (match: Match, actorUserId: string | null, events: ScoreEvent[] = []) => {
+    const matchingEvents = scoreEventsForMatchNotifications(events, match.id);
+    if (matchingEvents.length === 0) return;
+
+    await supabase.from("notifications").insert(
+      matchingEvents.map((event) => ({
+        user_id: event.user_id,
+        actor_user_id: actorUserId,
+        type: "correct_prediction",
+        title: "Has puntuado en un resultado",
+        body: `${matchLabel(match)}: +${event.points} pts`,
+        link: `/resultados`,
+      }))
+    );
+  };
+
   const handleSaveResult = async (match: Match) => {
     const edit = editing[match.id];
     if (!edit) return;
@@ -101,6 +161,7 @@ export default function AdminResultadosPage() {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      const updatedMatch = { ...match, ...updates } as Match;
       setMatches((prev) =>
         prev.map((m) =>
           m.id === match.id
@@ -109,6 +170,23 @@ export default function AdminResultadosPage() {
         )
       );
       toast({ title: `P${match.match_number} resultado guardado` });
+      const actorUserId = await publishGlobalNotification({
+        type: "result_update",
+        title: "Nuevo resultado",
+        body: `Resultado actualizado: ${matchLabel(updatedMatch)}`,
+        link: "/resultados",
+      });
+
+      const recalc = await recalculateAllScores(supabase);
+      if (recalc.success) {
+        await publishCorrectPredictionNotifications(updatedMatch, actorUserId, recalc.events ?? []);
+        await publishGlobalNotification({
+          type: "ranking_update",
+          title: "Clasificacion actualizada",
+          body: "La clasificacion se ha actualizado tras el ultimo resultado.",
+          link: "/ranking",
+        });
+      }
     }
   };
 
@@ -118,6 +196,12 @@ export default function AdminResultadosPage() {
     setRecalculating(false);
 
     if (result.success) {
+      await publishGlobalNotification({
+        type: "ranking_update",
+        title: "Clasificacion actualizada",
+        body: "La clasificacion se ha recalculado.",
+        link: "/ranking",
+      });
       toast({ title: "Puntuaciones recalculadas para todos los usuarios" });
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });

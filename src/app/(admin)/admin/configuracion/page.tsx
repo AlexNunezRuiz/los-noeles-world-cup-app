@@ -26,6 +26,7 @@ import {
   prizeDistributionPercentTotal,
   serializePrizeDistribution,
 } from "@/lib/prizes/config";
+import { buildNotificationRows } from "@/lib/notifications/internal";
 
 interface ScoringRule {
   id: number;
@@ -71,7 +72,7 @@ export default function AdminConfigPage() {
     load();
   }, []);
 
-  const publishAdminUpdate = async (message: string) => {
+  const publishAdminUpdate = async (message: string, title = "Configuracion actualizada") => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -84,12 +85,15 @@ export default function AdminConfigPage() {
       .single();
 
     const { data: profiles } = await supabase.from("profiles").select("id");
-    const rows = ((profiles || []) as Array<{ id: string }>).map((profile) => ({
-      user_id: profile.id,
-      actor_user_id: user.id,
-      type: "admin_update",
-      message_id: chatMessage?.id ?? null,
-    }));
+    const rows = buildNotificationRows({
+      profiles: (profiles || []) as Array<{ id: string }>,
+      type: "config_update",
+      actorUserId: user.id,
+      messageId: chatMessage?.id ?? null,
+      title,
+      body: message,
+      link: "/normas",
+    });
 
     if (rows.length > 0) {
       await supabase.from("notifications").insert(rows);

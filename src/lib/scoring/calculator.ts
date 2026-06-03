@@ -4,7 +4,7 @@ import { scoreKnockoutExact } from "./knockout";
 import { scoreAwards } from "./awards";
 import { scoreQualification } from "./qualification";
 
-interface ScoreEvent {
+export interface ScoreEvent {
   user_id: string;
   match_id: number;
   rule_key: string;
@@ -14,7 +14,7 @@ interface ScoreEvent {
 
 type ScoreCategory = "group_stage" | "qualification" | "knockout_exact" | "awards";
 
-export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ success: boolean; error?: string }> {
+export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ success: boolean; error?: string; events?: ScoreEvent[] }> {
   try {
     // Load scoring rules
     const { data: rulesData } = await supabase.from("scoring_rules").select("*");
@@ -98,7 +98,7 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
       await supabase.from("user_scores").upsert(scoreRows, { onConflict: "user_id" });
     }
 
-    return { success: true };
+    return { success: true, events: allEvents };
   } catch (err) {
     return { success: false, error: String(err) };
   }

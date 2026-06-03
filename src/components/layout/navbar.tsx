@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield, Banknote, ScrollText } from "lucide-react";
+import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shield, Banknote, ScrollText, Bell } from "lucide-react";
 import { Emblem } from "@/components/ui/emblem";
 import { createClient } from "@/lib/supabase/client";
 
@@ -78,6 +78,18 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
             >
               <ScrollText className="w-4 h-4" />
             </Link>
+            <Link
+              href="/notificaciones"
+              className="relative flex items-center justify-center w-8 h-8 text-ink-muted hover:text-ink transition-colors"
+              aria-label="Notificaciones"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-marcador text-[9px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </Link>
             {isAdmin && (
               <Link
                 href="/admin/usuarios"
@@ -113,11 +125,6 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
               >
                 <span className="relative">
                   <item.icon size={20} />
-                  {item.href === "/chat" && unreadCount > 0 && (
-                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red px-1 font-marcador text-[9px] font-bold text-white">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
                 </span>
                 <span className="font-marcador text-[10px] font-bold uppercase tracking-wide">
                   {item.label}
