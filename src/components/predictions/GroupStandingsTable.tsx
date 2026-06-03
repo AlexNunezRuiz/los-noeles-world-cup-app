@@ -38,6 +38,8 @@ export function GroupStandingsTable({
   const draggingTeamIdRef = useRef<number | null>(null);
   const dropTargetTeamIdRef = useRef<number | null>(null);
   const rowRefs = useRef(new Map<number, HTMLTableRowElement>());
+  const dragRectsRef = useRef(new Map<number, DOMRect>());
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const canDrag = !isLocked && tiedTeamIds.length > 0 && onReorderTeam !== undefined;
 
   const clearPressTimer = useCallback(() => {
@@ -56,6 +58,8 @@ export function GroupStandingsTable({
     clearPressTimer();
     draggingTeamIdRef.current = null;
     dropTargetTeamIdRef.current = null;
+    dragRectsRef.current.clear();
+    pressStartRef.current = null;
     setDraggingTeamId(null);
     setDropTargetTeamId(null);
     setDragOffsetY(0);
@@ -74,13 +78,20 @@ export function GroupStandingsTable({
   );
 
   const updateDragTarget = useCallback(
-    (clientX: number, clientY: number) => {
+    (clientY: number) => {
       const draggedTeamId = draggingTeamIdRef.current;
       if (!draggedTeamId || !onReorderTeam) return;
 
-      const targetRow = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
-        ?.closest<HTMLTableRowElement>("[data-team-id]");
-      const targetTeamId = Number(targetRow?.dataset.teamId);
+      let targetTeamId: number | null = null;
+      for (const teamId of tiedTeamIds) {
+        if (teamId === draggedTeamId) continue;
+        const rect = dragRectsRef.current.get(teamId);
+        if (!rect) continue;
+        if (clientY >= rect.top && clientY <= rect.bottom) {
+          targetTeamId = teamId;
+          break;
+        }
+      }
       if (
         !targetTeamId ||
         targetTeamId === draggedTeamId ||
@@ -95,10 +106,10 @@ export function GroupStandingsTable({
       dropTargetTeamIdRef.current = targetTeamId;
       setDropTargetTeamId(targetTeamId);
 
-      const draggedRow = rowRefs.current.get(draggedTeamId);
-      const target = rowRefs.current.get(targetTeamId);
-      if (draggedRow && target) {
-        setDragOffsetY(target.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
+      const draggedRect = dragRectsRef.current.get(draggedTeamId);
+      const targetRect = dragRectsRef.current.get(targetTeamId);
+      if (draggedRect && targetRect) {
+        setDragOffsetY(targetRect.top - draggedRect.top);
       }
     },
     [onReorderTeam, tiedTeamIds]
@@ -109,7 +120,7 @@ export function GroupStandingsTable({
 
     const handleMove = (event: globalThis.PointerEvent) => {
       event.preventDefault();
-      updateDragTarget(event.clientX, event.clientY);
+      updateDragTarget(event.clientY);
     };
     const handleEnd = () => endDrag();
 
@@ -129,9 +140,12 @@ export function GroupStandingsTable({
     clearPressTimer();
     setPressingTeamId(teamId);
     dropTargetTeamIdRef.current = null;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pressStartRef.current = { x: event.clientX, y: event.clientY };
 
     pressTimer.current = window.setTimeout(() => {
+      dragRectsRef.current = new Map(
+        Array.from(rowRefs.current.entries()).map(([id, row]) => [id, row.getBoundingClientRect()])
+      );
       draggingTeamIdRef.current = teamId;
       setDraggingTeamId(teamId);
       document.body.style.userSelect = "none";
@@ -142,9 +156,18 @@ export function GroupStandingsTable({
 
   const handlePointerMove = (event: PointerEvent<HTMLTableRowElement>) => {
     const draggedTeamId = draggingTeamIdRef.current;
-    if (!draggedTeamId || !onReorderTeam) return;
+    if (!draggedTeamId) {
+      const start = pressStartRef.current;
+      if (start && (Math.abs(event.clientX - start.x) > 8 || Math.abs(event.clientY - start.y) > 8)) {
+        clearPressTimer();
+        pressStartRef.current = null;
+        setPressingTeamId(null);
+      }
+      return;
+    }
+    if (!onReorderTeam) return;
     event.preventDefault();
-    updateDragTarget(event.clientX, event.clientY);
+    updateDragTarget(event.clientY);
   };
 
   return (
@@ -202,7 +225,7 @@ export function GroupStandingsTable({
                 className={cn(
                   "border-b border-border text-ink last:border-b-0 transition-[background,box-shadow,transform] duration-200",
                   isTied && "bg-amber/[0.08] border-l-2 border-l-amber",
-                  isTied && canDrag && "cursor-grab touch-none select-none active:cursor-grabbing",
+                  isTied && canDrag && "cursor-grab select-none active:cursor-grabbing",
                   pressingTeamId === s.team_id && "ring-2 ring-amber/40",
                   draggingTeamId === s.team_id && "relative z-10 bg-amber/15 shadow-md",
                   dropTargetTeamId === s.team_id && "bg-amber/[0.18]",

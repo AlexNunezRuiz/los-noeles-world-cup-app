@@ -67,6 +67,8 @@ export default function ClasificadosPage() {
   const draggingThirdIdRef = useRef<number | null>(null);
   const dropTargetThirdIdRef = useRef<number | null>(null);
   const thirdRowRefs = useRef(new Map<number, HTMLDivElement>());
+  const thirdDragRectsRef = useRef(new Map<number, DOMRect>());
+  const thirdPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -208,6 +210,8 @@ export default function ClasificadosPage() {
     clearThirdPressTimer();
     draggingThirdIdRef.current = null;
     dropTargetThirdIdRef.current = null;
+    thirdDragRectsRef.current.clear();
+    thirdPressStartRef.current = null;
     setPressingThirdId(null);
     setDraggingThirdId(null);
     setDropTargetThirdId(null);
@@ -226,15 +230,22 @@ export default function ClasificadosPage() {
   );
 
   const updateThirdDragTarget = useCallback(
-    (clientX: number, clientY: number) => {
+    (clientY: number) => {
       const draggedTeamId = draggingThirdIdRef.current;
       if (!draggedTeamId) return;
       const dragged = thirds.find((s) => s.team_id === draggedTeamId);
       if (!dragged) return;
 
-      const targetRow = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
-        ?.closest<HTMLDivElement>("[data-third-team-id]");
-      const targetTeamId = Number(targetRow?.dataset.thirdTeamId);
+      let targetTeamId: number | null = null;
+      for (const third of thirds) {
+        if (third.team_id === draggedTeamId || thirdTieKey(third) !== thirdTieKey(dragged)) continue;
+        const rect = thirdDragRectsRef.current.get(third.team_id);
+        if (!rect) continue;
+        if (clientY >= rect.top && clientY <= rect.bottom) {
+          targetTeamId = third.team_id;
+          break;
+        }
+      }
       const target = thirds.find((s) => s.team_id === targetTeamId);
       if (!target || targetTeamId === draggedTeamId || thirdTieKey(target) !== thirdTieKey(dragged)) {
         dropTargetThirdIdRef.current = null;
@@ -246,10 +257,10 @@ export default function ClasificadosPage() {
       dropTargetThirdIdRef.current = targetTeamId;
       setDropTargetThirdId(targetTeamId);
 
-      const draggedRow = thirdRowRefs.current.get(draggedTeamId);
-      const targetNode = thirdRowRefs.current.get(targetTeamId);
-      if (draggedRow && targetNode) {
-        setDragOffsetY(targetNode.getBoundingClientRect().top - draggedRow.getBoundingClientRect().top);
+      const draggedRect = thirdDragRectsRef.current.get(draggedTeamId);
+      const targetRect = thirdDragRectsRef.current.get(targetTeamId!);
+      if (draggedRect && targetRect) {
+        setDragOffsetY(targetRect.top - draggedRect.top);
       }
     },
     [thirds]
@@ -260,7 +271,7 @@ export default function ClasificadosPage() {
 
     const handleMove = (event: globalThis.PointerEvent) => {
       event.preventDefault();
-      updateThirdDragTarget(event.clientX, event.clientY);
+      updateThirdDragTarget(event.clientY);
     };
     const handleEnd = () => endThirdDrag();
 
@@ -281,8 +292,11 @@ export default function ClasificadosPage() {
     clearThirdPressTimer();
     setPressingThirdId(teamId);
     dropTargetThirdIdRef.current = null;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    thirdPressStartRef.current = { x: event.clientX, y: event.clientY };
     thirdPressTimer.current = window.setTimeout(() => {
+      thirdDragRectsRef.current = new Map(
+        Array.from(thirdRowRefs.current.entries()).map(([id, row]) => [id, row.getBoundingClientRect()])
+      );
       draggingThirdIdRef.current = teamId;
       setDraggingThirdId(teamId);
       document.body.style.userSelect = "none";
@@ -293,9 +307,17 @@ export default function ClasificadosPage() {
 
   const handleThirdPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const draggedTeamId = draggingThirdIdRef.current;
-    if (!draggedTeamId) return;
+    if (!draggedTeamId) {
+      const start = thirdPressStartRef.current;
+      if (start && (Math.abs(event.clientX - start.x) > 8 || Math.abs(event.clientY - start.y) > 8)) {
+        clearThirdPressTimer();
+        thirdPressStartRef.current = null;
+        setPressingThirdId(null);
+      }
+      return;
+    }
     event.preventDefault();
-    updateThirdDragTarget(event.clientX, event.clientY);
+    updateThirdDragTarget(event.clientY);
   };
 
   // Progress: a group is complete when it has at least 4 positioned teams saved
@@ -469,7 +491,7 @@ export default function ClasificadosPage() {
                           "flex items-center gap-3 py-1.5 rounded-lg px-2 transition-[background,box-shadow,transform] duration-200",
                           qualifies && "bg-green/8",
                           tiedThirdKeys.has(thirdTieKey(s)) && "border-l-2 border-l-amber",
-                          tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && "cursor-grab touch-none select-none active:cursor-grabbing",
+                          tiedThirdKeys.has(thirdTieKey(s)) && !isLocked && "cursor-grab select-none active:cursor-grabbing",
                           pressingThirdId === s.team_id && "ring-2 ring-amber/40",
                           draggingThirdId === s.team_id && "relative z-10 bg-amber/15 shadow-md",
                           dropTargetThirdId === s.team_id && "bg-amber/[0.18]"
