@@ -453,7 +453,9 @@ export default function JugadorPage() {
   );
   const visibleResultPredictions = selectedGroupPredictions;
   const effectiveWindowStart = 0;
-  const setWindowStart = (_value: number) => undefined;
+  const setWindowStart = (value: number) => {
+    void value;
+  };
   const bpMap = new Map(bracketPositions.map((bp) => [`${bp.match_number}:${bp.slot}`, bp]));
   const bracketMatchViews: BracketMatchView[] = predictedBracketMatches.map((match) => {
     const homeTeam = match.home_team_id ? teams.get(match.home_team_id) : undefined;

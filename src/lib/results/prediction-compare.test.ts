@@ -61,8 +61,8 @@ test("sorts paid profiles by current ranking and leaves unpaid profiles after th
       isCurrentUser: profile.isCurrentUser,
     })),
     [
-      { id: "u1", rank: 1, totalPoints: 10, isCurrentUser: true },
       { id: "u2", rank: 1, totalPoints: 10, isCurrentUser: false },
+      { id: "u1", rank: 1, totalPoints: 10, isCurrentUser: true },
       { id: "u4", rank: 3, totalPoints: 6, isCurrentUser: false },
       { id: "u3", rank: null, totalPoints: 0, isCurrentUser: false },
     ]
