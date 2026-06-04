@@ -27,9 +27,10 @@ import {
   serializePrizeDistribution,
 } from "@/lib/prizes/config";
 import { assertNotificationInsertSucceeded, buildNotificationRows } from "@/lib/notifications/internal";
+import { datetimeLocalValueToIso, isoToDatetimeLocalValue } from "@/lib/datetime";
 import {
   SCORING_CATEGORY_LABELS,
-  SCORING_CATEGORY_ORDER,
+  compareScoringRules,
   getScoringRuleLabel,
   type ScoringCategory,
 } from "@/lib/scoring/rules";
@@ -72,12 +73,7 @@ export default function AdminConfigPage() {
       setSavedConfig(configMap);
       setPrizeDistribution(prizes);
       setSavedPrizeDistribution(prizes.map((item) => ({ ...item })));
-      const sortedRules = [...(rulesRes.data || [])].sort((a, b) => {
-        const catA = SCORING_CATEGORY_ORDER.indexOf(a.category as ScoringCategory);
-        const catB = SCORING_CATEGORY_ORDER.indexOf(b.category as ScoringCategory);
-        if (catA !== catB) return catA - catB;
-        return a.id - b.id;
-      });
+      const sortedRules = [...(rulesRes.data || [])].sort(compareScoringRules);
       setScoringRules(sortedRules);
       setSavedScoringRules(sortedRules);
     }
@@ -272,9 +268,9 @@ export default function AdminConfigPage() {
             <Label className="text-ink">Fecha límite</Label>
             <Input
               type="datetime-local"
-              value={config.lock_datetime ? new Date(config.lock_datetime).toISOString().slice(0, 16) : ""}
+              value={config.lock_datetime ? isoToDatetimeLocalValue(config.lock_datetime) : ""}
               onChange={(e) =>
-                setConfig((prev) => ({ ...prev, lock_datetime: new Date(e.target.value).toISOString() }))
+                setConfig((prev) => ({ ...prev, lock_datetime: datetimeLocalValueToIso(e.target.value) }))
               }
             />
           </div>

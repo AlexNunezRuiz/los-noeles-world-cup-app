@@ -49,6 +49,23 @@ export function todayKey(): string {
   return matchDayKey(new Date().toISOString());
 }
 
+export function isoToDatetimeLocalValue(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+export function datetimeLocalValueToIso(value: string): string {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toISOString();
+}
+
 export interface DayGroup<T> {
   key: string;
   label: string;

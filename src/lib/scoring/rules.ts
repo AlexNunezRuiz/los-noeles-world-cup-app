@@ -33,15 +33,17 @@ export const DEFAULT_SCORING_RULES: DefaultScoringRule[] = [
   ["qualification", "qualify_r16", 3, "Equipo clasificado a octavos", "Equipo clasificado a octavos"],
   ["qualification", "qualify_qf", 6, "Equipo clasificado a cuartos", "Equipo clasificado a cuartos"],
   ["qualification", "qualify_sf", 10, "Equipo clasificado a semifinales", "Equipo clasificado a semifinales"],
-  ["qualification", "qualify_finalist", 15, "Equipo finalista", "Equipo clasificado a la final"],
-  ["qualification", "qualify_champion", 25, "Campeon del torneo acertado", "Acertar campeon"],
+  ["qualification", "qualify_fourth", 10, "4o puesto acertado", "Acertar cuarto clasificado"],
   ["qualification", "qualify_third", 12, "3er puesto acertado", "Acertar tercer puesto"],
-  ["knockout_exact", "exact_r32", 2, "Resultado exacto en dieciseisavos", "Resultado exacto en dieciseisavos con cruce acertado"],
-  ["knockout_exact", "exact_r16", 3, "Resultado exacto en octavos", "Resultado exacto en octavos con cruce acertado"],
-  ["knockout_exact", "exact_qf", 5, "Resultado exacto en cuartos", "Resultado exacto en cuartos con cruce acertado"],
-  ["knockout_exact", "exact_sf", 7, "Resultado exacto en semifinales", "Resultado exacto en semifinales con cruce acertado"],
-  ["knockout_exact", "exact_third", 8, "Resultado exacto en 3er puesto", "Resultado exacto 3er puesto con cruce acertado"],
-  ["knockout_exact", "exact_final", 10, "Resultado exacto en la final", "Resultado exacto en la final con cruce acertado"],
+  ["qualification", "qualify_runner_up", 18, "Subcampeon acertado", "Acertar subcampeon"],
+  ["qualification", "qualify_champion", 25, "Campeon del torneo acertado", "Acertar campeon"],
+  ["qualification", "qualify_finalist", 15, "Equipo finalista", "Equipo clasificado a la final"],
+  ["knockout_exact", "exact_r32", 2, "Resultado exacto y cruce en dieciseisavos", "Resultado exacto en dieciseisavos con cruce exacto acertado"],
+  ["knockout_exact", "exact_r16", 3, "Resultado exacto y cruce en octavos", "Resultado exacto en octavos con cruce exacto acertado"],
+  ["knockout_exact", "exact_qf", 5, "Resultado exacto y cruce en cuartos", "Resultado exacto en cuartos con cruce exacto acertado"],
+  ["knockout_exact", "exact_sf", 7, "Resultado exacto y cruce en semifinales", "Resultado exacto en semifinales con cruce exacto acertado"],
+  ["knockout_exact", "exact_third", 8, "Resultado exacto y cruce en 3er puesto", "Resultado exacto 3er puesto con cruce exacto acertado"],
+  ["knockout_exact", "exact_final", 10, "Resultado exacto y cruce en la final", "Resultado exacto en la final con cruce exacto acertado"],
   ["awards", "golden_boot", 10, "Bota de Oro acertada", "Acertar Bota de Oro"],
   ["awards", "golden_ball", 10, "Balon de Oro acertado", "Acertar Balon de Oro"],
   ["awards", "golden_glove", 10, "Guante de Oro acertado", "Acertar Guante de Oro"],
@@ -54,7 +56,32 @@ export const DEFAULT_SCORING_RULES: DefaultScoringRule[] = [
 }));
 
 const RULE_LABELS = new Map(DEFAULT_SCORING_RULES.map((rule) => [rule.ruleKey, rule.label]));
+const RULE_ORDER = new Map(DEFAULT_SCORING_RULES.map((rule, index) => [rule.ruleKey, index]));
+
+interface SortableScoringRule {
+  category: string;
+  rule_key?: string;
+  ruleKey?: string;
+}
 
 export function getScoringRuleLabel(ruleKey: string, fallback?: string): string {
   return RULE_LABELS.get(ruleKey) ?? fallback ?? ruleKey;
+}
+
+export function compareScoringRules(a: SortableScoringRule, b: SortableScoringRule) {
+  const aCategoryOrder = SCORING_CATEGORY_ORDER.indexOf(a.category as ScoringCategory);
+  const bCategoryOrder = SCORING_CATEGORY_ORDER.indexOf(b.category as ScoringCategory);
+  const categoryDiff =
+    (aCategoryOrder === -1 ? Number.MAX_SAFE_INTEGER : aCategoryOrder) -
+    (bCategoryOrder === -1 ? Number.MAX_SAFE_INTEGER : bCategoryOrder);
+  if (categoryDiff !== 0) return categoryDiff;
+
+  const aRuleKey = a.rule_key ?? a.ruleKey ?? "";
+  const bRuleKey = b.rule_key ?? b.ruleKey ?? "";
+  const ruleDiff =
+    (RULE_ORDER.get(aRuleKey) ?? Number.MAX_SAFE_INTEGER) -
+    (RULE_ORDER.get(bRuleKey) ?? Number.MAX_SAFE_INTEGER);
+  if (ruleDiff !== 0) return ruleDiff;
+
+  return aRuleKey.localeCompare(bRuleKey, "es");
 }

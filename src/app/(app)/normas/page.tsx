@@ -9,6 +9,7 @@ import {
 import {
   SCORING_CATEGORY_LABELS,
   SCORING_CATEGORY_ORDER,
+  compareScoringRules,
   getScoringRuleLabel,
   type ScoringCategory,
 } from "@/lib/scoring/rules";
@@ -54,7 +55,7 @@ export default async function NormasPage() {
     : "el primer partido del torneo";
 
   const byCategory = new Map<string, ScoringRule[]>();
-  for (const rule of (rules ?? []) as ScoringRule[]) {
+  for (const rule of [...((rules ?? []) as ScoringRule[])].sort(compareScoringRules)) {
     const cat = rule.category ?? "other";
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat)!.push(rule);

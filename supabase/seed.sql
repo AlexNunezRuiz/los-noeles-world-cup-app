@@ -436,15 +436,17 @@ INSERT INTO scoring_rules (category, rule_key, points, description) VALUES
   ('qualification', 'qualify_sf', 10, 'Equipo clasificado a semifinales'),
   ('qualification', 'qualify_finalist', 15, 'Equipo clasificado a la final'),
   ('qualification', 'qualify_champion', 25, 'Acertar campeon'),
+  ('qualification', 'qualify_runner_up', 18, 'Acertar subcampeon'),
   ('qualification', 'qualify_third', 12, 'Acertar tercer puesto'),
+  ('qualification', 'qualify_fourth', 10, 'Acertar cuarto clasificado'),
 
   -- Eliminatorias exactas
-  ('knockout_exact', 'exact_r32', 2, 'Resultado exacto en dieciseisavos con cruce acertado'),
-  ('knockout_exact', 'exact_r16', 3, 'Resultado exacto en octavos con cruce acertado'),
-  ('knockout_exact', 'exact_qf', 5, 'Resultado exacto en cuartos con cruce acertado'),
-  ('knockout_exact', 'exact_sf', 7, 'Resultado exacto en semifinales con cruce acertado'),
-  ('knockout_exact', 'exact_third', 8, 'Resultado exacto 3er puesto con cruce acertado'),
-  ('knockout_exact', 'exact_final', 10, 'Resultado exacto en la final con cruce acertado'),
+  ('knockout_exact', 'exact_r32', 2, 'Resultado exacto en dieciseisavos con cruce exacto acertado'),
+  ('knockout_exact', 'exact_r16', 3, 'Resultado exacto en octavos con cruce exacto acertado'),
+  ('knockout_exact', 'exact_qf', 5, 'Resultado exacto en cuartos con cruce exacto acertado'),
+  ('knockout_exact', 'exact_sf', 7, 'Resultado exacto en semifinales con cruce exacto acertado'),
+  ('knockout_exact', 'exact_third', 8, 'Resultado exacto 3er puesto con cruce exacto acertado'),
+  ('knockout_exact', 'exact_final', 10, 'Resultado exacto en la final con cruce exacto acertado'),
 
   -- Premios individuales
   ('awards', 'golden_boot', 10, 'Acertar Bota de Oro'),

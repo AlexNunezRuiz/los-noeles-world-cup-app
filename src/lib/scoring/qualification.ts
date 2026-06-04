@@ -51,7 +51,9 @@ export async function scoreQualification(
           ? final.away_team_id
           : final.penalty_winner_team_id;
     if (winnerId) {
-      events.push(...scoreQualificationStage("final_winner", [winnerId], rules, matches, predictedMatchesByUser, "final", true));
+      const loserId = winnerId === final.home_team_id ? final.away_team_id : final.home_team_id;
+      events.push(...scoreQualificationStage("final_winner", [winnerId], rules, matches, predictedMatchesByUser, "final", "winner"));
+      events.push(...scoreQualificationStage("final_loser", [loserId], rules, matches, predictedMatchesByUser, "final", "loser"));
     }
   }
   if (thirdPlace?.home_team_id && thirdPlace.away_team_id && thirdPlace.home_score !== null && thirdPlace.away_score !== null) {
@@ -62,7 +64,9 @@ export async function scoreQualification(
           ? thirdPlace.away_team_id
           : thirdPlace.penalty_winner_team_id;
     if (winnerId) {
-      events.push(...scoreQualificationStage("third_place_winner", [winnerId], rules, matches, predictedMatchesByUser, "third_place", true));
+      const loserId = winnerId === thirdPlace.home_team_id ? thirdPlace.away_team_id : thirdPlace.home_team_id;
+      events.push(...scoreQualificationStage("third_place_winner", [winnerId], rules, matches, predictedMatchesByUser, "third_place", "winner"));
+      events.push(...scoreQualificationStage("third_place_loser", [loserId], rules, matches, predictedMatchesByUser, "third_place", "loser"));
     }
   }
 
@@ -76,7 +80,7 @@ function scoreQualificationStage(
   matches: Array<{ match_number: number; stage: string }>,
   predictedMatchesByUser: Map<string, Map<number, PredictedKnockoutMatch>>,
   matchStage = stage,
-  requireWinner = false
+  requirement: "stage" | "winner" | "loser" = "stage"
 ): ScoreEvent[] {
   const events: ScoreEvent[] = [];
 
@@ -87,7 +91,9 @@ function scoreQualificationStage(
     semi_final: "qualify_sf",
     final: "qualify_finalist",
     final_winner: "qualify_champion",
+    final_loser: "qualify_runner_up",
     third_place_winner: "qualify_third",
+    third_place_loser: "qualify_fourth",
   };
 
   const ruleKey = ruleKeyMap[stage];
@@ -98,9 +104,12 @@ function scoreQualificationStage(
 
   for (const [userId, userPredictedMatches] of Array.from(predictedMatchesByUser.entries())) {
     for (const teamId of qualifiedTeamIds) {
-      const userPredictedTeamInStage = requireWinner
-        ? didPredictTeamWinStage(matches, userPredictedMatches, matchStage, teamId)
-        : didPredictTeamInStage(matches, userPredictedMatches, matchStage, teamId);
+      const userPredictedTeamInStage =
+        requirement === "winner"
+          ? didPredictTeamWinStage(matches, userPredictedMatches, matchStage, teamId)
+          : requirement === "loser"
+            ? didPredictTeamLoseStage(matches, userPredictedMatches, matchStage, teamId)
+            : didPredictTeamInStage(matches, userPredictedMatches, matchStage, teamId);
 
       if (userPredictedTeamInStage) {
         events.push({
@@ -157,6 +166,38 @@ export function didPredictTeamWinStage(
     }
     if (predictedMatch.penalty_winner === "away") {
       return predictedMatch.away_team_id === teamId;
+    }
+    return false;
+  });
+}
+
+export function didPredictTeamLoseStage(
+  matches: Array<{ match_number: number; stage: string }>,
+  predictedMatches: Map<number, PredictedKnockoutMatch>,
+  stage: string,
+  teamId: number
+): boolean {
+  return matches.some((match) => {
+    if (match.stage !== stage) return false;
+    const predictedMatch = predictedMatches.get(match.match_number);
+    if (!predictedMatch || predictedMatch.home_team_id === undefined || predictedMatch.away_team_id === undefined) {
+      return false;
+    }
+    if (predictedMatch.home_score === undefined || predictedMatch.away_score === undefined) {
+      return false;
+    }
+
+    if (predictedMatch.home_score > predictedMatch.away_score) {
+      return predictedMatch.away_team_id === teamId;
+    }
+    if (predictedMatch.away_score > predictedMatch.home_score) {
+      return predictedMatch.home_team_id === teamId;
+    }
+    if (predictedMatch.penalty_winner === "home") {
+      return predictedMatch.away_team_id === teamId;
+    }
+    if (predictedMatch.penalty_winner === "away") {
+      return predictedMatch.home_team_id === teamId;
     }
     return false;
   });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { didPredictTeamInStage, didPredictTeamWinStage } from "./qualification";
+import { didPredictTeamInStage, didPredictTeamLoseStage, didPredictTeamWinStage } from "./qualification";
 
 test("comprueba campeon usando el partido final aunque la regla sea qualify_champion", () => {
   const matches = [
@@ -35,4 +35,20 @@ test("ganador previsto por penaltis cuenta en partidos empatados", () => {
 
   assert.equal(didPredictTeamWinStage(matches, predictedMatches, "third_place", 3), true);
   assert.equal(didPredictTeamWinStage(matches, predictedMatches, "third_place", 4), false);
+});
+
+test("subcampeon y cuarto puesto exigen que el equipo sea perdedor previsto del partido", () => {
+  const matches = [
+    { match_number: 103, stage: "final" },
+    { match_number: 102, stage: "third_place" },
+  ];
+  const predictedMatches = new Map([
+    [103, { home_team_id: 1, away_team_id: 2, home_score: 1, away_score: 2 }],
+    [102, { home_team_id: 3, away_team_id: 4, home_score: 0, away_score: 0, penalty_winner: "home" as const }],
+  ]);
+
+  assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "final", 1), true);
+  assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "final", 2), false);
+  assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "third_place", 4), true);
+  assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "third_place", 3), false);
 });

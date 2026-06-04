@@ -16,7 +16,7 @@ const navItems = [
   { href: "/chat", label: "Chat", icon: MessageCircle },
 ];
 
-export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
+export function Navbar({ isAdmin, userId }: { isAdmin?: boolean; userId?: string | null }) {
   const pathname = usePathname() ?? "";
   const [unreadCount, setUnreadCount] = useState(0);
   const supabase = createClient();
@@ -26,11 +26,7 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     async function setupNotifications() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const userId = user.id;
+      if (!userId) return;
 
       async function loadUnread() {
         const { count } = await supabase
@@ -65,7 +61,7 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
       mounted = false;
       if (channel) supabase.removeChannel(channel);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
