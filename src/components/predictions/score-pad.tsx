@@ -40,7 +40,7 @@ export function ScorePad({ open, teamName, flag, onDigit, onClose }: ScorePadPro
             <button
               key={n}
               onClick={() => onDigit(n)}
-              className="h-9 rounded-md bg-[#2c2b26] font-marcador text-lg font-bold text-cream transition-colors active:bg-red"
+              className="h-10 rounded-md bg-[#2c2b26] font-marcador text-2xl font-bold leading-none text-cream transition-colors active:bg-red"
             >
               {n}
             </button>

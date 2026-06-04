@@ -49,7 +49,7 @@ function DigitGrid({ onDigit }: { onDigit: (n: number) => void }) {
           key={n}
           type="button"
           onClick={() => onDigit(n)}
-          className="h-9 rounded-md bg-surface-sunken font-marcador text-lg font-bold text-ink transition-colors active:bg-red active:text-white"
+          className="h-10 rounded-md bg-surface-sunken font-marcador text-2xl font-bold leading-none text-ink transition-colors active:bg-red active:text-white"
         >
           {n}
         </button>
