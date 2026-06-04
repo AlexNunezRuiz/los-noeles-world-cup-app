@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { Send, SmilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isOutsideReactionPopup } from "@/lib/chat/reaction-popup";
 
 interface ChatMessage {
   id: string;
@@ -97,6 +98,7 @@ export default function ChatPage() {
   const [openReactionMessageId, setOpenReactionMessageId] = useState<string | null>(null);
   const [expandedReactionMessageId, setExpandedReactionMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const reactionPopupRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -175,6 +177,25 @@ export default function ChatPage() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    if (!openReactionMessageId) return;
+
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (!isOutsideReactionPopup(reactionPopupRef.current, event.target)) return;
+
+      setOpenReactionMessageId(null);
+      setExpandedReactionMessageId(null);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("touchstart", closeOnOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("touchstart", closeOnOutsideClick);
+    };
+  }, [openReactionMessageId]);
 
   const filteredMentionProfiles = (() => {
     const match = newMessage.match(/@([\w.-]*)$/);
@@ -373,6 +394,7 @@ export default function ChatPage() {
 
                 {openReactionMessageId === msg.id && (
                   <div
+                    ref={reactionPopupRef}
                     className={cn(
                       "absolute top-full z-20 mt-1 rounded-lg border border-border bg-surface p-1.5 shadow-lg",
                       isMe ? "right-0" : "left-0"
