@@ -93,18 +93,11 @@ export default function AdminResultadosPage() {
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const { data: chatMessage } = await supabase
-      .from("chat_messages")
-      .insert({ user_id: user.id, message: body })
-      .select("id")
-      .single();
-
     const { data: profiles } = await supabase.from("profiles").select("id");
     const rows = buildNotificationRows({
       profiles: (profiles || []) as Array<{ id: string }>,
       type,
       actorUserId: user.id,
-      messageId: chatMessage?.id ?? null,
       title,
       body,
       link,

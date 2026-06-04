@@ -26,6 +26,19 @@ test("construye notificaciones para todos salvo excluidos", () => {
   assert.equal(rows[0].link, "/mi-cuenta");
 });
 
+test("no enlaza notificaciones internas con chat si no hay messageId", () => {
+  const [row] = buildNotificationRows({
+    profiles: [{ id: "u1" }],
+    type: "config_update",
+    actorUserId: "admin",
+    title: "Configuracion actualizada",
+    body: "Se han actualizado las normas.",
+    link: "/normas",
+  });
+
+  assert.equal("message_id" in row, false);
+});
+
 test("notifica cualquier puntuacion positiva de un partido", () => {
   const events = scoreEventsForMatchNotifications(
     [

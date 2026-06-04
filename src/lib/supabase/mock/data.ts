@@ -596,6 +596,42 @@ function buildChatMessages(): Row[] {
   }));
 }
 
+function buildHomeMessages(): Row[] {
+  const created_at = "2026-01-15T10:00:00Z";
+  return [
+    {
+      id: uid(700),
+      slug: "payment-info",
+      title: "Pago de la porra",
+      body: "Para validar tu participacion, haz la transferencia con el concepto indicado en tu pantalla.",
+      link_label: null,
+      link_href: null,
+      tone: "payment",
+      is_published: true,
+      is_pinned: true,
+      created_by: MOCK_USER_ID,
+      updated_by: MOCK_USER_ID,
+      created_at,
+      updated_at: created_at,
+    },
+    {
+      id: uid(701),
+      slug: "install-info",
+      title: "Instala la porra como app",
+      body: 'En el movil, abre el menu del navegador y toca "Anadir a pantalla de inicio".',
+      link_label: null,
+      link_href: null,
+      tone: "info",
+      is_published: true,
+      is_pinned: true,
+      created_by: MOCK_USER_ID,
+      updated_by: MOCK_USER_ID,
+      created_at,
+      updated_at: created_at,
+    },
+  ];
+}
+
 // ---------------------------------------------------------------
 // DB FACTORY
 // ---------------------------------------------------------------
@@ -615,9 +651,10 @@ export function createDb(): Db {
     scoring_rules: buildScoringRules(),
     user_scores: buildUserScores(),
     score_events: [],
-    chat_messages: buildChatMessages(),
+    chat_messages: [],
     chat_message_mentions: [],
     chat_message_reactions: [],
+    home_messages: buildHomeMessages(),
     notifications: [],
     tournament_config: [
       { id: 1, key: "predictions_locked", value: "false", updated_at: nowIso() },
@@ -651,5 +688,6 @@ export const UUID_TABLES = new Set([
   "chat_messages",
   "chat_message_mentions",
   "chat_message_reactions",
+  "home_messages",
   "notifications",
 ]);

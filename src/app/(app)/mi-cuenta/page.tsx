@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CopyableValue } from "@/components/ui/copyable-value";
 import { useToast } from "@/components/ui/use-toast";
 
 interface Profile {
@@ -165,7 +166,7 @@ export default function MiCuentaPage() {
               {bankIban ? (
                 <>
                   <p className="mt-1 text-xs">
-                    IBAN: <span className="font-bold">{bankIban}</span>
+                    <CopyableValue label="IBAN" value={bankIban} />
                   </p>
                   {bankHolder && <p className="mt-1 text-xs">Titular: {bankHolder}</p>}
                   <p className="mt-1 text-xs">

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
   ClipboardList,
+  Megaphone,
   MessageCircle,
   Menu,
   Settings,
@@ -20,6 +21,7 @@ const adminNav = [
   { href: "/admin/resultados", label: "Resultados", icon: ClipboardList },
   { href: "/admin/resultados/premios", label: "Premios", icon: Trophy },
   { href: "/admin/jugadores", label: "Jugadores", icon: UserCog },
+  { href: "/admin/mensajes", label: "Mensajes", icon: Megaphone },
   { href: "/admin/chat", label: "Chat", icon: MessageCircle },
   { href: "/admin/configuracion", label: "Config", icon: Settings },
 ];

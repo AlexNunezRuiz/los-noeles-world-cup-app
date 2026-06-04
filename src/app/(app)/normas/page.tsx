@@ -181,7 +181,7 @@ export default async function NormasPage() {
         <SectionHeader num="05" title="App" color="text-ink-muted" />
         <RuleCard>
           <RuleRow label="Instalar como app" value="Abre el menu del navegador y elige Anadir a pantalla de inicio" highlight />
-          <RuleRow label="Notificaciones actuales" value="Avisos dentro de la app y mensajes en el chat" />
+          <RuleRow label="Notificaciones actuales" value="Avisos dentro de la app" />
           <RuleRow label="Push del movil" value="Pendiente de activar suscripciones Web Push" />
         </RuleCard>
         <InfoBox color="blue">

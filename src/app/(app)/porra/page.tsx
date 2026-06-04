@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { CopyableValue } from "@/components/ui/copyable-value";
 import {
   Swords,
   BarChart2,
@@ -221,7 +222,7 @@ export default async function PorraPage() {
                 <p>
                   Para validar tu participacion, haz una transferencia de{" "}
                   <span className="font-bold">€{paymentAmount}</span> a{" "}
-                  <span className="font-bold">{bankIban}</span>.
+                  <CopyableValue label="IBAN" value={bankIban} />.
                 </p>
                 {bankHolder && <p className="mt-1 text-xs">Titular: {bankHolder}</p>}
                 <p className="mt-1 text-xs">

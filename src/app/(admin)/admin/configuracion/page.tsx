@@ -86,18 +86,11 @@ export default function AdminConfigPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: chatMessage } = await supabase
-      .from("chat_messages")
-      .insert({ user_id: user.id, message })
-      .select("id")
-      .single();
-
     const { data: profiles } = await supabase.from("profiles").select("id");
     const rows = buildNotificationRows({
       profiles: (profiles || []) as Array<{ id: string }>,
       type: "config_update",
       actorUserId: user.id,
-      messageId: chatMessage?.id ?? null,
       title,
       body: message,
       link: "/normas",
