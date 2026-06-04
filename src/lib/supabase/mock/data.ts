@@ -575,27 +575,6 @@ function buildMatchPredictions(): Row[] {
   }));
 }
 
-// ---------------------------------------------------------------
-// CHAT MESSAGES — a little conversation to style against
-// ---------------------------------------------------------------
-function buildChatMessages(): Row[] {
-  const base = Date.now() - 1000 * 60 * 60;
-  const defs: [string, string, number][] = [
-    [uid(2), "¡Ya están abiertas las predicciones! 🎉", 0],
-    [uid(3), "Yo lo tengo claro, gana España 😎", 6],
-    [MOCK_USER_ID, "Eso lo dices todos los mundiales 😅", 12],
-    [uid(5), "¿Alguien ha rellenado ya la fase de grupos?", 25],
-    [uid(6), "A medias, el grupo de la muerte me está costando 🫠", 40],
-  ];
-  return defs.map(([user_id, message, minutes], i) => ({
-    id: uid(200 + i),
-    user_id,
-    message,
-    is_deleted: false,
-    created_at: new Date(base + minutes * 60 * 1000).toISOString(),
-  }));
-}
-
 function buildHomeMessages(): Row[] {
   const created_at = "2026-01-15T10:00:00Z";
   return [
