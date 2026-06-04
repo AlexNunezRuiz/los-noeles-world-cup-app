@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Flag } from "@/components/ui/flag";
 import { FlapTile } from "@/components/ui/flap-tile";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ interface Team {
 }
 
 interface MatchResultCardProps {
+  matchId: number;
   label: string;
   live?: boolean;
   homeTeam: Team;
@@ -22,6 +24,7 @@ interface MatchResultCardProps {
 }
 
 export function MatchResultCard({
+  matchId,
   label,
   live,
   homeTeam,
@@ -33,8 +36,9 @@ export function MatchResultCard({
   points,
 }: MatchResultCardProps) {
   return (
-    <div
-      className={`rounded-xl border bg-surface p-3 ${
+    <Link
+      href={`/resultados/predicciones?partido=${matchId}`}
+      className={`block rounded-xl border bg-surface p-3 transition-colors hover:border-blue/60 focus:outline-none focus:ring-2 focus:ring-blue/30 ${
         live ? "border-red ring-[3px] ring-red/10" : "border-border"
       }`}
     >
@@ -70,6 +74,6 @@ export function MatchResultCard({
         {outcome === "signo" && <Badge variant="success-soft">✓ Signo +{points}</Badge>}
         {outcome === "fallo" && <Badge variant="secondary">Fallo · 0</Badge>}
       </div>
-    </div>
+    </Link>
   );
 }

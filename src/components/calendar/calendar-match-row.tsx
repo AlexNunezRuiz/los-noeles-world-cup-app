@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Flag } from "@/components/ui/flag";
 import { FlapTile } from "@/components/ui/flap-tile";
 import { formatKickoff } from "@/lib/datetime";
@@ -73,7 +74,10 @@ export function CalendarMatchRow({ match }: { match: CalendarMatch }) {
     match.away_score !== null;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-3">
+    <Link
+      href={`/resultados/predicciones?partido=${match.id}`}
+      className="block rounded-xl border border-border bg-surface p-3 transition-colors hover:border-blue/60 focus:outline-none focus:ring-2 focus:ring-blue/30"
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="font-marcador text-sm font-bold text-ink">
           {formatKickoff(match.match_date)}
@@ -113,6 +117,6 @@ export function CalendarMatchRow({ match }: { match: CalendarMatch }) {
           {match.venue.name} · {match.venue.city}
         </p>
       )}
-    </div>
+    </Link>
   );
 }

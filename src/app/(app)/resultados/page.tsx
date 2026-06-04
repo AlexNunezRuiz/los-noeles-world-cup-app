@@ -328,6 +328,7 @@ export default function ResultadosPage() {
               {finishedMatches.map((m) => (
                 <MatchResultCard
                   key={m.matchId}
+                  matchId={m.matchId}
                   label={
                     m.groupLetter
                       ? `Grupo ${m.groupLetter} · Finalizado`

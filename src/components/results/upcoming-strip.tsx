@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Flag } from "@/components/ui/flag";
 import { formatShortDay, formatKickoff } from "@/lib/datetime";
 import { stageLabel } from "@/lib/tournament/labels";
@@ -57,8 +58,9 @@ export function UpcomingStrip({
       </p>
       <div className="flex gap-2 overflow-x-auto px-1 pb-1">
         {upcoming.map((m) => (
-          <div
+          <Link
             key={m.id}
+            href={`/resultados/predicciones?partido=${m.id}`}
             className="w-[150px] shrink-0 rounded-xl border border-border bg-surface p-2.5"
           >
             <p className="font-marcador text-[11px] font-bold uppercase text-ink">
@@ -76,7 +78,7 @@ export function UpcomingStrip({
                 {m.venue.city}
               </p>
             )}
-          </div>
+          </Link>
         ))}
       </div>
     </div>
