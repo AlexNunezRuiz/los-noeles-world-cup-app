@@ -82,3 +82,11 @@ export function scoreEventsForMatchNotifications(events: ScoreEventRef[], matchI
 
   return Array.from(byUser.values());
 }
+
+export function assertNotificationInsertSucceeded(
+  result: { error: { message?: string } | null | undefined },
+  context = "No se pudieron crear las notificaciones"
+) {
+  if (!result.error) return;
+  throw new Error(`${context}: ${result.error.message ?? "error desconocido"}`);
+}

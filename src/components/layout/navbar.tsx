@@ -22,36 +22,48 @@ export function Navbar({ isAdmin }: { isAdmin?: boolean }) {
   const supabase = createClient();
 
   useEffect(() => {
-    let userId = "";
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    async function loadUnread() {
+    async function setupNotifications() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      userId = user.id;
-      const { count } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .is("read_at", null);
-      setUnreadCount(count ?? 0);
+      const userId = user.id;
+
+      async function loadUnread() {
+        const { count } = await supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .is("read_at", null);
+        if (mounted) setUnreadCount(count ?? 0);
+      }
+
+      await loadUnread();
+      channel = supabase
+        .channel(`navbar_notifications:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            void loadUnread();
+          }
+        )
+        .subscribe();
     }
 
-    loadUnread();
-    const channel = supabase
-      .channel("navbar_notifications")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications" },
-        () => {
-          if (userId) loadUnread();
-        }
-      )
-      .subscribe();
+    void setupNotifications();
 
     return () => {
-      supabase.removeChannel(channel);
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

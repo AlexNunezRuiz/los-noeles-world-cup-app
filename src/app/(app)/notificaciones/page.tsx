@@ -39,39 +39,56 @@ export default function NotificacionesPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    async function load() {
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function setupNotifications() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      const userId = user.id;
 
-      const { data } = await supabase
-        .from("notifications")
-        .select("id, type, title, body, link, read_at, created_at, chat_messages(message)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
+      async function load() {
+        const { data } = await supabase
+          .from("notifications")
+          .select("id, type, title, body, link, read_at, created_at, chat_messages(message)")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(50);
 
-      setNotifications((data || []) as NotificationRow[]);
+        if (mounted) setNotifications((data || []) as NotificationRow[]);
 
-      await supabase
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .is("read_at", null);
+        await supabase
+          .from("notifications")
+          .update({ read_at: new Date().toISOString() })
+          .eq("user_id", userId)
+          .is("read_at", null);
+      }
+
+      await load();
+      channel = supabase
+        .channel(`notifications_page:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            void load();
+          }
+        )
+        .subscribe();
     }
 
-    load();
-
-    const channel = supabase
-      .channel("notifications_page")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
-        load();
-      })
-      .subscribe();
+    void setupNotifications();
 
     return () => {
-      supabase.removeChannel(channel);
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

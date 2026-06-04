@@ -20,7 +20,7 @@ function Step({ player, rank }: { player: PodiumPlayer; rank: 1 | 2 | 3 }) {
     <div className="flex flex-1 flex-col items-center">
       <div
         className={cn(
-          "relative z-10 -mb-2 flex h-8 w-8 items-center justify-center rounded-full border-[2.5px] border-surface font-marcador font-bold text-cream",
+          "relative z-10 mb-1 flex h-8 w-8 items-center justify-center rounded-full border-[2.5px] border-surface font-marcador font-bold text-cream shadow-sm",
           s.av
         )}
       >
@@ -28,13 +28,13 @@ function Step({ player, rank }: { player: PodiumPlayer; rank: 1 | 2 | 3 }) {
       </div>
       <div
         className={cn(
-          "flex w-full flex-col items-center justify-end rounded-t-xl pb-2 pt-4",
+          "flex w-full flex-col items-center justify-end rounded-t-xl pb-2 pt-2",
           s.h,
           s.bg,
           player.isYou && "outline outline-2 -outline-offset-2 outline-red"
         )}
       >
-        <span className="text-lg">{s.medal}</span>
+        <span className="mb-0.5 leading-none text-lg">{s.medal}</span>
         <span className="font-sans text-[10px] font-bold text-ink">{player.name}</span>
         <span className="font-marcador text-base font-bold text-ink">{player.points}</span>
         <span

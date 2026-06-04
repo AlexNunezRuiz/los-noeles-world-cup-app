@@ -9,6 +9,11 @@ import { Flag } from "@/components/ui/flag";
 import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { isPredictionsLocked } from "@/lib/predictions/lock";
 import { calculatePotentialSummary, type PredictedMilestone } from "@/lib/scoring/potential";
+import { GroupChips } from "@/components/porra/group-chips";
+import { GroupStandingsTable } from "@/components/predictions/GroupStandingsTable";
+import { ClassicBracket, type BracketMatchView } from "@/components/predictions/classic-bracket";
+import { getBestThirds, type TeamStanding } from "@/lib/tournament/standings";
+import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "@/lib/tournament/bracket";
 
 // ── DB row interfaces ─────────────────────────────────────────────────────────
 
@@ -31,6 +36,7 @@ interface UserScoreRow {
 interface TeamRow {
   id: number;
   name: string;
+  code: string;
   flag_emoji: string;
   group_letter: string | null;
 }
@@ -64,6 +70,10 @@ interface PredictedGroupStandingRow {
   group_letter: string;
   team_id: number;
   position: number;
+  points: number;
+  goal_difference: number;
+  goals_for: number;
+  goals_against: number;
 }
 
 interface AwardPredictionRow {
@@ -95,6 +105,20 @@ interface ActualAwardRow {
   player_name: string | null;
 }
 
+interface BracketPositionRow {
+  match_number: number;
+  slot: "home" | "away";
+  source_type: string;
+  source_group?: string | null;
+  source_match_number?: number | null;
+  best_third_pool?: string | null;
+}
+
+interface BestThirdOrderRow {
+  team_id: number;
+  rank: number;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const AWARD_LABELS: Record<string, string> = {
@@ -112,6 +136,8 @@ const STAGE_LABELS: Record<string, string> = {
   final: "Final",
 };
 
+const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="font-marcador text-lg uppercase text-ink tracking-wide">
@@ -124,6 +150,15 @@ function EmptyState({ label }: { label: string }) {
   return (
     <p className="text-xs text-ink-muted italic py-2">{label}</p>
   );
+}
+
+function buildSourceLabel(bp: BracketPositionRow | undefined, placeholder: string | undefined | null) {
+  if (bp?.source_type === "group_winner" && bp.source_group) return `1º Gr.${bp.source_group}`;
+  if (bp?.source_type === "group_runner_up" && bp.source_group) return `2º Gr.${bp.source_group}`;
+  if (bp?.source_type === "best_third" && bp.best_third_pool) return `3º (${bp.best_third_pool})`;
+  if (bp?.source_type === "match_winner" && bp.source_match_number) return `W P${bp.source_match_number}`;
+  if (bp?.source_type === "match_loser" && bp.source_match_number) return `L P${bp.source_match_number}`;
+  return placeholder ?? "TBD";
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -140,11 +175,14 @@ export default function JugadorPage() {
   const [teams, setTeams] = useState<Map<number, TeamRow>>(new Map());
   const [matches, setMatches] = useState<Map<number, MatchRow>>(new Map());
   const [players, setPlayers] = useState<Map<number, PlayerRow>>(new Map());
+  const [bracketPositions, setBracketPositions] = useState<BracketPositionRow[]>([]);
+  const [bestThirdOrder, setBestThirdOrder] = useState<Map<number, number>>(new Map());
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [isLocked, setIsLocked] = useState(false);
   const [scoringRules, setScoringRules] = useState<Map<string, number>>(new Map());
   const [actualAwards, setActualAwards] = useState<ActualAwardRow[]>([]);
-  const [windowStart, setWindowStart] = useState(0);
+  const [selectedGroup, setSelectedGroup] = useState("A");
+  const [bracketView, setBracketView] = useState<"cuadro" | "rondas">("cuadro");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -165,6 +203,8 @@ export default function JugadorPage() {
         { data: teamsData },
         { data: matchesData },
         { data: playersData },
+        { data: bracketPositionsData },
+        { data: bestThirdOrderData },
         { data: configData },
         { data: rulesData },
         { data: actualAwardsData },
@@ -173,11 +213,13 @@ export default function JugadorPage() {
         supabase.from("profiles").select("id, display_name, has_paid, is_admin").eq("id", playerId).single(),
         supabase.from("user_scores").select("user_id, total_points, group_stage_points, knockout_exact_points, qualification_points, award_points").eq("user_id", playerId).single(),
         supabase.from("match_predictions").select("id, match_id, home_score, away_score, penalty_winner").eq("user_id", playerId),
-        supabase.from("predicted_group_standings").select("id, group_letter, team_id, position").eq("user_id", playerId).order("group_letter").order("position"),
+        supabase.from("predicted_group_standings").select("id, group_letter, team_id, position, points, goal_difference, goals_for, goals_against").eq("user_id", playerId).order("group_letter").order("position"),
         supabase.from("award_predictions").select("id, award_type, player_id, player_name").eq("user_id", playerId),
-        supabase.from("teams").select("id, name, flag_emoji, group_letter"),
+        supabase.from("teams").select("id, name, code, flag_emoji, group_letter"),
         supabase.from("matches").select("id, match_number, stage, group_letter, home_team_id, away_team_id, home_placeholder, away_placeholder, match_date, home_score, away_score, penalty_winner_team_id, is_finished").order("match_number"),
         supabase.from("players").select("id, name, team_id"),
+        supabase.from("knockout_bracket_positions").select("match_number, slot, source_type, source_group, source_match_number, best_third_pool"),
+        supabase.from("predicted_best_third_order").select("team_id, rank").eq("user_id", playerId).order("rank"),
         supabase.from("tournament_config").select("key, value"),
         supabase.from("scoring_rules").select("rule_key, points"),
         supabase.from("actual_awards").select("award_type, player_id, player_name"),
@@ -189,6 +231,10 @@ export default function JugadorPage() {
       setMatchPredictions((predictionsData ?? []) as MatchPredictionRow[]);
       setGroupStandings((standingsData ?? []) as PredictedGroupStandingRow[]);
       setAwardPredictions((awardsData ?? []) as AwardPredictionRow[]);
+      setBracketPositions((bracketPositionsData ?? []) as BracketPositionRow[]);
+      setBestThirdOrder(
+        new Map(((bestThirdOrderData ?? []) as BestThirdOrderRow[]).map((row) => [row.team_id, row.rank]))
+      );
       setIsLocked(isPredictionsLocked((configData ?? []) as ConfigRow[]));
       setScoringRules(
         new Map(
@@ -224,6 +270,67 @@ export default function JugadorPage() {
   const predictionsByMatchId = new Map<number, MatchPredictionRow>(
     matchPredictions.map((p) => [p.match_id, p])
   );
+  const matchNumberById = new Map<number, number>(
+    Array.from(matches.values()).map((match) => [match.id, match.match_number])
+  );
+  const predictionsByMatchNumber = new Map<number, KnockoutPrediction>();
+  for (const pred of matchPredictions) {
+    const matchNumber = matchNumberById.get(pred.match_id);
+    if (!matchNumber) continue;
+    predictionsByMatchNumber.set(matchNumber, {
+      match_id: pred.match_id,
+      match_number: matchNumber,
+      home_score: pred.home_score,
+      away_score: pred.away_score,
+      penalty_winner: pred.penalty_winner ?? undefined,
+    });
+  }
+
+  const groupStandingsForBracket = new Map<string, TeamStanding[]>();
+  for (const group of GROUPS) {
+    const rows = groupStandings
+      .filter((standing) => standing.group_letter === group)
+      .sort((a, b) => a.position - b.position)
+      .map((standing) => ({
+        team_id: standing.team_id,
+        position: standing.position,
+        points: standing.points,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goals_for: standing.goals_for,
+        goals_against: standing.goals_against,
+        goal_difference: standing.goal_difference,
+      }));
+    if (rows.length > 0) groupStandingsForBracket.set(group, rows);
+  }
+  const predictedBestThirds = getBestThirds(groupStandingsForBracket, bestThirdOrder);
+  const baseKnockoutMatches: BracketMatch[] = Array.from(matches.values())
+    .filter((match) => match.stage !== "group")
+    .map((match) => ({
+      match_number: match.match_number,
+      stage: match.stage,
+      home_team_id: match.home_team_id ?? undefined,
+      away_team_id: match.away_team_id ?? undefined,
+      home_placeholder: match.home_placeholder ?? undefined,
+      away_placeholder: match.away_placeholder ?? undefined,
+    }));
+  const predictedBracketMatches = populateKnockoutBracket(
+    groupStandingsForBracket,
+    predictedBestThirds,
+    baseKnockoutMatches,
+    predictionsByMatchNumber,
+    bracketPositions.map((bp) => ({
+      match_number: bp.match_number,
+      slot: bp.slot,
+      source_type: bp.source_type,
+      source_group: bp.source_group ?? undefined,
+      source_match_number: bp.source_match_number ?? undefined,
+      best_third_pool: bp.best_third_pool ?? undefined,
+    }))
+  );
+  const predictedBracketByNumber = new Map(predictedBracketMatches.map((match) => [match.match_number, match]));
 
   const groupPredictions: Array<{ match: MatchRow; pred: MatchPredictionRow }> = [];
   const knockoutPredictions: Array<{ match: MatchRow; pred: MatchPredictionRow }> = [];
@@ -234,7 +341,19 @@ export default function JugadorPage() {
     if (match.stage === "group") {
       groupPredictions.push({ match, pred });
     } else {
-      knockoutPredictions.push({ match, pred });
+      const predictedMatch = predictedBracketByNumber.get(match.match_number);
+      knockoutPredictions.push({
+        match: predictedMatch
+          ? {
+              ...match,
+              home_team_id: predictedMatch.home_team_id ?? null,
+              away_team_id: predictedMatch.away_team_id ?? null,
+              home_placeholder: predictedMatch.home_placeholder ?? match.home_placeholder,
+              away_placeholder: predictedMatch.away_placeholder ?? match.away_placeholder,
+            }
+          : match,
+        pred,
+      });
     }
   }
 
@@ -325,15 +444,29 @@ export default function JugadorPage() {
   const allResultPredictions = [...groupPredictions, ...knockoutPredictions].sort(
     (a, b) => a.match.match_number - b.match.match_number
   );
-  const latestFinishedIndex = allResultPredictions.reduce(
-    (latest, item, index) => (item.match.is_finished ? index : latest),
-    -1
+  const completedGroups = GROUPS.filter((group) => (standingsByGroup.get(group)?.length ?? 0) >= 4);
+  const selectedGroupPredictions = groupPredictions.filter(
+    ({ match }) => match.group_letter === selectedGroup
   );
-  const nextUnplayedIndex = allResultPredictions.findIndex((item) => !item.match.is_finished);
-  const focusIndex =
-    latestFinishedIndex >= 0 ? latestFinishedIndex : nextUnplayedIndex >= 0 ? nextUnplayedIndex : 0;
-  const effectiveWindowStart = windowStart || Math.max(0, focusIndex - 2);
-  const visibleResultPredictions = allResultPredictions.slice(effectiveWindowStart, effectiveWindowStart + 5);
+  const selectedGroupStandings = (groupStandingsForBracket.get(selectedGroup) ?? []).sort(
+    (a, b) => a.position - b.position
+  );
+  const visibleResultPredictions = selectedGroupPredictions;
+  const effectiveWindowStart = 0;
+  const setWindowStart = (_value: number) => undefined;
+  const bpMap = new Map(bracketPositions.map((bp) => [`${bp.match_number}:${bp.slot}`, bp]));
+  const bracketMatchViews: BracketMatchView[] = predictedBracketMatches.map((match) => {
+    const homeTeam = match.home_team_id ? teams.get(match.home_team_id) : undefined;
+    const awayTeam = match.away_team_id ? teams.get(match.away_team_id) : undefined;
+    return {
+      match_number: match.match_number,
+      stage: match.stage,
+      homeTeam: homeTeam ? { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji } : null,
+      awayTeam: awayTeam ? { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji } : null,
+      homeSourceLabel: buildSourceLabel(bpMap.get(`${match.match_number}:home`), match.home_placeholder),
+      awaySourceLabel: buildSourceLabel(bpMap.get(`${match.match_number}:away`), match.away_placeholder),
+    };
+  });
 
   const eliminatedTeamIds = new Set<number>();
   for (const match of Array.from(matches.values())) {
@@ -514,7 +647,8 @@ export default function JugadorPage() {
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <SectionTitle>Resultados</SectionTitle>
-          <div className="flex gap-1">
+          <GroupChips current={selectedGroup} done={completedGroups} onSelect={setSelectedGroup} />
+          <div className="hidden">
             <button
               type="button"
               disabled={effectiveWindowStart === 0}
@@ -543,10 +677,16 @@ export default function JugadorPage() {
       </section>
 
       {/* Clasificados de grupo */}
-      {standingsByGroup.size > 0 && (
+      {selectedGroupStandings.length > 0 && (
         <section className="space-y-2">
-          <SectionTitle>Clasificados por grupo</SectionTitle>
-          <div className="space-y-2">
+          <SectionTitle>Clasificación Grupo {selectedGroup}</SectionTitle>
+          <GroupStandingsTable
+            standings={selectedGroupStandings}
+            teams={teams}
+            tiedTeamIds={[]}
+            isLocked
+          />
+          <div className="hidden">
             {Array.from(standingsByGroup.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([letter, rows]) => (
               <div key={letter} className="rounded-xl border border-border bg-surface px-3 py-2">
                 <p className="font-marcador text-xs uppercase text-ink-muted mb-1.5">Grupo {letter}</p>
@@ -569,8 +709,30 @@ export default function JugadorPage() {
       {/* Eliminatorias */}
       <section className="space-y-2">
         <SectionTitle>Su cuadro final</SectionTitle>
+        <div className="flex w-fit rounded-lg bg-surface-sunken p-1">
+          {(["cuadro", "rondas"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setBracketView(mode)}
+              className={`rounded-md px-2 py-1 font-marcador text-[10px] uppercase ${
+                bracketView === mode ? "bg-surface text-ink shadow" : "text-ink-muted"
+              }`}
+            >
+              {mode === "cuadro" ? "Cuadro" : "Rondas"}
+            </button>
+          ))}
+        </div>
         {knockoutPredictions.length === 0 ? (
           <EmptyState label="Sin pronósticos de eliminatorias" />
+        ) : bracketView === "cuadro" ? (
+          <div className="-mx-4">
+            <ClassicBracket
+              matches={bracketMatchViews}
+              predictions={predictionsByMatchNumber}
+              onSelectMatch={() => undefined}
+            />
+          </div>
         ) : (
           <div className="space-y-2">
             {stageOrder.map((stage) => {

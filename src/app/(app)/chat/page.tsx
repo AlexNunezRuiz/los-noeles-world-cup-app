@@ -10,6 +10,7 @@ import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { Send, SmilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isOutsideReactionPopup } from "@/lib/chat/reaction-popup";
+import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 
 interface ChatMessage {
   id: string;
@@ -89,6 +90,7 @@ const MORE_REACTION_EMOJIS = [
 ];
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [userId, setUserId] = useState("");
   const [isBanned, setIsBanned] = useState(false);
@@ -107,7 +109,10 @@ export default function ChatPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       setUserId(user.id);
 
       const [{ data: profile }, { data: allProfiles }, { data: msgs }, { data: reactionRows }] =
@@ -130,8 +135,9 @@ export default function ChatPage() {
       const profMap = new Map<string, ProfileOption>();
       for (const p of (allProfiles || []) as ProfileOption[]) profMap.set(p.id, p);
       setProfiles(profMap);
+      setLoading(false);
 
-      await supabase
+      void supabase
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
         .eq("user_id", user.id)
@@ -334,7 +340,12 @@ export default function ChatPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-cream p-4">
-          {messages.length === 0 && (
+          {loading && (
+            <p className="py-8 text-center font-sans text-sm text-ink-faint">
+              Cargando mensajes...
+            </p>
+          )}
+          {shouldShowEmptyState(loading, messages.length) && (
             <p className="py-8 text-center font-sans text-sm text-ink-faint">
               No hay mensajes aún. Sé el primero.
             </p>

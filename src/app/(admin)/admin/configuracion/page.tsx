@@ -26,7 +26,7 @@ import {
   prizeDistributionPercentTotal,
   serializePrizeDistribution,
 } from "@/lib/prizes/config";
-import { buildNotificationRows } from "@/lib/notifications/internal";
+import { assertNotificationInsertSucceeded, buildNotificationRows } from "@/lib/notifications/internal";
 import {
   SCORING_CATEGORY_LABELS,
   SCORING_CATEGORY_ORDER,
@@ -108,7 +108,10 @@ export default function AdminConfigPage() {
     });
 
     if (rows.length > 0) {
-      await supabase.from("notifications").insert(rows);
+      assertNotificationInsertSucceeded(
+        await supabase.from("notifications").insert(rows),
+        "No se pudo publicar el aviso interno"
+      );
     }
   };
 

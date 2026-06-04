@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { Trash2 } from "lucide-react";
+import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 
 interface Message {
   id: string;
@@ -25,6 +26,7 @@ interface ProfileSummary {
 
 export default function AdminChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Map<string, ProfileSummary>>(new Map());
   const { toast } = useToast();
   const supabase = createClient();
@@ -46,6 +48,7 @@ export default function AdminChatPage() {
         });
       }
       setProfiles(profMap);
+      setLoading(false);
     }
     load();
 
@@ -85,6 +88,11 @@ export default function AdminChatPage() {
       </div>
 
       <div className="space-y-2">
+        {loading && (
+          <p className="text-center text-ink-muted py-8 font-sans text-sm">
+            Cargando mensajes...
+          </p>
+        )}
         {messages.map((msg) => {
           const author = profiles.get(msg.user_id);
 
@@ -123,7 +131,7 @@ export default function AdminChatPage() {
             </Card>
           );
         })}
-        {messages.length === 0 && (
+        {shouldShowEmptyState(loading, messages.length) && (
           <p className="text-center text-ink-muted py-8 font-sans text-sm">
             No hay mensajes.
           </p>

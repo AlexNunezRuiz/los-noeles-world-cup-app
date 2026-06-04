@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildNotificationRows, scoreEventsForMatchNotifications } from "./internal";
+import {
+  assertNotificationInsertSucceeded,
+  buildNotificationRows,
+  scoreEventsForMatchNotifications,
+} from "./internal";
 
 test("construye notificaciones para todos salvo excluidos", () => {
   const rows = buildNotificationRows({
@@ -35,4 +39,14 @@ test("solo notifica aciertos positivos de un partido", () => {
 
   assert.deepEqual(events.map((event) => event.user_id), ["u1"]);
   assert.equal(events[0].points, 4);
+});
+
+test("expone errores al insertar notificaciones internas", () => {
+  assert.throws(
+    () =>
+      assertNotificationInsertSucceeded({
+        error: { message: "new row violates row-level security policy" },
+      }),
+    /row-level security/
+  );
 });

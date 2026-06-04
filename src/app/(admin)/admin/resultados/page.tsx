@@ -11,7 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Flag } from "@/components/ui/flag";
 import { useToast } from "@/components/ui/use-toast";
 import { recalculateAllScores, type ScoreEvent } from "@/lib/scoring/calculator";
-import { buildNotificationRows, scoreEventsForMatchNotifications } from "@/lib/notifications/internal";
+import {
+  assertNotificationInsertSucceeded,
+  buildNotificationRows,
+  scoreEventsForMatchNotifications,
+} from "@/lib/notifications/internal";
 
 interface Team {
   id: number;
@@ -106,7 +110,12 @@ export default function AdminResultadosPage() {
       link,
     });
 
-    if (rows.length > 0) await supabase.from("notifications").insert(rows);
+    if (rows.length > 0) {
+      assertNotificationInsertSucceeded(
+        await supabase.from("notifications").insert(rows),
+        "No se pudo publicar la notificacion global"
+      );
+    }
     return user.id;
   };
 
@@ -114,15 +123,18 @@ export default function AdminResultadosPage() {
     const matchingEvents = scoreEventsForMatchNotifications(events, match.id);
     if (matchingEvents.length === 0) return;
 
-    await supabase.from("notifications").insert(
-      matchingEvents.map((event) => ({
-        user_id: event.user_id,
-        actor_user_id: actorUserId,
-        type: "correct_prediction",
-        title: "Has puntuado en un resultado",
-        body: `${matchLabel(match)}: +${event.points} pts`,
-        link: `/resultados`,
-      }))
+    assertNotificationInsertSucceeded(
+      await supabase.from("notifications").insert(
+        matchingEvents.map((event) => ({
+          user_id: event.user_id,
+          actor_user_id: actorUserId,
+          type: "correct_prediction",
+          title: "Has puntuado en un resultado",
+          body: `${matchLabel(match)}: +${event.points} pts`,
+          link: `/resultados`,
+        }))
+      ),
+      "No se pudieron publicar las notificaciones de aciertos"
     );
   };
 
@@ -171,21 +183,38 @@ export default function AdminResultadosPage() {
         )
       );
       toast({ title: `P${match.match_number} resultado guardado` });
-      const actorUserId = await publishGlobalNotification({
-        type: "result_update",
-        title: "Nuevo resultado",
-        body: `Resultado actualizado: ${matchLabel(updatedMatch)}`,
-        link: "/resultados",
-      });
+      try {
+        const actorUserId = await publishGlobalNotification({
+          type: "result_update",
+          title: "Nuevo resultado",
+          body: `Resultado actualizado: ${matchLabel(updatedMatch)}`,
+          link: "/resultados",
+        });
 
-      const recalc = await recalculateAllScores(supabase);
-      if (recalc.success) {
-        await publishCorrectPredictionNotifications(updatedMatch, actorUserId, recalc.events ?? []);
-        await publishGlobalNotification({
-          type: "ranking_update",
-          title: "Clasificacion actualizada",
-          body: "La clasificacion se ha actualizado tras el ultimo resultado.",
-          link: "/ranking",
+        const recalc = await recalculateAllScores(supabase);
+        if (recalc.success) {
+          await publishCorrectPredictionNotifications(updatedMatch, actorUserId, recalc.events ?? []);
+          await publishGlobalNotification({
+            type: "ranking_update",
+            title: "Clasificacion actualizada",
+            body: "La clasificacion se ha actualizado tras el ultimo resultado.",
+            link: "/ranking",
+          });
+        } else {
+          toast({
+            title: "Resultado guardado, pero no se recalculo la clasificacion",
+            description: recalc.error,
+            variant: "destructive",
+          });
+        }
+      } catch (notificationError) {
+        toast({
+          title: "Resultado guardado, pero fallo la notificacion",
+          description:
+            notificationError instanceof Error
+              ? notificationError.message
+              : "No se pudieron crear las notificaciones internas.",
+          variant: "destructive",
         });
       }
     }

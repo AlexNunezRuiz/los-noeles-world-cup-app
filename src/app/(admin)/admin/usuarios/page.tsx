@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
 import { getPorraCompletion, type PorraCompletion } from "@/lib/predictions/completion";
 import { formatLastPredictionUpdate } from "@/lib/predictions/last-update";
+import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 
 interface Profile {
   id: string;
@@ -35,6 +36,7 @@ interface CompletionStatusRow {
 
 export default function AdminUsuariosPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const [lastPredictionUpdateByUser, setLastPredictionUpdateByUser] = useState<Map<string, string | null>>(new Map());
   const { toast } = useToast();
@@ -71,6 +73,7 @@ export default function AdminUsuariosPage() {
         ])
       )
     );
+    setLoading(false);
   }
 
   async function toggleField(userId: string, field: "has_paid" | "is_chat_banned", value: boolean) {
@@ -151,6 +154,13 @@ export default function AdminUsuariosPage() {
                 </tr>
               </thead>
               <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={9} className="py-8 px-4 text-center text-sm text-ink-muted">
+                      Cargando usuarios...
+                    </td>
+                  </tr>
+                )}
                 {profiles.map((p) => {
                   const completion = completionByUser.get(p.id);
                   const completed = completion
@@ -220,6 +230,13 @@ export default function AdminUsuariosPage() {
                   </tr>
                 );
                 })}
+                {shouldShowEmptyState(loading, profiles.length) && (
+                  <tr>
+                    <td colSpan={9} className="py-8 px-4 text-center text-sm text-ink-muted">
+                      No hay usuarios registrados.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

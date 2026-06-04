@@ -16,24 +16,42 @@ export interface ScoreEvent {
 
 type ScoreCategory = "group_stage" | "qualification" | "knockout_exact" | "awards";
 
+function assertNoSupabaseError(error: { message?: string } | null | undefined, context: string) {
+  if (error) {
+    throw new Error(`${context}: ${error.message ?? String(error)}`);
+  }
+}
+
 export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ success: boolean; error?: string; events?: ScoreEvent[] }> {
   try {
     // Load scoring rules
-    const { data: rulesData } = await supabase.from("scoring_rules").select("*");
+    const { data: rulesData, error: rulesError } = await supabase.from("scoring_rules").select("*");
+    assertNoSupabaseError(rulesError, "Error cargando reglas de puntuacion");
     const rules = new Map<string, number>();
     for (const r of rulesData || []) {
       rules.set(r.rule_key, r.points);
     }
 
     // Clear existing score events and user scores
-    await supabase.from("score_events").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    await supabase.from("user_scores").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: deleteEventsError } = await supabase
+      .from("score_events")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    assertNoSupabaseError(deleteEventsError, "Error borrando eventos de puntuacion");
 
-    const { data: knockoutMatchesForPredictions } = await supabase
+    const { error: deleteScoresError } = await supabase
+      .from("user_scores")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    assertNoSupabaseError(deleteScoresError, "Error borrando clasificacion");
+
+    const { data: knockoutMatchesForPredictions, error: knockoutMatchesError } = await supabase
       .from("matches")
       .select("*")
       .neq("stage", "group")
       .order("match_number");
+    assertNoSupabaseError(knockoutMatchesError, "Error cargando eliminatorias");
+
     const predictedMatchesByUser = await buildPredictedKnockoutMatchesByUser(
       supabase,
       knockoutMatchesForPredictions || []
@@ -59,7 +77,8 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
       const batchSize = 100;
       for (let i = 0; i < allEvents.length; i += batchSize) {
         const batch = allEvents.slice(i, i + batchSize);
-        await supabase.from("score_events").insert(batch);
+        const { error: insertEventsError } = await supabase.from("score_events").insert(batch);
+        assertNoSupabaseError(insertEventsError, "Error guardando eventos de puntuacion");
       }
     }
 
@@ -90,7 +109,8 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
     }
 
     // Also ensure all users have a score entry
-    const { data: allProfiles } = await supabase.from("profiles").select("id");
+    const { data: allProfiles, error: profilesError } = await supabase.from("profiles").select("id");
+    assertNoSupabaseError(profilesError, "Error cargando perfiles");
     for (const p of allProfiles || []) {
       if (!userTotals.has(p.id)) {
         userTotals.set(p.id, { total: 0, group: 0, knockout: 0, qualification: 0, awards: 0 });
@@ -107,7 +127,10 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
     }));
 
     if (scoreRows.length > 0) {
-      await supabase.from("user_scores").upsert(scoreRows, { onConflict: "user_id" });
+      const { error: upsertScoresError } = await supabase
+        .from("user_scores")
+        .upsert(scoreRows, { onConflict: "user_id" });
+      assertNoSupabaseError(upsertScoresError, "Error guardando clasificacion");
     }
 
     return { success: true, events: allEvents };
@@ -198,6 +221,10 @@ async function buildPredictedKnockoutMatchesByUser(
     supabase.from("match_predictions").select("*"),
     supabase.from("knockout_bracket_positions").select("*"),
   ]);
+  assertNoSupabaseError(standingsRes.error, "Error cargando clasificaciones pronosticadas");
+  assertNoSupabaseError(bestThirdOrderRes.error, "Error cargando orden de mejores terceros");
+  assertNoSupabaseError(predictionsRes.error, "Error cargando predicciones");
+  assertNoSupabaseError(bracketPositionsRes.error, "Error cargando posiciones del cuadro");
 
   const matchNumberById = new Map<number, number>();
   for (const match of knockoutMatches) {

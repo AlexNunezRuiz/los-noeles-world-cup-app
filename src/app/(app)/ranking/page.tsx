@@ -12,6 +12,7 @@ import {
   type PorraPhaseState,
 } from "@/lib/predictions/completion";
 import { cn } from "@/lib/utils";
+import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 
 interface UserScoreRow {
   user_id: string;
@@ -79,6 +80,7 @@ export default function RankingPage() {
   const [allProfiles, setAllProfiles] = useState<ProfileRow[]>([]);
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabMode>("lista");
   const supabase = createClient();
 
@@ -147,6 +149,7 @@ export default function RankingPage() {
         .map((e, i) => ({ ...e, position: i + 1 }));
 
       setEntries(paid);
+      setLoading(false);
     }
 
     load();
@@ -264,7 +267,12 @@ export default function RankingPage() {
       </div>
 
       {/* Empty state */}
-      {entries.length === 0 && (
+      {loading && (
+        <div className="rounded-xl border border-border bg-surface p-8 text-center text-ink-muted text-sm">
+          Cargando clasificacion...
+        </div>
+      )}
+      {shouldShowEmptyState(loading, entries.length) && (
         <div className="rounded-xl border border-border bg-surface p-8 text-center text-ink-muted text-sm">
           Aún no hay puntuaciones disponibles.
         </div>
@@ -371,9 +379,9 @@ export default function RankingPage() {
       {/* Inscritos mode */}
       {tab === "estado" && (
         <div className="rounded-xl border border-border bg-surface overflow-hidden">
-          {statusProfiles.length === 0 ? (
+          {shouldShowEmptyState(loading, statusProfiles.length) ? (
             <div className="p-4 text-sm text-ink-muted">Aún no hay usuarios registrados.</div>
-          ) : (
+          ) : !loading ? (
             statusProfiles.map((profile, index) => {
               const completion = completionByUser.get(profile.id) ?? getPorraCompletion({
                 groupPredictionCount: 0,
@@ -408,7 +416,7 @@ export default function RankingPage() {
                 </Link>
               );
             })
-          )}
+          ) : null}
         </div>
       )}
     </div>
