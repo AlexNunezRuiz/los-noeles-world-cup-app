@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, RefreshCw, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -291,9 +292,28 @@ export default function AdminResultadosPage() {
                             <option value={away.id}>{away.code}</option>
                           </select>
                         )}
-                        {match.is_finished && <Badge variant="success-soft" className="text-xs">Final</Badge>}
-                        <Button size="sm" className="text-xs h-7" onClick={() => handleSaveResult(match)}>
-                          {match.is_finished ? "Actualizar" : "Guardar"}
+                        {match.is_finished && (
+                          <Badge
+                            variant="success-soft"
+                            className="h-8 w-8 shrink-0 justify-center rounded-md p-0"
+                            title="Final"
+                            aria-label="Final"
+                          >
+                            <Check className="h-4 w-4" aria-hidden="true" />
+                          </Badge>
+                        )}
+                        <Button
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => handleSaveResult(match)}
+                          title={match.is_finished ? "Actualizar resultado" : "Guardar resultado"}
+                          aria-label={match.is_finished ? "Actualizar resultado" : "Guardar resultado"}
+                        >
+                          {match.is_finished ? (
+                            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                          ) : (
+                            <Save className="h-4 w-4" aria-hidden="true" />
+                          )}
                         </Button>
                       </CardContent>
                     </Card>
