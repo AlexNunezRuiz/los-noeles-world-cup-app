@@ -4,7 +4,8 @@ export type NotificationType =
   | "result_update"
   | "ranking_update"
   | "correct_prediction"
-  | "config_update";
+  | "config_update"
+  | "payment_update";
 
 export interface ProfileRef {
   id: string;
@@ -65,7 +66,35 @@ export function scoreEventsForMatchNotifications(events: ScoreEventRef[], matchI
 
   for (const event of events) {
     if (event.match_id !== matchId || event.points <= 0) continue;
-    if (!["correct_sign", "exact_score"].includes(event.rule_key)) continue;
+
+    const current = byUser.get(event.user_id);
+    if (current) {
+      current.points += event.points;
+      current.descriptions.push(event.description);
+    } else {
+      byUser.set(event.user_id, {
+        ...event,
+        points: event.points,
+        descriptions: [event.description],
+      });
+    }
+  }
+
+  return Array.from(byUser.values());
+}
+
+export function scoreEventsForAwardNotifications(events: ScoreEventRef[]) {
+  const awardRuleKeys = new Set(["golden_boot", "golden_ball", "golden_glove"]);
+  const byUser = new Map<string, ScoreEventRef & { points: number; descriptions: string[] }>();
+
+  for (const event of events) {
+    if (
+      (event.match_id !== null && event.match_id !== 0) ||
+      event.points <= 0 ||
+      !awardRuleKeys.has(event.rule_key)
+    ) {
+      continue;
+    }
 
     const current = byUser.get(event.user_id);
     if (current) {

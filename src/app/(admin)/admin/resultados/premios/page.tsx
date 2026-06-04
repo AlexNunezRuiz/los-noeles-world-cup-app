@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Trophy, Medal, Shield } from "lucide-react";
+import { recalculateAllScores } from "@/lib/scoring/calculator";
+import {
+  assertNotificationInsertSucceeded,
+  buildNotificationRows,
+  scoreEventsForAwardNotifications,
+} from "@/lib/notifications/internal";
 
 interface Player {
   id: number;
@@ -53,22 +59,78 @@ export default function AdminPremiosPage() {
   const handleSave = async () => {
     setSaving(true);
 
-    for (const { type } of AWARDS) {
-      const award = awards[type];
-      if (!award?.player_name && !award?.player_id) continue;
+    try {
+      for (const { type } of AWARDS) {
+        const award = awards[type];
+        if (!award?.player_name && !award?.player_id) continue;
 
-      await supabase.from("actual_awards").upsert(
-        {
-          award_type: type,
-          player_id: award.player_id || null,
-          player_name: award.player_name || null,
-        },
-        { onConflict: "award_type" }
-      );
+        const { error } = await supabase.from("actual_awards").upsert(
+          {
+            award_type: type,
+            player_id: award.player_id || null,
+            player_name: award.player_name || null,
+          },
+          { onConflict: "award_type" }
+        );
+        if (error) throw error;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("No se pudo identificar al administrador.");
+      const recalc = await recalculateAllScores(supabase);
+      if (!recalc.success) {
+        toast({
+          title: "Premios guardados, pero no se recalculo la clasificacion",
+          description: recalc.error,
+          variant: "destructive",
+        });
+      } else {
+        const awardEvents = scoreEventsForAwardNotifications(recalc.events ?? []);
+        if (awardEvents.length > 0) {
+          assertNotificationInsertSucceeded(
+            await supabase.from("notifications").insert(
+              awardEvents.map((event) => ({
+                user_id: event.user_id,
+                actor_user_id: user.id,
+                type: "correct_prediction",
+                title: `+${event.points} pts en premios`,
+                body: event.descriptions.join(", "),
+                link: "/resultados",
+              }))
+            ),
+            "No se pudieron publicar las notificaciones de premios"
+          );
+        }
+
+        const { data: profiles } = await supabase.from("profiles").select("id");
+        const rankingRows = buildNotificationRows({
+          profiles: (profiles || []) as Array<{ id: string }>,
+          type: "ranking_update",
+          actorUserId: user.id,
+          title: "Clasificacion actualizada",
+          body: "La clasificacion se ha actualizado tras guardar los premios reales.",
+          link: "/ranking",
+        });
+        if (rankingRows.length > 0) {
+          assertNotificationInsertSucceeded(
+            await supabase.from("notifications").insert(rankingRows),
+            "No se pudo publicar la notificacion de ranking"
+          );
+        }
+      }
+
+      toast({ title: "Premios reales guardados" });
+    } catch (error) {
+      toast({
+        title: "Error al guardar premios",
+        description: error instanceof Error ? error.message : "No se pudieron guardar los premios reales.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    toast({ title: "Premios reales guardados" });
   };
 
   const hasPlayers = players.length > 0;

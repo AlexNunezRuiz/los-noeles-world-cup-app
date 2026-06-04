@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, RefreshCw, Save } from "lucide-react";
+import { Check, RefreshCw, Save, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -129,8 +129,8 @@ export default function AdminResultadosPage() {
           user_id: event.user_id,
           actor_user_id: actorUserId,
           type: "correct_prediction",
-          title: "Has puntuado en un resultado",
-          body: `${matchLabel(match)}: +${event.points} pts`,
+          title: `+${event.points} pts en P${match.match_number}`,
+          body: `${matchLabel(match)}: ${event.descriptions.join(", ")}`,
           link: `/resultados`,
         }))
       ),
@@ -217,6 +217,64 @@ export default function AdminResultadosPage() {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  const handleDeleteResult = async (match: Match) => {
+    const updates = {
+      home_score: null,
+      away_score: null,
+      penalty_winner_team_id: null,
+      is_finished: false,
+    };
+
+    const { error } = await supabase.from("matches").update(updates).eq("id", match.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    const updatedMatch = { ...match, ...updates };
+    setMatches((prev) => prev.map((m) => (m.id === match.id ? updatedMatch : m)));
+    setEditing((prev) => ({
+      ...prev,
+      [match.id]: { home: "", away: "", penalty: "" },
+    }));
+    toast({ title: `P${match.match_number} resultado eliminado` });
+
+    try {
+      await publishGlobalNotification({
+        type: "result_update",
+        title: "Resultado eliminado",
+        body: `Resultado eliminado: P${match.match_number}`,
+        link: "/resultados",
+      });
+
+      const recalc = await recalculateAllScores(supabase);
+      if (recalc.success) {
+        await publishGlobalNotification({
+          type: "ranking_update",
+          title: "Clasificacion actualizada",
+          body: "La clasificacion se ha actualizado tras eliminar un resultado.",
+          link: "/ranking",
+        });
+      } else {
+        toast({
+          title: "Resultado eliminado, pero no se recalculo la clasificacion",
+          description: recalc.error,
+          variant: "destructive",
+        });
+      }
+    } catch (notificationError) {
+      toast({
+        title: "Resultado eliminado, pero fallo la notificacion",
+        description:
+          notificationError instanceof Error
+            ? notificationError.message
+            : "No se pudieron crear las notificaciones internas.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -344,6 +402,18 @@ export default function AdminResultadosPage() {
                             <Save className="h-4 w-4" aria-hidden="true" />
                           )}
                         </Button>
+                        {match.is_finished && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 shrink-0 text-red hover:text-red"
+                            onClick={() => handleDeleteResult(match)}
+                            title="Eliminar resultado"
+                            aria-label="Eliminar resultado"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   );

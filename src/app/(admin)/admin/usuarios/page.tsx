@@ -10,6 +10,7 @@ import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
 import { getPorraCompletion, type PorraCompletion } from "@/lib/predictions/completion";
 import { formatLastPredictionUpdate } from "@/lib/predictions/last-update";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
+import { assertNotificationInsertSucceeded } from "@/lib/notifications/internal";
 
 interface Profile {
   id: string;
@@ -77,6 +78,7 @@ export default function AdminUsuariosPage() {
   }
 
   async function toggleField(userId: string, field: "has_paid" | "is_chat_banned", value: boolean) {
+    const targetProfile = profiles.find((profile) => profile.id === userId);
     const patch =
       field === "has_paid"
         ? {
@@ -118,6 +120,36 @@ export default function AdminUsuariosPage() {
             : p
         )
       );
+      if (field === "has_paid") {
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (!user) throw new Error("No se pudo identificar al administrador.");
+          assertNotificationInsertSucceeded(
+            await supabase.from("notifications").insert({
+              user_id: userId,
+              actor_user_id: user.id,
+              type: "payment_update",
+              title: value ? "Pago confirmado" : "Pago pendiente",
+              body: value
+                ? "Tu pago de la porra ha sido marcado como recibido."
+                : "Tu pago de la porra ha vuelto a marcarse como pendiente.",
+              link: "/mi-cuenta",
+            }),
+            `No se pudo notificar el cambio de pago de ${targetProfile?.display_name ?? "usuario"}`
+          );
+        } catch (notificationError) {
+          toast({
+            title: "Usuario actualizado, pero fallo la notificacion",
+            description:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "No se pudo crear la notificacion de pago.",
+            variant: "destructive",
+          });
+        }
+      }
       toast({ title: "Actualizado" });
     }
   }

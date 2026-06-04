@@ -11,6 +11,7 @@ import { Send, SmilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isOutsideReactionPopup } from "@/lib/chat/reaction-popup";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
+import { assertNotificationInsertSucceeded } from "@/lib/notifications/internal";
 
 interface ChatMessage {
   id: string;
@@ -259,20 +260,40 @@ export default function ChatPage() {
 
     const mentioned = mentionedProfilesFor(text);
     if (inserted?.id && mentioned.length > 0) {
-      await supabase.from("chat_message_mentions").insert(
-        mentioned.map((profile) => ({
-          message_id: inserted.id,
-          mentioned_user_id: profile.id,
-        }))
-      );
-      await supabase.from("notifications").insert(
-        mentioned.map((profile) => ({
-          user_id: profile.id,
-          actor_user_id: userId,
-          type: "mention",
-          message_id: inserted.id,
-        }))
-      );
+      try {
+        assertNotificationInsertSucceeded(
+          await supabase.from("chat_message_mentions").insert(
+            mentioned.map((profile) => ({
+              message_id: inserted.id,
+              mentioned_user_id: profile.id,
+            }))
+          ),
+          "No se pudieron guardar las menciones"
+        );
+        assertNotificationInsertSucceeded(
+          await supabase.from("notifications").insert(
+            mentioned.map((profile) => ({
+              user_id: profile.id,
+              actor_user_id: userId,
+              type: "mention",
+              message_id: inserted.id,
+              title: "Te han mencionado en el chat",
+              body: text,
+              link: "/chat",
+            }))
+          ),
+          "No se pudieron crear las notificaciones de menciones"
+        );
+      } catch (mentionError) {
+        toast({
+          title: "Mensaje enviado, pero fallaron las menciones",
+          description:
+            mentionError instanceof Error
+              ? mentionError.message
+              : "No se pudieron crear las notificaciones.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

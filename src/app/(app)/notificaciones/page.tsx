@@ -23,6 +23,7 @@ const TYPE_FALLBACKS: Record<string, { title: string; link: string; icon: typeof
   result_update: { title: "Nuevo resultado", link: "/resultados", icon: Activity },
   ranking_update: { title: "Clasificacion actualizada", link: "/ranking", icon: Trophy },
   correct_prediction: { title: "Has puntuado", link: "/resultados", icon: CheckCircle2 },
+  payment_update: { title: "Estado de pago actualizado", link: "/mi-cuenta", icon: CheckCircle2 },
 };
 
 function formatDate(value: string) {
