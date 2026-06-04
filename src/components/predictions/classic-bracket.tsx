@@ -530,7 +530,7 @@ export function ClassicBracket({
   const SF_OFFSET = 214;
 
   return (
-    <div className="overflow-x-auto pb-4">
+    <div className="overflow-x-auto pb-4" data-swipe-ignore="true">
       <div className="inline-flex gap-0 min-w-max px-4 pt-2 items-start">
 
         {/* ── LEFT HALF ────────────────────────────────────────────────────── */}
