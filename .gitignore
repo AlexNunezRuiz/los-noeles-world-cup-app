@@ -37,6 +37,9 @@ supabase/.temp/
 # superpowers brainstorm companion
 .superpowers/
 
+# local agent metadata
+.serena/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -50,3 +53,4 @@ public/workbox-*.js.map
 # stray build/debug artifacts
 tsc-output.txt
 *.stackdump
+dev-server*.log

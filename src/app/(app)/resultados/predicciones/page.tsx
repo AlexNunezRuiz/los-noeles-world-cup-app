@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -134,7 +134,7 @@ export default function PredictionComparePage() {
     return map;
   }, [predictions, selectedMatchId]);
 
-  function getMatchNames(match: MatchRow) {
+  const getMatchNames = useCallback((match: MatchRow) => {
     const home = match.home_team_id ? teams.get(match.home_team_id) : null;
     const away = match.away_team_id ? teams.get(match.away_team_id) : null;
 
@@ -144,7 +144,7 @@ export default function PredictionComparePage() {
       homeName: home?.name ?? match.home_placeholder ?? "Por decidir",
       awayName: away?.name ?? match.away_placeholder ?? "Por decidir",
     };
-  }
+  }, [teams]);
 
   const matchOptions = useMemo(
     () =>
@@ -161,7 +161,7 @@ export default function PredictionComparePage() {
           }),
         };
       }),
-    [matches, teams]
+    [getMatchNames, matches]
   );
 
   const filteredMatchOptions = useMemo(() => {
