@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { CopyableValue } from "@/components/ui/copyable-value";
 import {
@@ -11,6 +12,7 @@ import {
   AlertCircle,
   Download,
 } from "lucide-react";
+import { getSpecialHomeMessages, type HomeMessage } from "@/lib/home-messages/messages";
 
 // ── Row shapes ─────────────────────────────────────────────────────────────
 interface TournamentConfigRow {
@@ -33,6 +35,84 @@ interface GroupStandingRow {
 
 interface AwardPredictionRow {
   id: string;
+}
+
+function noticeToneClass(tone: string) {
+  const classes: Record<string, { wrapper: string; icon: string; title: string }> = {
+    info: {
+      wrapper: "border-border bg-surface",
+      icon: "text-ink-muted",
+      title: "text-ink",
+    },
+    payment: {
+      wrapper: "border-gold/30 bg-gold/5",
+      icon: "text-gold",
+      title: "text-gold",
+    },
+    warning: {
+      wrapper: "border-red/30 bg-red/8",
+      icon: "text-red",
+      title: "text-red",
+    },
+    success: {
+      wrapper: "border-green/30 bg-green/8",
+      icon: "text-green",
+      title: "text-green",
+    },
+  };
+  return classes[tone] ?? classes.info;
+}
+
+function HomeMessageNotice({
+  message,
+  icon,
+  children,
+}: {
+  message: HomeMessage;
+  icon?: ReactNode;
+  children?: ReactNode;
+}) {
+  const tone = noticeToneClass(message.tone);
+
+  return (
+    <div className={`rounded-[13px] border px-4 py-3 flex items-start gap-3 ${tone.wrapper}`}>
+      <span className={`flex-shrink-0 mt-0.5 ${tone.icon}`}>
+        {icon ?? <AlertCircle className="w-4 h-4" />}
+      </span>
+      <div className="text-sm leading-snug">
+        <p className={`font-semibold ${tone.title}`}>{message.title}</p>
+        <p className="mt-1 whitespace-pre-line text-xs text-ink-muted">{message.body}</p>
+        {children}
+        {message.link_href && message.link_label && (
+          <Link href={message.link_href} className="mt-2 inline-flex text-xs font-semibold text-blue">
+            {message.link_label}
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TransferDetails({
+  bankIban,
+  bankHolder,
+  transferConcept,
+}: {
+  bankIban: string;
+  bankHolder?: string;
+  transferConcept: string;
+}) {
+  return (
+    <div className="mt-2 space-y-1 text-xs">
+      <p>
+        <CopyableValue label="IBAN" value={bankIban} />
+      </p>
+      {bankHolder && <p>Titular: {bankHolder}</p>}
+      <p>
+        Concepto: <span className="font-bold">{transferConcept}</span>
+      </p>
+    </div>
+  );
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -80,6 +160,7 @@ export default async function PorraPage() {
     { data: userPredictions },
     { data: standingRows },
     { data: awardRows },
+    { data: homeMessageRows },
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user!.id).single(),
     supabase.from("tournament_config").select("*"),
@@ -93,6 +174,12 @@ export default async function PorraPage() {
       .select("group_letter")
       .eq("user_id", user!.id),
     supabase.from("award_predictions").select("id").eq("user_id", user!.id),
+    supabase
+      .from("home_messages")
+      .select("*")
+      .eq("is_published", true)
+      .eq("is_pinned", true)
+      .order("updated_at", { ascending: false }),
   ]);
 
   // Tournament config
@@ -104,6 +191,7 @@ export default async function PorraPage() {
   const bankHolder = config.find((c) => c.key === "bank_account_holder")?.value;
   const bankConceptPrefix = config.find((c) => c.key === "bank_concept_prefix")?.value ?? "PORRA";
   const transferConcept = `${bankConceptPrefix} ${profile?.display_name ?? ""}`.trim();
+  const homeMessages = getSpecialHomeMessages((homeMessageRows ?? []) as HomeMessage[]);
 
   // All matches (to split by stage)
   const matches = (allMatches ?? []) as MatchRow[];
@@ -213,7 +301,23 @@ export default async function PorraPage() {
         </div>
       )}
 
-      {!hasPaid && (
+      {homeMessages.general.map((message) => (
+        <HomeMessageNotice key={message.id} message={message} />
+      ))}
+
+      {!hasPaid && homeMessages.payment && (
+        <HomeMessageNotice message={homeMessages.payment}>
+          {bankIban && (
+            <TransferDetails
+              bankIban={bankIban}
+              bankHolder={bankHolder}
+              transferConcept={transferConcept}
+            />
+          )}
+        </HomeMessageNotice>
+      )}
+
+      {!hasPaid && !homeMessages.payment && (
         <div className="border border-gold/30 bg-gold/5 rounded-[13px] px-4 py-3 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
           <div className="text-sm text-gold font-medium leading-snug">
@@ -376,16 +480,20 @@ export default async function PorraPage() {
         <Link href={firstIncomplete}>Seguir rellenando</Link>
       </Button>
 
-      <div className="rounded-[13px] border border-border bg-surface px-4 py-3 flex items-start gap-3">
-        <Download className="w-4 h-4 text-ink-muted flex-shrink-0 mt-0.5" />
-        <div className="text-sm leading-snug">
-          <p className="font-semibold text-ink">Instala la porra como app</p>
-          <p className="mt-1 text-xs text-ink-muted">
-            En el movil, abre el menu del navegador y toca &quot;Anadir a pantalla de inicio&quot;.
-            Asi tendras un acceso directo y podras abrirla como una app normal.
-          </p>
+      {homeMessages.install ? (
+        <HomeMessageNotice message={homeMessages.install} icon={<Download className="w-4 h-4" />} />
+      ) : (
+        <div className="rounded-[13px] border border-border bg-surface px-4 py-3 flex items-start gap-3">
+          <Download className="w-4 h-4 text-ink-muted flex-shrink-0 mt-0.5" />
+          <div className="text-sm leading-snug">
+            <p className="font-semibold text-ink">Instala la porra como app</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              En el movil, abre el menu del navegador y toca &quot;Anadir a pantalla de inicio&quot;.
+              Asi tendras un acceso directo y podras abrirla como una app normal.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
