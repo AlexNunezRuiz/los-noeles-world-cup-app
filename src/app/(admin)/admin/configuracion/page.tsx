@@ -27,6 +27,12 @@ import {
   serializePrizeDistribution,
 } from "@/lib/prizes/config";
 import { buildNotificationRows } from "@/lib/notifications/internal";
+import {
+  SCORING_CATEGORY_LABELS,
+  SCORING_CATEGORY_ORDER,
+  getScoringRuleLabel,
+  type ScoringCategory,
+} from "@/lib/scoring/rules";
 
 interface ScoringRule {
   id: number;
@@ -66,8 +72,14 @@ export default function AdminConfigPage() {
       setSavedConfig(configMap);
       setPrizeDistribution(prizes);
       setSavedPrizeDistribution(prizes.map((item) => ({ ...item })));
-      setScoringRules(rulesRes.data || []);
-      setSavedScoringRules(rulesRes.data || []);
+      const sortedRules = [...(rulesRes.data || [])].sort((a, b) => {
+        const catA = SCORING_CATEGORY_ORDER.indexOf(a.category as ScoringCategory);
+        const catB = SCORING_CATEGORY_ORDER.indexOf(b.category as ScoringCategory);
+        if (catA !== catB) return catA - catB;
+        return a.id - b.id;
+      });
+      setScoringRules(sortedRules);
+      setSavedScoringRules(sortedRules);
     }
     load();
   }, []);
@@ -127,7 +139,7 @@ export default function AdminConfigPage() {
     const savedById = new Map(savedScoringRules.map((rule) => [rule.id, rule.points]));
     return scoringRules
       .filter((rule) => savedById.get(rule.id) !== rule.points)
-      .map((rule) => rule.description || rule.rule_key);
+      .map((rule) => getScoringRuleLabel(rule.rule_key, rule.description || rule.rule_key));
   };
 
   const saveConfigEntry = async (key: string, value: string) => {
@@ -406,9 +418,13 @@ export default function AdminConfigPage() {
           {scoringRules.map((rule) => (
             <div key={rule.id} className="flex items-center justify-between gap-2 py-1 border-b border-border/40 last:border-0">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{rule.description}</p>
+                <p className="text-sm font-medium text-ink truncate">
+                  {getScoringRuleLabel(rule.rule_key, rule.description)}
+                </p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <Badge variant="outline" className="text-[10px]">{rule.category}</Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    {SCORING_CATEGORY_LABELS[rule.category as ScoringCategory] ?? rule.category}
+                  </Badge>
                   <p className="text-xs text-ink-faint">{rule.rule_key}</p>
                 </div>
               </div>

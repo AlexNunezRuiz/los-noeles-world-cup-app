@@ -14,7 +14,7 @@ export function stageLabel(
     case "quarter_final":
       return "Cuartos";
     case "semi_final":
-      return "Semifinal";
+      return "Semifinales";
     case "third_place":
       return "3.er puesto";
     case "final":

@@ -104,10 +104,10 @@ const AWARD_LABELS: Record<string, string> = {
 };
 
 const STAGE_LABELS: Record<string, string> = {
-  round_of_32: "Ronda de 32",
+  round_of_32: "Dieciseisavos",
   round_of_16: "Octavos de final",
   quarter_final: "Cuartos de final",
-  semi_final: "Semifinal",
+  semi_final: "Semifinales",
   third_place: "Tercer puesto",
   final: "Final",
 };
@@ -363,6 +363,7 @@ export default function JugadorPage() {
     round_of_16: "qualify_r16",
     quarter_final: "qualify_qf",
     semi_final: "qualify_sf",
+    final: "qualify_finalist",
   };
 
   for (const item of knockoutPredictions) {
@@ -374,8 +375,6 @@ export default function JugadorPage() {
       predictedMilestones.push({ teamId: match.away_team_id, ruleKey: qualificationRuleKey, round: match.stage });
     }
     if (match.stage === "final") {
-      predictedMilestones.push({ teamId: match.home_team_id, ruleKey: "qualify_sf", round: "final" });
-      predictedMilestones.push({ teamId: match.away_team_id, ruleKey: "qualify_sf", round: "final" });
       const championTeamId =
         pred.home_score === pred.away_score
           ? pred.penalty_winner === "away"
@@ -388,6 +387,21 @@ export default function JugadorPage() {
         teamId: championTeamId,
         ruleKey: "qualify_champion",
         round: "champion",
+      });
+    }
+    if (match.stage === "third_place") {
+      const thirdPlaceTeamId =
+        pred.home_score === pred.away_score
+          ? pred.penalty_winner === "away"
+            ? match.away_team_id
+            : match.home_team_id
+          : pred.home_score > pred.away_score
+            ? match.home_team_id
+            : match.away_team_id;
+      predictedMilestones.push({
+        teamId: thirdPlaceTeamId,
+        ruleKey: "qualify_third",
+        round: "third_place_winner",
       });
     }
   }
@@ -403,13 +417,15 @@ export default function JugadorPage() {
           ? "exact_r32"
           : match.stage === "round_of_16"
             ? "exact_r16"
-            : match.stage === "quarter_final" || match.stage === "semi_final"
+            : match.stage === "quarter_final"
               ? "exact_qf"
-              : match.stage === "third_place"
-                ? "exact_third"
-                : match.stage === "final"
-                  ? "exact_final"
-                  : "";
+              : match.stage === "semi_final"
+                ? "exact_sf"
+                : match.stage === "third_place"
+                  ? "exact_third"
+                  : match.stage === "final"
+                    ? "exact_final"
+                    : "";
       if (ruleKey) {
         predictedMilestones.push({
           teamId: -match.id * 10 - pred.home_score - pred.away_score - 3,

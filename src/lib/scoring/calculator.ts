@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { scoreGroupStageMatch, scoreGroupPositions } from "./group-stage";
 import { scoreKnockoutExact } from "./knockout";
 import { scoreAwards } from "./awards";
-import { scoreQualification } from "./qualification";
+import { scoreQualification, type PredictedKnockoutMatch } from "./qualification";
+import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "../tournament/bracket";
+import { getBestThirds, type TeamStanding } from "../tournament/standings";
 
 export interface ScoreEvent {
   user_id: string;
@@ -27,10 +29,20 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
     await supabase.from("score_events").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     await supabase.from("user_scores").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
+    const { data: knockoutMatchesForPredictions } = await supabase
+      .from("matches")
+      .select("*")
+      .neq("stage", "group")
+      .order("match_number");
+    const predictedMatchesByUser = await buildPredictedKnockoutMatchesByUser(
+      supabase,
+      knockoutMatchesForPredictions || []
+    );
+
     const categoryScorers: Record<ScoreCategory, () => Promise<ScoreEvent[]>> = {
       group_stage: () => scoreGroupStage(supabase, rules),
-      qualification: () => scoreQualification(supabase, rules),
-      knockout_exact: () => scoreKnockoutExactScores(supabase, rules),
+      qualification: () => scoreQualification(supabase, rules, predictedMatchesByUser),
+      knockout_exact: () => scoreKnockoutExactScores(supabase, rules, predictedMatchesByUser),
       awards: () => scoreAwards(supabase, rules),
     };
 
@@ -156,9 +168,116 @@ async function scoreGroupStage(supabase: SupabaseClient, rules: Map<string, numb
   return events;
 }
 
-async function scoreKnockoutExactScores(supabase: SupabaseClient, rules: Map<string, number>): Promise<ScoreEvent[]> {
+async function scoreKnockoutExactScores(
+  supabase: SupabaseClient,
+  rules: Map<string, number>,
+  predictedMatchesByUser: Map<string, Map<number, PredictedKnockoutMatch>>
+): Promise<ScoreEvent[]> {
   const events: ScoreEvent[] = [];
   const { data: knockoutMatches } = await supabase.from("matches").select("*").neq("stage", "group").eq("is_finished", true);
-  for (const match of knockoutMatches || []) events.push(...await scoreKnockoutExact(supabase, match, rules));
+  for (const match of knockoutMatches || []) {
+    if (!match.home_team_id || !match.away_team_id || match.home_score === null || match.away_score === null) continue;
+    events.push(...await scoreKnockoutExact(supabase, match, rules, predictedMatchesByUser));
+  }
   return events;
+}
+
+async function buildPredictedKnockoutMatchesByUser(
+  supabase: SupabaseClient,
+  knockoutMatches: Array<{
+    id: number;
+    match_number: number;
+    stage: string;
+    home_placeholder?: string | null;
+    away_placeholder?: string | null;
+  }>
+): Promise<Map<string, Map<number, PredictedKnockoutMatch>>> {
+  const [standingsRes, bestThirdOrderRes, predictionsRes, bracketPositionsRes] = await Promise.all([
+    supabase.from("predicted_group_standings").select("*"),
+    supabase.from("predicted_best_third_order").select("user_id, team_id, rank"),
+    supabase.from("match_predictions").select("*"),
+    supabase.from("knockout_bracket_positions").select("*"),
+  ]);
+
+  const matchNumberById = new Map<number, number>();
+  for (const match of knockoutMatches) {
+    matchNumberById.set(match.id, match.match_number);
+  }
+
+  const groupStandingsByUser = new Map<string, Map<string, TeamStanding[]>>();
+  for (const row of standingsRes.data || []) {
+    const userGroups = groupStandingsByUser.get(row.user_id) ?? new Map<string, TeamStanding[]>();
+    const group = row.group_letter as string;
+    const standings = userGroups.get(group) ?? [];
+    standings.push({
+      team_id: row.team_id,
+      position: row.position,
+      points: row.points,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goals_for: row.goals_for,
+      goals_against: row.goals_against,
+      goal_difference: row.goal_difference,
+    });
+    standings.sort((a, b) => a.position - b.position);
+    userGroups.set(group, standings);
+    groupStandingsByUser.set(row.user_id, userGroups);
+  }
+
+  const bestThirdOrderByUser = new Map<string, Map<number, number>>();
+  for (const row of bestThirdOrderRes.data || []) {
+    const userOrder = bestThirdOrderByUser.get(row.user_id) ?? new Map<number, number>();
+    userOrder.set(row.team_id, row.rank);
+    bestThirdOrderByUser.set(row.user_id, userOrder);
+  }
+
+  const predictionsByUser = new Map<string, Map<number, KnockoutPrediction>>();
+  for (const row of predictionsRes.data || []) {
+    const matchNumber = matchNumberById.get(row.match_id);
+    if (!matchNumber) continue;
+    const userPredictions = predictionsByUser.get(row.user_id) ?? new Map<number, KnockoutPrediction>();
+    userPredictions.set(matchNumber, {
+      match_id: row.match_id,
+      match_number: matchNumber,
+      home_score: row.home_score,
+      away_score: row.away_score,
+      penalty_winner: row.penalty_winner ?? undefined,
+    });
+    predictionsByUser.set(row.user_id, userPredictions);
+  }
+
+  const baseMatches: BracketMatch[] = knockoutMatches.map((match) => ({
+    match_number: match.match_number,
+    stage: match.stage,
+    home_placeholder: match.home_placeholder ?? undefined,
+    away_placeholder: match.away_placeholder ?? undefined,
+  }));
+
+  const result = new Map<string, Map<number, PredictedKnockoutMatch>>();
+  for (const [userId, userGroupStandings] of Array.from(groupStandingsByUser.entries())) {
+    const populated = populateKnockoutBracket(
+      userGroupStandings,
+      getBestThirds(userGroupStandings, bestThirdOrderByUser.get(userId)),
+      baseMatches,
+      predictionsByUser.get(userId) ?? new Map<number, KnockoutPrediction>(),
+      bracketPositionsRes.data || []
+    );
+    result.set(
+      userId,
+      new Map(populated.map((match) => [
+        match.match_number,
+        {
+          home_team_id: match.home_team_id,
+          away_team_id: match.away_team_id,
+          home_score: match.home_score,
+          away_score: match.away_score,
+          penalty_winner: match.penalty_winner,
+        },
+      ]))
+    );
+  }
+
+  return result;
 }

@@ -6,38 +6,12 @@ import {
   parsePaymentAmount,
   parsePrizeDistribution,
 } from "@/lib/prizes/config";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  group_stage: "Fase de grupos",
-  knockout_exact: "Eliminatorias - resultado exacto",
-  qualification: "Clasificacion por ronda",
-  awards: "Premios individuales",
-};
-
-const CATEGORY_ORDER = ["group_stage", "qualification", "knockout_exact", "awards"];
-
-const RULE_LABELS: Record<string, string> = {
-  correct_sign: "Signo correcto (1X2)",
-  exact_score: "Resultado exacto (bonus adicional)",
-  group_pos_1st: "1o de grupo acertado",
-  group_pos_2nd: "2o de grupo acertado",
-  group_pos_3rd: "3o de grupo acertado",
-  group_pos_4th: "4o de grupo acertado",
-  exact_r32: "Resultado exacto en dieciseisavos",
-  exact_r16: "Resultado exacto en octavos",
-  exact_qf: "Resultado exacto en cuartos / semifinal",
-  exact_third: "Resultado exacto en 3er puesto",
-  exact_final: "Resultado exacto en la final",
-  qualify_r32: "Equipo clasificado a dieciseisavos",
-  qualify_r16: "Equipo clasificado a octavos",
-  qualify_qf: "Equipo clasificado a cuartos",
-  qualify_sf: "Equipo clasificado a semis",
-  qualify_champion: "Campeon del torneo acertado",
-  qualify_third: "3er puesto acertado",
-  golden_boot: "Bota de Oro acertada",
-  golden_ball: "Balon de Oro acertado",
-  golden_glove: "Guante de Oro acertado",
-};
+import {
+  SCORING_CATEGORY_LABELS,
+  SCORING_CATEGORY_ORDER,
+  getScoringRuleLabel,
+  type ScoringCategory,
+} from "@/lib/scoring/rules";
 
 interface ScoringRule {
   rule_key: string;
@@ -87,8 +61,8 @@ export default async function NormasPage() {
   }
 
   const orderedCategories = [
-    ...CATEGORY_ORDER.filter((c) => byCategory.has(c)),
-    ...[...byCategory.keys()].filter((c) => !CATEGORY_ORDER.includes(c)),
+    ...SCORING_CATEGORY_ORDER.filter((c) => byCategory.has(c)),
+    ...[...byCategory.keys()].filter((c) => !SCORING_CATEGORY_ORDER.includes(c as ScoringCategory)),
   ];
 
   const sections = [
@@ -157,7 +131,7 @@ export default async function NormasPage() {
             <div key={cat} className="overflow-hidden rounded-xl border border-border bg-surface">
               <div className="border-b border-border bg-surface-sunken px-4 py-2.5">
                 <p className="font-marcador text-xs uppercase tracking-wider text-ink-muted">
-                  {CATEGORY_LABELS[cat] ?? cat}
+                  {SCORING_CATEGORY_LABELS[cat as ScoringCategory] ?? cat}
                 </p>
               </div>
               {catRules.map((rule, i) => (
@@ -166,7 +140,7 @@ export default async function NormasPage() {
                   className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t border-border" : ""}`}
                 >
                   <span className="mr-4 flex-1 text-sm text-ink">
-                    {RULE_LABELS[rule.rule_key] ?? rule.description}
+                    {getScoringRuleLabel(rule.rule_key, rule.description)}
                   </span>
                   <span className="flex-shrink-0 font-marcador text-lg text-gold">
                     +{rule.points} pts
