@@ -13,6 +13,7 @@ import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
 import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
+import { getKnockoutEditingViewState } from "@/lib/predictions/knockout-editing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ export default function EliminatoriasPage() {
   const [matchIdMap, setMatchIdMap] = useState<Map<number, number>>(new Map());
   const [activeRound, setActiveRound] = useState<RoundKey>("round_of_32");
   const [editing, setEditing] = useState<{ matchNum: number; side: "home" | "away" } | null>(null);
+  const [awaitingWinnerMatch, setAwaitingWinnerMatch] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"rondas" | "cuadro">("rondas");
   const [cuadroSelectedMatch, setCuadroSelectedMatch] = useState<number | null>(null);
   const saveTimeout = useRef<NodeJS.Timeout>();
@@ -377,6 +379,7 @@ export default function EliminatoriasPage() {
       if (pred && pred.home_score !== null && pred.away_score !== null) {
         savePredictionFull(matchNumber, pred.home_score, pred.away_score, winner);
       }
+      setAwaitingWinnerMatch(null);
       setEditing(null);
     },
     [predictions, savePredictionFull]
@@ -408,6 +411,7 @@ export default function EliminatoriasPage() {
       const pred = predictions.get(matchNum);
       const newHome = side === "home" ? n : pred?.home_score ?? null;
       const newAway = side === "away" ? n : pred?.away_score ?? null;
+      const isCompleteDraw = newHome !== null && newAway !== null && newHome === newAway;
 
       setPredictions((prev) => {
         const next = new Map(prev);
@@ -417,10 +421,11 @@ export default function EliminatoriasPage() {
           match_number: matchNum,
           home_score: newHome,
           away_score: newAway,
-          penalty_winner: newHome === newAway ? existing?.penalty_winner : null,
+          penalty_winner: isCompleteDraw ? existing?.penalty_winner : null,
         });
         return next;
       });
+      setAwaitingWinnerMatch(isCompleteDraw ? matchNum : null);
 
       // Persist only once both sides have a value.
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
@@ -432,8 +437,8 @@ export default function EliminatoriasPage() {
       if (side === "home") {
         setEditing({ matchNum, side: "away" });
       } else {
-        if (newHome !== null && newAway !== null && newHome === newAway) {
-          setEditing({ matchNum, side: "away" });
+        if (isCompleteDraw) {
+          setEditing(null);
           return;
         }
         const currentIdx = activeRoundMatches.findIndex((m) => m.match_number === matchNum);
@@ -488,12 +493,6 @@ export default function EliminatoriasPage() {
       : editingMatch.away_team_id
     : null;
   const editingTeam = editingTeamId ? teamsMap.get(editingTeamId) : null;
-  const editingPrediction = editing ? predictions.get(editing.matchNum) : undefined;
-  const editingIsDraw =
-    editingPrediction !== undefined &&
-    editingPrediction.home_score !== null &&
-    editingPrediction.away_score !== null &&
-    editingPrediction.home_score === editingPrediction.away_score;
 
   // ── Classic bracket derived data ─────────────────────────────────────────
 
@@ -599,6 +598,7 @@ export default function EliminatoriasPage() {
             onClick={() => {
               setViewMode("rondas");
               setEditing(null);
+              setAwaitingWinnerMatch(null);
             }}
             className={cn(
               "flex-1 text-center py-2 rounded-md font-marcador uppercase text-xs tracking-wider transition-all",
@@ -612,6 +612,7 @@ export default function EliminatoriasPage() {
             onClick={() => {
               setViewMode("cuadro");
               setEditing(null);
+              setAwaitingWinnerMatch(null);
             }}
             className={cn(
               "flex-1 text-center py-2 rounded-md font-marcador uppercase text-xs tracking-wider transition-all",
@@ -634,6 +635,7 @@ export default function EliminatoriasPage() {
                 onClick={() => {
                   setActiveRound(tab.key);
                   setEditing(null);
+                  setAwaitingWinnerMatch(null);
                 }}
                 className={cn(
                   "shrink-0 rounded-lg px-3 py-1.5 font-marcador text-xs font-bold uppercase transition-colors",
@@ -663,8 +665,10 @@ export default function EliminatoriasPage() {
               const homeScore = pred !== undefined ? pred.home_score : null;
               const awayScore = pred !== undefined ? pred.away_score : null;
 
-              const isSelected = editing?.matchNum === match.match_number;
-              const focusedSide = isSelected ? editing?.side ?? null : null;
+              const editingView = getKnockoutEditingViewState(
+                { editing, awaitingWinnerMatch },
+                match.match_number
+              );
 
               const roundLabel = ROUND_LABELS[match.stage] ?? match.stage;
 
@@ -687,8 +691,8 @@ export default function EliminatoriasPage() {
                   }}
                   homeScore={homeScore}
                   awayScore={awayScore}
-                  selected={isSelected}
-                  focusedSide={focusedSide}
+                  selected={editingView.selected}
+                  focusedSide={editingView.focusedSide}
                   sourceGroups={[...getSourceGroups(homeBp), ...getSourceGroups(awayBp)]}
                   penaltyWinner={pred?.penalty_winner ?? null}
                   onTileTap={(side) => handleTileTap(match.match_number, side)}
@@ -706,7 +710,7 @@ export default function EliminatoriasPage() {
 
           {/* Score pad (docked) */}
           <ScorePad
-            open={editing !== null && !editingIsDraw}
+            open={getKnockoutEditingViewState({ editing, awaitingWinnerMatch }, editing?.matchNum ?? -1).scorePadOpen}
             teamName={editingTeam?.name ?? "Por decidir"}
             flag={<Flag emoji={editingTeam?.flag_emoji ?? ""} size={18} />}
             onDigit={handleDigit}
