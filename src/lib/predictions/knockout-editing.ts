@@ -7,12 +7,13 @@ export interface KnockoutEditingState {
 
 export function getKnockoutEditingViewState(
   state: KnockoutEditingState,
-  matchNumber: number
+  matchNumber: number,
+  isCompleteDraw = false
 ) {
   const isEditingMatch = state.editing?.matchNum === matchNumber;
 
   return {
-    selected: isEditingMatch || state.awaitingWinnerMatch === matchNumber,
+    selected: isEditingMatch || state.awaitingWinnerMatch === matchNumber || isCompleteDraw,
     focusedSide: isEditingMatch ? state.editing?.side ?? null : null,
     scorePadOpen: state.editing !== null,
   };

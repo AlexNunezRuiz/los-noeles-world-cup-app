@@ -664,10 +664,13 @@ export default function EliminatoriasPage() {
               const pred = predictions.get(match.match_number);
               const homeScore = pred !== undefined ? pred.home_score : null;
               const awayScore = pred !== undefined ? pred.away_score : null;
+              const isCompleteDraw =
+                homeScore !== null && awayScore !== null && homeScore === awayScore;
 
               const editingView = getKnockoutEditingViewState(
                 { editing, awaitingWinnerMatch },
-                match.match_number
+                match.match_number,
+                isCompleteDraw
               );
 
               const roundLabel = ROUND_LABELS[match.stage] ?? match.stage;

@@ -31,3 +31,16 @@ test("mantiene seleccionada una eliminatoria empatada pendiente de ganador sin a
   assert.equal(view.focusedSide, null);
   assert.equal(view.scorePadOpen, false);
 });
+
+test("mantiene seleccionada una eliminatoria empatada sin ganador aunque venga de datos guardados", () => {
+  const state: KnockoutEditingState = {
+    editing: null,
+    awaitingWinnerMatch: null,
+  };
+
+  const view = getKnockoutEditingViewState(state, 73, true);
+
+  assert.equal(view.selected, true);
+  assert.equal(view.focusedSide, null);
+  assert.equal(view.scorePadOpen, false);
+});
