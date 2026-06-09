@@ -7,6 +7,13 @@ import { ClipboardList, CalendarDays, Activity, Trophy, MessageCircle, User, Shi
 import { Emblem } from "@/components/ui/emblem";
 import { createClient } from "@/lib/supabase/client";
 
+interface ChatMessageNotification {
+  id: string;
+  user_id: string;
+  created_at: string;
+  is_deleted: boolean;
+}
+
 const navItems = [
   { href: "/porra", label: "Porra", icon: ClipboardList },
   { href: "/calendario", label: "Calendario", icon: CalendarDays },
@@ -19,6 +26,7 @@ const navItems = [
 export function Navbar({ isAdmin, userId }: { isAdmin?: boolean; userId?: string | null }) {
   const pathname = usePathname() ?? "";
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -62,6 +70,84 @@ export function Navbar({ isAdmin, userId }: { isAdmin?: boolean; userId?: string
       if (channel) supabase.removeChannel(channel);
     };
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    const isChatPage = pathname.startsWith("/chat");
+
+    if (!userId) {
+      setHasUnreadChat(false);
+      return;
+    }
+
+    const storageKey = `chat:lastSeen:${userId}`;
+    const markChatSeen = (seenAt = new Date().toISOString()) => {
+      localStorage.setItem(storageKey, seenAt);
+      if (mounted) setHasUnreadChat(false);
+    };
+
+    async function setupChatIndicator() {
+      if (isChatPage) {
+        const { data: latestMessage } = await supabase
+          .from("chat_messages")
+          .select("created_at")
+          .eq("is_deleted", false)
+          .neq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        markChatSeen(latestMessage?.created_at ?? new Date().toISOString());
+      } else {
+        const lastSeenAt = localStorage.getItem(storageKey);
+
+        if (!lastSeenAt) {
+          localStorage.setItem(storageKey, new Date().toISOString());
+          if (mounted) setHasUnreadChat(false);
+        } else {
+          const { count } = await supabase
+            .from("chat_messages")
+            .select("*", { count: "exact", head: true })
+            .eq("is_deleted", false)
+            .neq("user_id", userId)
+            .gt("created_at", lastSeenAt);
+
+          if (mounted) setHasUnreadChat((count ?? 0) > 0);
+        }
+      }
+
+      channel = supabase
+        .channel(`navbar_chat_messages:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "chat_messages",
+          },
+          (payload: { new: ChatMessageNotification }) => {
+            const message = payload.new;
+            if (message.is_deleted || message.user_id === userId) return;
+
+            if (isChatPage) {
+              markChatSeen(message.created_at);
+              return;
+            }
+
+            if (mounted) setHasUnreadChat(true);
+          }
+        )
+        .subscribe();
+    }
+
+    void setupChatIndicator();
+
+    return () => {
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [pathname, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -133,6 +219,9 @@ export function Navbar({ isAdmin, userId }: { isAdmin?: boolean; userId?: string
               >
                 <span className="relative">
                   <item.icon size={20} />
+                  {item.href === "/chat" && hasUnreadChat && !active && (
+                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red ring-2 ring-surface" />
+                  )}
                 </span>
                 <span className="font-marcador text-[10px] font-bold uppercase tracking-wide">
                   {item.label}
