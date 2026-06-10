@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
+import { filterAdminUsers } from "@/lib/admin/user-search";
 import { getPorraCompletion, type PorraCompletion } from "@/lib/predictions/completion";
 import { formatLastPredictionUpdate } from "@/lib/predictions/last-update";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
@@ -40,8 +43,11 @@ export default function AdminUsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const [lastPredictionUpdateByUser, setLastPredictionUpdateByUser] = useState<Map<string, string | null>>(new Map());
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const supabase = createClient();
+
+  const filteredProfiles = useMemo(() => filterAdminUsers(profiles, searchQuery), [profiles, searchQuery]);
 
   useEffect(() => {
     loadProfiles();
@@ -170,6 +176,26 @@ export default function AdminUsuariosPage() {
 
       <Card>
         <CardContent className="p-0">
+          <div className="border-b border-border p-4">
+            <label htmlFor="admin-user-search" className="sr-only">
+              Buscar usuarios
+            </label>
+            <div className="relative max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+              <Input
+                id="admin-user-search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Buscar por nombre, email o estado"
+                className="pl-9"
+              />
+            </div>
+            {searchQuery.trim() && (
+              <p className="mt-2 text-xs text-ink-muted">
+                {filteredProfiles.length} de {profiles.length} usuarios
+              </p>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -193,7 +219,7 @@ export default function AdminUsuariosPage() {
                     </td>
                   </tr>
                 )}
-                {profiles.map((p) => {
+                {filteredProfiles.map((p) => {
                   const completion = completionByUser.get(p.id);
                   const completed = completion
                     ? completion.grupos.completed +
@@ -262,10 +288,10 @@ export default function AdminUsuariosPage() {
                   </tr>
                 );
                 })}
-                {shouldShowEmptyState(loading, profiles.length) && (
+                {shouldShowEmptyState(loading, filteredProfiles.length) && (
                   <tr>
                     <td colSpan={9} className="py-8 px-4 text-center text-sm text-ink-muted">
-                      No hay usuarios registrados.
+                      {searchQuery.trim() ? "No hay usuarios que coincidan con la busqueda." : "No hay usuarios registrados."}
                     </td>
                   </tr>
                 )}

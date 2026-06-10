@@ -38,6 +38,17 @@ const nextUuid = () =>
   });
 const nowIso = () => new Date().toISOString();
 
+function latestIso(rows: Row[]) {
+  const latest = rows
+    .flatMap((row) => [row.created_at, row.updated_at])
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => new Date(value).getTime())
+    .filter((value) => !Number.isNaN(value))
+    .sort((a, b) => b - a)[0];
+
+  return latest ? new Date(latest).toISOString() : null;
+}
+
 function withDefaults(table: string, raw: Row): Row {
   const id = raw.id ?? (UUID_TABLES.has(table) ? nextUuid() : nextSerial());
   const defaults: Row = { created_at: nowIso(), updated_at: nowIso() };
@@ -304,6 +315,12 @@ export function createMockClient(): any {
         const userMatchPredictions = (db.match_predictions ?? []).filter(
           (prediction) => prediction.user_id === profile.id
         );
+        const predictionActivityRows = [
+          ...userMatchPredictions,
+          ...(db.predicted_group_standings ?? []).filter((standing) => standing.user_id === profile.id),
+          ...(db.predicted_best_third_order ?? []).filter((standing) => standing.user_id === profile.id),
+          ...(db.award_predictions ?? []).filter((award) => award.user_id === profile.id),
+        ];
 
         return {
           user_id: profile.id,
@@ -319,6 +336,7 @@ export function createMockClient(): any {
           award_prediction_count: (db.award_predictions ?? []).filter(
             (award) => award.user_id === profile.id
           ).length,
+          last_prediction_updated_at: latestIso(predictionActivityRows),
         };
       });
 
