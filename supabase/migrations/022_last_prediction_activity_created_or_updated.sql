@@ -1,5 +1,7 @@
 -- 022 - Make admin user activity reflect both first saves and later edits.
 
+DROP FUNCTION IF EXISTS public.get_porra_completion_status();
+
 CREATE OR REPLACE FUNCTION public.get_porra_completion_status()
 RETURNS TABLE (
   user_id UUID,
