@@ -79,13 +79,17 @@ export async function updateSession(request: NextRequest) {
   }
 
   let isAdmin = false;
+  let adminChecked = false;
   if (userId && isAdminRoute) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("is_admin")
       .eq("id", userId)
       .single();
-    isAdmin = profile?.is_admin ?? false;
+    if (!profileError && profile) {
+      adminChecked = true;
+      isAdmin = profile.is_admin ?? false;
+    }
   }
 
   if (userId) {
@@ -99,7 +103,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isAdminRoute && userId && !isAdmin) {
+  if (isAdminRoute && userId && adminChecked && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
