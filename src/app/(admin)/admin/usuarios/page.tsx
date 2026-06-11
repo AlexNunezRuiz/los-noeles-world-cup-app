@@ -1,15 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { isMissingProfilesColumnError } from "@/lib/admin/profile-payments";
 import { filterAdminUsers } from "@/lib/admin/user-search";
+import {
+  sortAdminUsers,
+  type AdminUserSort,
+  type AdminUserSortDirection,
+  type AdminUserSortKey,
+} from "@/lib/admin/user-sort";
 import { getPorraCompletion, type PorraCompletion } from "@/lib/predictions/completion";
 import { formatLastPredictionUpdate } from "@/lib/predictions/last-update";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
@@ -44,10 +51,43 @@ export default function AdminUsuariosPage() {
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const [lastPredictionUpdateByUser, setLastPredictionUpdateByUser] = useState<Map<string, string | null>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<AdminUserSort>({ key: "created_at", direction: "desc" });
   const { toast } = useToast();
   const supabase = createClient();
 
   const filteredProfiles = useMemo(() => filterAdminUsers(profiles, searchQuery), [profiles, searchQuery]);
+  const displayedProfiles = useMemo(
+    () =>
+      sortAdminUsers(
+        filteredProfiles.map((profile) => {
+          const completion = completionByUser.get(profile.id);
+          const completed = completion
+            ? completion.grupos.completed +
+              completion.clasificados.completed +
+              completion.cuadro.completed +
+              completion.premios.completed
+            : 0;
+          const total = completion
+            ? completion.grupos.total + completion.clasificados.total + completion.cuadro.total + completion.premios.total
+            : 119;
+
+          return {
+            ...profile,
+            porra_pct: Math.round((completed / total) * 100),
+            last_prediction_updated_at: lastPredictionUpdateByUser.get(profile.id) ?? null,
+          };
+        }),
+        sort
+      ),
+    [completionByUser, filteredProfiles, lastPredictionUpdateByUser, sort]
+  );
+
+  function toggleSort(key: AdminUserSortKey) {
+    setSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
 
   useEffect(() => {
     loadProfiles();
@@ -200,15 +240,15 @@ export default function AdminUsuariosPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-ink-muted bg-surface-sunken">
-                  <th className="text-left py-3 px-4 font-sans font-medium">Nombre</th>
-                  <th className="text-left py-3 px-2 font-sans font-medium">Email</th>
-                  <th className="text-left py-3 px-2 font-sans font-medium">Porra</th>
-                  <th className="text-left py-3 px-2 font-sans font-medium">Ultima act.</th>
-                  <th className="text-center py-3 px-2 font-sans font-medium">Pagado</th>
-                  <th className="text-left py-3 px-2 font-sans font-medium">Pago</th>
-                  <th className="text-center py-3 px-2 font-sans font-medium">Ban Chat</th>
-                  <th className="text-center py-3 px-2 font-sans font-medium">Admin</th>
-                  <th className="text-left py-3 px-2 font-sans font-medium">Registro</th>
+                  <SortHeader label="Nombre" sortKey="display_name" sort={sort} onSort={toggleSort} className="px-4" />
+                  <SortHeader label="Email" sortKey="email" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Porra" sortKey="porra_pct" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Ultima act." sortKey="last_prediction_updated_at" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Pagado" sortKey="has_paid" sort={sort} onSort={toggleSort} align="center" />
+                  <SortHeader label="Pago" sortKey="paid_at" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Ban Chat" sortKey="is_chat_banned" sort={sort} onSort={toggleSort} align="center" />
+                  <SortHeader label="Admin" sortKey="is_admin" sort={sort} onSort={toggleSort} align="center" />
+                  <SortHeader label="Registro" sortKey="created_at" sort={sort} onSort={toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -219,21 +259,8 @@ export default function AdminUsuariosPage() {
                     </td>
                   </tr>
                 )}
-                {filteredProfiles.map((p) => {
+                {displayedProfiles.map((p) => {
                   const completion = completionByUser.get(p.id);
-                  const completed = completion
-                    ? completion.grupos.completed +
-                      completion.clasificados.completed +
-                      completion.cuadro.completed +
-                      completion.premios.completed
-                    : 0;
-                  const total = completion
-                    ? completion.grupos.total +
-                      completion.clasificados.total +
-                      completion.cuadro.total +
-                      completion.premios.total
-                    : 119;
-                  const porraPct = Math.round((completed / total) * 100);
 
                   return (
                   <tr key={p.id} className="border-b border-border/50 hover:bg-surface-sunken/50 transition-colors">
@@ -242,10 +269,10 @@ export default function AdminUsuariosPage() {
                     <td className="py-3 px-2 min-w-[150px]">
                       <div className="flex items-center gap-2">
                         <span className="w-9 text-right font-marcador text-sm font-bold text-ink">
-                          {porraPct}%
+                          {p.porra_pct}%
                         </span>
                         <div className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-surface-sunken">
-                          <div className="h-full rounded-full bg-red" style={{ width: `${porraPct}%` }} />
+                          <div className="h-full rounded-full bg-red" style={{ width: `${p.porra_pct}%` }} />
                         </div>
                       </div>
                       {completion && (
@@ -256,7 +283,7 @@ export default function AdminUsuariosPage() {
                       )}
                     </td>
                     <td className="py-3 px-2 text-ink-faint text-xs font-marcador whitespace-nowrap">
-                      {formatLastPredictionUpdate(lastPredictionUpdateByUser.get(p.id))}
+                      {formatLastPredictionUpdate(p.last_prediction_updated_at)}
                     </td>
                     <td className="py-3 px-2 text-center">
                       <Switch
@@ -288,7 +315,7 @@ export default function AdminUsuariosPage() {
                   </tr>
                 );
                 })}
-                {shouldShowEmptyState(loading, filteredProfiles.length) && (
+                {shouldShowEmptyState(loading, displayedProfiles.length) && (
                   <tr>
                     <td colSpan={9} className="py-8 px-4 text-center text-sm text-ink-muted">
                       {searchQuery.trim() ? "No hay usuarios que coincidan con la busqueda." : "No hay usuarios registrados."}
@@ -301,5 +328,42 @@ export default function AdminUsuariosPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  align = "left",
+  className,
+}: {
+  label: string;
+  sortKey: AdminUserSortKey;
+  sort: AdminUserSort;
+  onSort: (key: AdminUserSortKey) => void;
+  align?: "left" | "center";
+  className?: string;
+}) {
+  const active = sort.key === sortKey;
+  const Icon = !active ? ArrowUpDown : sort.direction === "asc" ? ChevronUp : ChevronDown;
+  const ariaSort = active ? ({ asc: "ascending", desc: "descending" } as Record<AdminUserSortDirection, "ascending" | "descending">)[sort.direction] : "none";
+
+  return (
+    <th className={cn("py-3 px-2 font-sans font-medium", align === "center" ? "text-center" : "text-left", className)} aria-sort={ariaSort}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md text-xs transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          align === "center" && "justify-center",
+          active ? "text-ink" : "text-ink-muted"
+        )}
+      >
+        <span>{label}</span>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    </th>
   );
 }
