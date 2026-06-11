@@ -32,3 +32,7 @@ export function isPredictionsLocked(config: ConfigRow[] | Record<string, string>
 
   return now >= lockDate;
 }
+
+export function canEditPredictions(isLocked: boolean) {
+  return !isLocked;
+}

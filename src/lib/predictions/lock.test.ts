@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyPredictionLockConfigChange, configRowsToRecord, isPredictionsLocked } from "./lock";
+import { applyPredictionLockConfigChange, canEditPredictions, configRowsToRecord, isPredictionsLocked } from "./lock";
 
 test("convierte filas de configuracion en mapa y calcula bloqueo manual", () => {
   const config = configRowsToRecord([
@@ -31,3 +31,8 @@ test("aplica cambios realtime del bloqueo sin perder la fecha limite", () => {
   assert.equal(isPredictionsLocked(next, new Date("2026-06-01T12:00:00Z")), true);
 }
 );
+
+test("solo permite editar predicciones cuando no estan bloqueadas", () => {
+  assert.equal(canEditPredictions(false), true);
+  assert.equal(canEditPredictions(true), false);
+});

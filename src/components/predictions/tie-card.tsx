@@ -21,6 +21,7 @@ interface TieCardProps {
   focusedSide?: "home" | "away" | null;
   sourceGroups?: string[];
   penaltyWinner?: "home" | "away" | null;
+  isLocked?: boolean;
   onTileTap: (side: "home" | "away") => void;
   onWinnerSelect?: (side: "home" | "away") => void;
 }
@@ -98,6 +99,7 @@ export function TieCard({
   focusedSide,
   sourceGroups = [],
   penaltyWinner,
+  isLocked = false,
   onTileTap,
   onWinnerSelect,
 }: TieCardProps) {
@@ -146,7 +148,7 @@ export function TieCard({
         />
       </div>
 
-      {selected && isDraw && resolved && onWinnerSelect && (
+      {selected && isDraw && resolved && !isLocked && onWinnerSelect && (
         <div className="mt-3 rounded-lg border border-amber/40 bg-amber/[0.08] p-2.5">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
             Empate en 90 minutos: elige quien pasa

@@ -9,6 +9,7 @@ import { getTeams } from "@/lib/data/static-cache";
 import { cn } from "@/lib/utils";
 import { getDragRowShift } from "@/lib/predictions/drag-row-shift";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
+import { canEditPredictions } from "@/lib/predictions/lock";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface Team {
@@ -168,6 +169,7 @@ export default function ClasificadosPage() {
 
   const moveThird = useCallback(
     (teamId: number, direction: "up" | "down") => {
+      if (!canEditPredictions(isLocked)) return;
       const idx = thirds.findIndex((s) => s.team_id === teamId);
       const swapIdx = direction === "up" ? idx - 1 : idx + 1;
       if (idx < 0 || swapIdx < 0 || swapIdx >= thirds.length) return;
@@ -178,11 +180,12 @@ export default function ClasificadosPage() {
       setBestThirdOverrides(new Map(next.map((third, index) => [third.team_id, index + 1])));
       saveBestThirdOrder(next);
     },
-    [saveBestThirdOrder, thirds]
+    [isLocked, saveBestThirdOrder, thirds]
   );
 
   const reorderThird = useCallback(
     (teamId: number, targetTeamId: number) => {
+      if (!canEditPredictions(isLocked)) return;
       const idx = thirds.findIndex((s) => s.team_id === teamId);
       const targetIdx = thirds.findIndex((s) => s.team_id === targetTeamId);
       if (idx < 0 || targetIdx < 0 || idx === targetIdx) return;
@@ -194,7 +197,7 @@ export default function ClasificadosPage() {
       setBestThirdOverrides(new Map(next.map((third, index) => [third.team_id, index + 1])));
       saveBestThirdOrder(next);
     },
-    [saveBestThirdOrder, thirds]
+    [isLocked, saveBestThirdOrder, thirds]
   );
 
   const clearThirdPressTimer = useCallback(() => {

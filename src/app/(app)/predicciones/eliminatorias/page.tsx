@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
 import { getKnockoutEditingViewState } from "@/lib/predictions/knockout-editing";
+import { canEditPredictions } from "@/lib/predictions/lock";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -367,6 +368,7 @@ export default function EliminatoriasPage() {
 
   const handlePenaltyWinner = useCallback(
     (matchNumber: number, winner: "home" | "away") => {
+      if (!canEditPredictions(isLocked)) return;
       const pred = predictions.get(matchNumber);
       setPredictions((prev) => {
         const next = new Map(prev);
@@ -382,7 +384,7 @@ export default function EliminatoriasPage() {
       setAwaitingWinnerMatch(null);
       setEditing(null);
     },
-    [predictions, savePredictionFull]
+    [isLocked, predictions, savePredictionFull]
   );
 
   // ── ScorePad / TileTap ────────────────────────────────────────────────────
@@ -398,7 +400,7 @@ export default function EliminatoriasPage() {
 
   const handleTileTap = useCallback(
     (matchNum: number, side: "home" | "away") => {
-      if (isLocked) return;
+      if (!canEditPredictions(isLocked)) return;
       setEditing({ matchNum, side });
     },
     [isLocked]
@@ -406,6 +408,7 @@ export default function EliminatoriasPage() {
 
   const handleDigit = useCallback(
     (n: number) => {
+      if (!canEditPredictions(isLocked)) return;
       if (!editing) return;
       const { matchNum, side } = editing;
       const pred = predictions.get(matchNum);
@@ -453,7 +456,7 @@ export default function EliminatoriasPage() {
         }
       }
     },
-    [editing, predictions, matchIdMap, savePrediction, activeRoundMatches]
+    [activeRoundMatches, editing, isLocked, matchIdMap, predictions, savePrediction]
   );
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -529,6 +532,7 @@ export default function EliminatoriasPage() {
     away: number,
     penaltyWinner?: "home" | "away"
   ) => {
+    if (!canEditPredictions(isLocked)) return;
     // Update local state first
     setPredictions((prev) => {
       const next = new Map(prev);
@@ -698,6 +702,7 @@ export default function EliminatoriasPage() {
                   focusedSide={editingView.focusedSide}
                   sourceGroups={[...getSourceGroups(homeBp), ...getSourceGroups(awayBp)]}
                   penaltyWinner={pred?.penalty_winner ?? null}
+                  isLocked={isLocked}
                   onTileTap={(side) => handleTileTap(match.match_number, side)}
                   onWinnerSelect={(side) => handlePenaltyWinner(match.match_number, side)}
                 />

@@ -14,6 +14,7 @@ import { calculateGroupStandings, findTiedTeams, type TeamStanding } from "@/lib
 import { useToast } from "@/components/ui/use-toast";
 import { getTeams } from "@/lib/data/static-cache";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
+import { canEditPredictions } from "@/lib/predictions/lock";
 
 interface Team {
   id: number;
@@ -207,6 +208,7 @@ export default function GruposPage() {
 
   const handleMoveTeam = useCallback(
     (group: string, teamId: number, direction: "up" | "down") => {
+      if (!canEditPredictions(isLocked)) return;
       setStandings((prev) => {
         const next = new Map(prev);
         const gs = [...(next.get(group) || [])];
@@ -232,11 +234,12 @@ export default function GruposPage() {
         return next;
       });
     },
-    []
+    [isLocked]
   );
 
   const handleReorderTeam = useCallback(
     (group: string, teamId: number, targetTeamId: number) => {
+      if (!canEditPredictions(isLocked)) return;
       setStandings((prev) => {
         const next = new Map(prev);
         const gs = [...(next.get(group) || [])].sort((a, b) => a.position - b.position);
@@ -262,7 +265,7 @@ export default function GruposPage() {
         return next;
       });
     },
-    []
+    [isLocked]
   );
 
   async function saveStandings(currentStandings: Map<string, TeamStanding[]>, silent = false) {
@@ -387,11 +390,12 @@ export default function GruposPage() {
   const editingTeam = editingTeamId ? teamsMap.get(editingTeamId) : null;
 
   function handleTileTap(matchId: number, side: "home" | "away") {
-    if (isLocked) return;
+    if (!canEditPredictions(isLocked)) return;
     setEditing({ matchId, side });
   }
 
   function handleDigit(n: number) {
+    if (!canEditPredictions(isLocked)) return;
     if (!editing) return;
     const { matchId, side } = editing;
     const pred = predictions.get(matchId);

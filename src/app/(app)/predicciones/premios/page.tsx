@@ -6,6 +6,7 @@ import { PlayerCombobox } from "@/components/ui/player-combobox";
 import { StageBar } from "@/components/porra/stage-bar";
 import { Trophy, Star, Shield } from "lucide-react";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
+import { canEditPredictions } from "@/lib/predictions/lock";
 
 interface Player {
   id: number;
@@ -111,6 +112,7 @@ export default function PremiosPage() {
 
   const handlePlayerSelect = useCallback(
     (awardType: string, playerId: number) => {
+      if (!canEditPredictions(isLocked)) return;
       const player = players.find((p) => p.id === playerId);
       setPredictions((prev) => {
         const next = new Map(prev);
@@ -123,7 +125,7 @@ export default function PremiosPage() {
       });
       upsertAward(awardType, playerId, player?.name);
     },
-    [players, upsertAward]
+    [isLocked, players, upsertAward]
   );
 
   const chosenCount = AWARDS.filter((a) => predictions.get(a.type)?.player_id).length;

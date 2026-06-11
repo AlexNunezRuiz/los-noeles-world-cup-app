@@ -65,7 +65,6 @@ export async function updateSession(request: NextRequest) {
   );
 
   const pathname = request.nextUrl.pathname;
-  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
   const isAppRoute = isProtectedAppRoute(pathname);
   const isAdminRoute = pathname.startsWith("/admin");
 

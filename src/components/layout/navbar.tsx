@@ -14,7 +14,7 @@ const navItems = [
   { href: "/chat", label: "Chat", icon: MessageCircle },
 ];
 
-export function Navbar({ isAdmin, userId }: { isAdmin?: boolean; userId?: string | null }) {
+export function Navbar({ isAdmin }: { isAdmin?: boolean; userId?: string | null }) {
   const pathname = usePathname() ?? "";
 
   return (
