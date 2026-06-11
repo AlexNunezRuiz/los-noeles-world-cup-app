@@ -7,11 +7,19 @@ type QueryResult = { data: unknown; error: { message: string } | null };
 
 class FakeQuery {
   private operation = "select";
+  private table: string;
+  private responses: Map<string, QueryResult>;
+  private calls: string[];
 
   constructor(
-    private table: string,
-    private responses: Map<string, QueryResult>
-  ) {}
+    table: string,
+    responses: Map<string, QueryResult>,
+    calls: string[]
+  ) {
+    this.table = table;
+    this.responses = responses;
+    this.calls = calls;
+  }
 
   select() {
     this.operation = "select";
@@ -50,29 +58,34 @@ class FakeQuery {
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ) {
     const key = `${this.table}:${this.operation}`;
+    this.calls.push(key);
     const result = this.responses.get(key) ?? { data: [], error: null };
     return Promise.resolve(result).then(onfulfilled, onrejected);
   }
 }
 
 function fakeSupabase(responses: Map<string, QueryResult>) {
+  const calls: string[] = [];
   return {
+    calls,
     from(table: string) {
-      return new FakeQuery(table, responses);
+      return new FakeQuery(table, responses, calls);
     },
   };
 }
 
-test("recalculateAllScores fails when Supabase rejects clearing score events", async () => {
+test("recalculateAllScores avoids mass clearing score tables by default", async () => {
   const supabase = fakeSupabase(
     new Map([
       ["scoring_rules:select", { data: [], error: null }],
-      ["score_events:delete", { data: null, error: { message: "RLS denied delete" } }],
+      ["profiles:select", { data: [], error: null }],
     ])
   );
 
   const result = await recalculateAllScores(supabase as never);
 
-  assert.equal(result.success, false);
-  assert.match(result.error ?? "", /RLS denied delete/);
+  assert.equal(result.success, true);
+  assert.ok(!supabase.calls.includes("score_events:delete"));
+  assert.ok(!supabase.calls.includes("user_scores:delete"));
+  assert.ok(!supabase.calls.includes("score_events:insert"));
 });
