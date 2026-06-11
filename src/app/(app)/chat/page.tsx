@@ -36,12 +36,6 @@ interface ChatReaction {
   emoji: string;
 }
 
-type ChatReactionPayload = {
-  eventType: "INSERT" | "UPDATE" | "DELETE";
-  new: Partial<ChatReaction>;
-  old: Partial<ChatReaction>;
-};
-
 const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const MORE_REACTION_EMOJIS = [
   "🏆",
@@ -108,7 +102,6 @@ export default function ChatPage() {
   const [expandedReactionMessageId, setExpandedReactionMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const reactionPopupRef = useRef<HTMLDivElement>(null);
-  const visibleMessageIdsRef = useRef<Set<string>>(new Set());
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -123,30 +116,21 @@ export default function ChatPage() {
       }
       setUserId(user.id);
 
-      const [{ data: profile }, { data: allProfiles }, { data: msgs }] =
+      const [{ data: profile }, { data: allProfiles }, { data: msgs }, { data: reactionRows }] =
         await Promise.all([
           supabase.from("profiles").select("is_chat_banned").eq("id", user.id).single(),
           supabase.from("profiles").select("id, display_name, username, has_paid, is_admin"),
           supabase
             .from("chat_messages")
-            .select("id, user_id, message, is_deleted, created_at")
+            .select("*")
             .eq("is_deleted", false)
-            .order("created_at", { ascending: false })
+            .order("created_at", { ascending: true })
             .limit(100),
+          supabase.from("chat_message_reactions").select("*"),
         ]);
 
-      const visibleMessages = ((msgs || []) as ChatMessage[]).slice().reverse();
-      const messageIds = visibleMessages.map((msg) => msg.id);
-      const { data: reactionRows } = messageIds.length > 0
-        ? await supabase
-          .from("chat_message_reactions")
-          .select("id, message_id, user_id, emoji")
-          .in("message_id", messageIds)
-        : { data: [] };
-
       setIsBanned(profile?.is_chat_banned ?? false);
-      visibleMessageIdsRef.current = new Set(visibleMessages.map((msg) => msg.id));
-      setMessages(visibleMessages);
+      setMessages((msgs || []) as ChatMessage[]);
       setReactions((reactionRows || []) as ChatReaction[]);
 
       const profMap = new Map<string, ProfileOption>();
@@ -171,10 +155,7 @@ export default function ChatPage() {
         { event: "INSERT", schema: "public", table: "chat_messages" },
         (payload: { new: ChatMessage }) => {
           const msg = payload.new;
-          if (!msg.is_deleted) {
-            visibleMessageIdsRef.current.add(msg.id);
-            setMessages((prev) => [...prev, msg]);
-          }
+          if (!msg.is_deleted) setMessages((prev) => [...prev, msg]);
         }
       )
       .on(
@@ -182,34 +163,15 @@ export default function ChatPage() {
         { event: "UPDATE", schema: "public", table: "chat_messages" },
         (payload: { new: ChatMessage }) => {
           const msg = payload.new;
-          if (msg.is_deleted) {
-            visibleMessageIdsRef.current.delete(msg.id);
-            setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-            setReactions((prev) => prev.filter((reaction) => reaction.message_id !== msg.id));
-          }
+          if (msg.is_deleted) setMessages((prev) => prev.filter((m) => m.id !== msg.id));
         }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_message_reactions" },
-        (payload: ChatReactionPayload) => {
-          setReactions((prev) => {
-            if (payload.eventType === "DELETE") {
-              const deletedId = payload.old.id;
-              return deletedId ? prev.filter((reaction) => reaction.id !== deletedId) : prev;
-            }
-
-            const nextReaction = payload.new as ChatReaction;
-            if (!nextReaction.id || !nextReaction.message_id) return prev;
-            if (!visibleMessageIdsRef.current.has(nextReaction.message_id)) return prev;
-
-            const existingIndex = prev.findIndex((reaction) => reaction.id === nextReaction.id);
-            if (existingIndex < 0) return [...prev, nextReaction];
-
-            const next = prev.slice();
-            next[existingIndex] = nextReaction;
-            return next;
-          });
+        async () => {
+          const { data } = await supabase.from("chat_message_reactions").select("*");
+          setReactions((data || []) as ChatReaction[]);
         }
       )
       .subscribe();

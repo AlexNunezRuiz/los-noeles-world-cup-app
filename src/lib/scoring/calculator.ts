@@ -16,20 +16,13 @@ export interface ScoreEvent {
 
 type ScoreCategory = "group_stage" | "qualification" | "knockout_exact" | "awards";
 
-interface RecalculateAllScoresOptions {
-  persistScoreEvents?: boolean;
-}
-
 function assertNoSupabaseError(error: { message?: string } | null | undefined, context: string) {
   if (error) {
     throw new Error(`${context}: ${error.message ?? String(error)}`);
   }
 }
 
-export async function recalculateAllScores(
-  supabase: SupabaseClient,
-  options: RecalculateAllScoresOptions = {}
-): Promise<{ success: boolean; error?: string; events?: ScoreEvent[] }> {
+export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ success: boolean; error?: string; events?: ScoreEvent[] }> {
   try {
     // Load scoring rules
     const { data: rulesData, error: rulesError } = await supabase.from("scoring_rules").select("*");
@@ -38,6 +31,19 @@ export async function recalculateAllScores(
     for (const r of rulesData || []) {
       rules.set(r.rule_key, r.points);
     }
+
+    // Clear existing score events and user scores
+    const { error: deleteEventsError } = await supabase
+      .from("score_events")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    assertNoSupabaseError(deleteEventsError, "Error borrando eventos de puntuacion");
+
+    const { error: deleteScoresError } = await supabase
+      .from("user_scores")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    assertNoSupabaseError(deleteScoresError, "Error borrando clasificacion");
 
     const { data: knockoutMatchesForPredictions, error: knockoutMatchesError } = await supabase
       .from("matches")
@@ -65,19 +71,10 @@ export async function recalculateAllScores(
       if (scorer) allEvents.push(...await scorer());
     }
 
-    if (options.persistScoreEvents) {
-      const { error: deleteEventsError } = await supabase
-        .from("score_events")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      assertNoSupabaseError(deleteEventsError, "Error borrando eventos de puntuacion");
-    }
-
-    // Insert detailed score events only when explicitly requested. The app uses
-    // the in-memory events for notifications, so persisting them on every
-    // recalculation is avoidable IO.
-    if (options.persistScoreEvents && allEvents.length > 0) {
-      const batchSize = 500;
+    // Insert all score events
+    if (allEvents.length > 0) {
+      // Insert in batches
+      const batchSize = 100;
       for (let i = 0; i < allEvents.length; i += batchSize) {
         const batch = allEvents.slice(i, i + batchSize);
         const { error: insertEventsError } = await supabase.from("score_events").insert(batch);
