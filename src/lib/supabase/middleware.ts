@@ -80,13 +80,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   let isAdmin = false;
-  if (userId) {
+  if (userId && isAdminRoute) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_admin")
       .eq("id", userId)
       .single();
     isAdmin = profile?.is_admin ?? false;
+  }
+
+  if (userId) {
     writeAuthContextHeaders(requestHeaders, { userId, isAdmin });
     refreshResponse();
   }
