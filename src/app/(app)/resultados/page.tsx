@@ -45,6 +45,16 @@ interface PredictionRow {
   away_score: number;
 }
 
+interface UserScoreRow {
+  user_id: string;
+  total_points: number;
+}
+
+interface ProfileRow {
+  id: string;
+  has_paid: boolean;
+}
+
 // ── Outcome helpers ──────────────────────────────────────────────────────────
 
 type OutcomeType = "exacto" | "signo" | "fallo";
@@ -102,7 +112,7 @@ export default function ResultadosPage() {
       const uid = user?.id ?? "";
 
       // Parallel fetches
-      const [teamsRes, venuesRes, matchesRes, predictionsRes] =
+      const [teamsRes, venuesRes, matchesRes, predictionsRes, scoresRes, profilesRes] =
         await Promise.all([
           getTeams(),
           getVenues(),
@@ -118,12 +128,19 @@ export default function ResultadosPage() {
                 .select("match_id, home_score, away_score")
                 .eq("user_id", uid)
             : Promise.resolve({ data: [] as PredictionRow[], error: null }),
+          supabase
+            .from("user_scores")
+            .select("user_id, total_points")
+            .order("total_points", { ascending: false }),
+          supabase.from("profiles").select("id, has_paid"),
         ]);
 
       const teams: TeamRow[] = teamsRes as TeamRow[];
       const venues: VenueRow[] = venuesRes as VenueRow[];
       const matches: MatchRow[] = (matchesRes.data ?? []) as MatchRow[];
       const predictions: PredictionRow[] = (predictionsRes.data ?? []) as PredictionRow[];
+      const scores: UserScoreRow[] = (scoresRes.data ?? []) as UserScoreRow[];
+      const profiles: ProfileRow[] = (profilesRes.data ?? []) as ProfileRow[];
 
       // Build fast lookups
       const teamMap = new Map<number, TeamRow>(teams.map((t) => [t.id, t]));
@@ -131,7 +148,17 @@ export default function ResultadosPage() {
       const predMap = new Map<number, PredictionRow>(
         predictions.map((p) => [p.match_id, p])
       );
-      setPosicion(1);
+      const paidIds = new Set<string>(
+        profiles.filter((p) => p.has_paid).map((p) => p.id)
+      );
+
+      const paidScoresSorted = scores
+        .filter((s) => paidIds.has(s.user_id))
+        .sort((a, b) => b.total_points - a.total_points);
+
+      const myRankIdx = paidScoresSorted.findIndex((s) => s.user_id === uid);
+      const myRank = myRankIdx >= 0 ? myRankIdx + 1 : paidScoresSorted.length + 1;
+      setPosicion(myRank);
 
       // Build finished match displays
       const finished: FinishedMatchDisplay[] = [];
