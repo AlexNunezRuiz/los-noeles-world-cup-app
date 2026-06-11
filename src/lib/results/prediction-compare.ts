@@ -49,6 +49,14 @@ export function getInitialSelectedMatchId(
   return matchIds[0];
 }
 
+export function getPredictionCompareLoadPlan(
+  isLocked: boolean,
+  selectedMatchId: number | null
+) {
+  if (!isLocked || selectedMatchId === null) return null;
+  return { matchId: selectedMatchId };
+}
+
 export function sortProfilesByCurrentRanking(
   profiles: ProfileForRanking[],
   scores: ScoreForRanking[],

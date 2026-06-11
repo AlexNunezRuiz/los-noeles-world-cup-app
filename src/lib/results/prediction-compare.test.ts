@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildMatchSearchLabel,
+  getPredictionCompareLoadPlan,
   getInitialSelectedMatchId,
   sortProfilesByCurrentRanking,
 } from "./prediction-compare";
@@ -36,6 +37,12 @@ test("selects match from search params when it exists", () => {
   assert.equal(getInitialSelectedMatchId([4, 8, 12], "99"), 4);
   assert.equal(getInitialSelectedMatchId([4, 8, 12], null), 4);
   assert.equal(getInitialSelectedMatchId([], "8"), null);
+});
+
+test("loads predictions only for the selected match after lock", () => {
+  assert.deepEqual(getPredictionCompareLoadPlan(true, 42), { matchId: 42 });
+  assert.equal(getPredictionCompareLoadPlan(false, 42), null);
+  assert.equal(getPredictionCompareLoadPlan(true, null), null);
 });
 
 test("sorts paid profiles by current ranking and leaves unpaid profiles after them", () => {

@@ -8,6 +8,7 @@ import { Flag } from "@/components/ui/flag";
 import { isPredictionsLocked } from "@/lib/predictions/lock";
 import {
   buildMatchSearchLabel,
+  getPredictionCompareLoadPlan,
   getInitialSelectedMatchId,
   sortProfilesByCurrentRanking,
   type RankedPredictionProfile,
@@ -114,16 +115,34 @@ export default function PredictionComparePage() {
           searchParams.get("partido")
         )
       );
-
-      if (locked) {
-        const { data: predictionRows } = await supabase
-          .from("match_predictions")
-          .select("user_id, match_id, home_score, away_score, penalty_winner");
-        setPredictions((predictionRows ?? []) as PredictionRow[]);
-      }
     }
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const loadPlan = getPredictionCompareLoadPlan(isLocked, selectedMatchId);
+    if (!loadPlan) {
+      setPredictions([]);
+      return;
+    }
+
+    const matchId = loadPlan.matchId;
+    let cancelled = false;
+    async function loadPredictionsForMatch() {
+      const { data: predictionRows } = await supabase
+        .from("match_predictions")
+        .select("user_id, match_id, home_score, away_score, penalty_winner")
+        .eq("match_id", matchId);
+
+      if (!cancelled) setPredictions((predictionRows ?? []) as PredictionRow[]);
+    }
+
+    void loadPredictionsForMatch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLocked, selectedMatchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? null;
   const predictionsByUser = useMemo(() => {
