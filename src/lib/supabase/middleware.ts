@@ -100,12 +100,6 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (userId && isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
-
   if (isAdminRoute && userId && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
