@@ -11,6 +11,7 @@ import {
   type PorraCompletion,
   type PorraPhaseState,
 } from "@/lib/predictions/completion";
+import { assignCompetitionPositions } from "@/lib/ranking/positions";
 import { cn } from "@/lib/utils";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 import { isCompetitionParticipant } from "@/lib/users/participation";
@@ -131,7 +132,7 @@ export default function RankingPage() {
         )
       );
 
-      const paid: LeaderboardEntry[] = ((scores ?? []) as UserScoreRow[])
+      const scoreEntries = ((scores ?? []) as UserScoreRow[])
         .map((s) => {
           const profile = profileMap.get(s.user_id);
           return {
@@ -149,7 +150,12 @@ export default function RankingPage() {
           };
         })
         .filter(isCompetitionParticipant)
-        .map((e, i) => ({ ...e, position: i + 1 }));
+        .sort((a, b) => b.total_points - a.total_points);
+
+      const paid: LeaderboardEntry[] = assignCompetitionPositions(
+        scoreEntries,
+        (entry) => entry.total_points
+      );
 
       setEntries(paid);
       setLoading(false);
