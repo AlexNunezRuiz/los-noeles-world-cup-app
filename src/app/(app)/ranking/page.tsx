@@ -13,6 +13,7 @@ import {
 } from "@/lib/predictions/completion";
 import { cn } from "@/lib/utils";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
+import { isCompetitionParticipant } from "@/lib/users/participation";
 
 interface UserScoreRow {
   user_id: string;
@@ -27,6 +28,7 @@ interface ProfileRow {
   id: string;
   display_name: string;
   has_paid: boolean;
+  is_active?: boolean | null;
 }
 
 interface CompletionStatusRow {
@@ -96,7 +98,7 @@ export default function RankingPage() {
 
       const profilesPromise = supabase
         .from("profiles")
-        .select("id, display_name, has_paid");
+        .select("id, display_name, has_paid, is_active");
       const completionPromise = supabase.rpc("get_porra_completion_status");
 
       const [
@@ -114,7 +116,7 @@ export default function RankingPage() {
       const profileMap = new Map<string, ProfileRow>(
         ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
       );
-      setAllProfiles((profiles ?? []) as ProfileRow[]);
+      setAllProfiles(((profiles ?? []) as ProfileRow[]).filter((profile) => profile.is_active !== false));
       setCompletionByUser(
         new Map(
           ((completionRows ?? []) as CompletionStatusRow[]).map((row) => [
@@ -143,9 +145,10 @@ export default function RankingPage() {
             award_points: s.award_points,
             isYou: s.user_id === uid,
             has_paid: profile?.has_paid ?? false,
+            is_active: profile?.is_active,
           };
         })
-        .filter((e) => e.has_paid)
+        .filter(isCompetitionParticipant)
         .map((e, i) => ({ ...e, position: i + 1 }));
 
       setEntries(paid);

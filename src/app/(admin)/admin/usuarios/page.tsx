@@ -33,6 +33,7 @@ interface Profile {
   payment_note: string | null;
   is_admin: boolean;
   is_chat_banned: boolean;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -123,7 +124,7 @@ export default function AdminUsuariosPage() {
     setLoading(false);
   }
 
-  async function toggleField(userId: string, field: "has_paid" | "is_chat_banned", value: boolean) {
+  async function toggleField(userId: string, field: "has_paid" | "is_chat_banned" | "is_active", value: boolean) {
     const targetProfile = profiles.find((profile) => profile.id === userId);
     const patch =
       field === "has_paid"
@@ -246,6 +247,7 @@ export default function AdminUsuariosPage() {
                   <SortHeader label="Ultima act." sortKey="last_prediction_updated_at" sort={sort} onSort={toggleSort} />
                   <SortHeader label="Pagado" sortKey="has_paid" sort={sort} onSort={toggleSort} align="center" />
                   <SortHeader label="Pago" sortKey="paid_at" sort={sort} onSort={toggleSort} />
+                  <SortHeader label="Activo" sortKey="is_active" sort={sort} onSort={toggleSort} align="center" />
                   <SortHeader label="Ban Chat" sortKey="is_chat_banned" sort={sort} onSort={toggleSort} align="center" />
                   <SortHeader label="Admin" sortKey="is_admin" sort={sort} onSort={toggleSort} align="center" />
                   <SortHeader label="Registro" sortKey="created_at" sort={sort} onSort={toggleSort} />
@@ -254,7 +256,7 @@ export default function AdminUsuariosPage() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={9} className="py-8 px-4 text-center text-sm text-ink-muted">
+                    <td colSpan={10} className="py-8 px-4 text-center text-sm text-ink-muted">
                       Cargando usuarios...
                     </td>
                   </tr>
@@ -302,6 +304,12 @@ export default function AdminUsuariosPage() {
                     </td>
                     <td className="py-3 px-2 text-center">
                       <Switch
+                        checked={p.is_active !== false}
+                        onCheckedChange={(v) => toggleField(p.id, "is_active", v)}
+                      />
+                    </td>
+                    <td className="py-3 px-2 text-center">
+                      <Switch
                         checked={p.is_chat_banned}
                         onCheckedChange={(v) => toggleField(p.id, "is_chat_banned", v)}
                       />
@@ -317,7 +325,7 @@ export default function AdminUsuariosPage() {
                 })}
                 {shouldShowEmptyState(loading, displayedProfiles.length) && (
                   <tr>
-                    <td colSpan={9} className="py-8 px-4 text-center text-sm text-ink-muted">
+                    <td colSpan={10} className="py-8 px-4 text-center text-sm text-ink-muted">
                       {searchQuery.trim() ? "No hay usuarios que coincidan con la busqueda." : "No hay usuarios registrados."}
                     </td>
                   </tr>

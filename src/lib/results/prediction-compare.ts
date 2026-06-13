@@ -1,9 +1,11 @@
 import { stageLabel } from "@/lib/tournament/labels";
+import { isCompetitionParticipant } from "@/lib/users/participation";
 
 export interface ProfileForRanking {
   id: string;
   display_name: string;
   has_paid: boolean;
+  is_active?: boolean | null;
 }
 
 export interface ScoreForRanking {
@@ -63,8 +65,9 @@ export function sortProfilesByCurrentRanking(
   currentUserId: string | null
 ): RankedPredictionProfile[] {
   const scoreMap = new Map(scores.map((score) => [score.user_id, score.total_points]));
-  const paidProfiles = profiles.filter((profile) => profile.has_paid);
-  const unpaidProfiles = profiles.filter((profile) => !profile.has_paid);
+  const activeProfiles = profiles.filter((profile) => profile.is_active !== false);
+  const paidProfiles = activeProfiles.filter(isCompetitionParticipant);
+  const unpaidProfiles = activeProfiles.filter((profile) => !profile.has_paid);
 
   const rankedPaid = paidProfiles
     .map((profile) => ({

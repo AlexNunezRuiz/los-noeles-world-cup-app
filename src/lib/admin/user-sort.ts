@@ -4,6 +4,7 @@ export type AdminUserSortKey =
   | "porra_pct"
   | "last_prediction_updated_at"
   | "has_paid"
+  | "is_active"
   | "paid_at"
   | "is_chat_banned"
   | "is_admin"
@@ -17,6 +18,7 @@ export interface AdminUserSortProfile {
   porra_pct: number;
   last_prediction_updated_at: string | null;
   has_paid: boolean;
+  is_active?: boolean | null;
   paid_at: string | null;
   is_chat_banned: boolean;
   is_admin: boolean;
@@ -58,9 +60,10 @@ function compareByKey<T extends AdminUserSortProfile>(a: T, b: T, key: AdminUser
     case "paid_at":
       return compareNullableDate(a[key], b[key]);
     case "has_paid":
+    case "is_active":
     case "is_chat_banned":
     case "is_admin":
-      return compareBoolean(a[key], b[key]);
+      return compareBoolean(a[key] !== false, b[key] !== false);
     case "created_at":
       return Date.parse(a.created_at) - Date.parse(b.created_at);
   }

@@ -7,6 +7,7 @@ import { MatchResultCard } from "@/components/results/match-result-card";
 import { UpcomingStrip } from "@/components/results/upcoming-strip";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
 import { getTeams, getVenues } from "@/lib/data/static-cache";
+import { isCompetitionParticipant } from "@/lib/users/participation";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ interface UserScoreRow {
 interface ProfileRow {
   id: string;
   has_paid: boolean;
+  is_active?: boolean | null;
 }
 
 // ── Outcome helpers ──────────────────────────────────────────────────────────
@@ -132,7 +134,7 @@ export default function ResultadosPage() {
             .from("user_scores")
             .select("user_id, total_points")
             .order("total_points", { ascending: false }),
-          supabase.from("profiles").select("id, has_paid"),
+          supabase.from("profiles").select("id, has_paid, is_active"),
         ]);
 
       const teams: TeamRow[] = teamsRes as TeamRow[];
@@ -149,7 +151,7 @@ export default function ResultadosPage() {
         predictions.map((p) => [p.match_id, p])
       );
       const paidIds = new Set<string>(
-        profiles.filter((p) => p.has_paid).map((p) => p.id)
+        profiles.filter(isCompetitionParticipant).map((p) => p.id)
       );
 
       const paidScoresSorted = scores

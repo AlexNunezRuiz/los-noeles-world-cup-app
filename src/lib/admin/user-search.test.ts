@@ -8,6 +8,7 @@ const users = [
     display_name: "Noe Garcia",
     email: "noe@example.com",
     has_paid: true,
+    is_active: true,
     is_admin: true,
     is_chat_banned: false,
   },
@@ -15,6 +16,7 @@ const users = [
     display_name: "María López",
     email: "maria@example.com",
     has_paid: false,
+    is_active: false,
     is_admin: false,
     is_chat_banned: true,
   },
@@ -28,4 +30,9 @@ test("filtra usuarios por nombre o email ignorando mayusculas y acentos", () => 
 test("filtra usuarios por estado administrativo y de pago", () => {
   assert.deepEqual(filterAdminUsers(users, "admin pagado").map((user) => user.email), ["noe@example.com"]);
   assert.deepEqual(filterAdminUsers(users, "pendiente ban").map((user) => user.email), ["maria@example.com"]);
+});
+
+test("filtra usuarios por estado activo o inactivo", () => {
+  assert.deepEqual(filterAdminUsers(users, "activo").map((user) => user.email), ["noe@example.com"]);
+  assert.deepEqual(filterAdminUsers(users, "inactivo").map((user) => user.email), ["maria@example.com"]);
 });

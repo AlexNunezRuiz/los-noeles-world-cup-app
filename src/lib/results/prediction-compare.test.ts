@@ -47,10 +47,11 @@ test("loads predictions only for the selected match after lock", () => {
 
 test("sorts paid profiles by current ranking and leaves unpaid profiles after them", () => {
   const profiles = [
-    { id: "u1", display_name: "Noe", has_paid: true },
-    { id: "u2", display_name: "Ana", has_paid: true },
-    { id: "u3", display_name: "Luis", has_paid: false },
-    { id: "u4", display_name: "Bea", has_paid: true },
+    { id: "u1", display_name: "Noe", has_paid: true, is_active: true },
+    { id: "u2", display_name: "Ana", has_paid: true, is_active: true },
+    { id: "u3", display_name: "Luis", has_paid: false, is_active: true },
+    { id: "u4", display_name: "Bea", has_paid: true, is_active: true },
+    { id: "u5", display_name: "Inactive", has_paid: true, is_active: false },
   ];
   const scores = [
     { user_id: "u4", total_points: 6 },

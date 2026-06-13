@@ -8,6 +8,7 @@ const users = [
     display_name: "Carlos",
     email: "carlos@example.com",
     has_paid: false,
+    is_active: false,
     is_admin: false,
     is_chat_banned: true,
     created_at: "2026-01-03T10:00:00.000Z",
@@ -19,6 +20,7 @@ const users = [
     display_name: "Ana",
     email: "ana@example.com",
     has_paid: true,
+    is_active: true,
     is_admin: false,
     is_chat_banned: false,
     created_at: "2026-01-01T10:00:00.000Z",
@@ -30,6 +32,7 @@ const users = [
     display_name: "Bea",
     email: "bea@example.com",
     has_paid: true,
+    is_active: true,
     is_admin: true,
     is_chat_banned: false,
     created_at: "2026-01-02T10:00:00.000Z",
@@ -50,6 +53,7 @@ test("ordena usuarios por texto de forma ascendente y descendente", () => {
 
 test("ordena usuarios por booleanos colocando true primero en descendente", () => {
   assert.deepEqual(namesFor("has_paid", "desc"), ["Ana", "Bea", "Carlos"]);
+  assert.deepEqual(namesFor("is_active", "asc"), ["Carlos", "Ana", "Bea"]);
   assert.deepEqual(namesFor("is_chat_banned", "desc"), ["Carlos", "Ana", "Bea"]);
 });
 

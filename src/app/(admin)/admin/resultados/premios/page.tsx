@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlayerCombobox } from "@/components/ui/player-combobox";
 import { useToast } from "@/components/ui/use-toast";
 import { Trophy, Medal, Shield } from "lucide-react";
 import { recalculateAllScores } from "@/lib/scoring/calculator";
@@ -149,31 +149,26 @@ export default function AdminPremiosPage() {
           </CardHeader>
           <CardContent>
             {hasPlayers ? (
-              <Select
-                value={awards[type]?.player_id?.toString() || ""}
-                onValueChange={(v) => {
-                  const player = players.find((p) => p.id === parseInt(v));
+              <PlayerCombobox
+                options={players.map((p) => {
+                  const team = Array.isArray(p.teams) ? p.teams[0] : p.teams;
+                  return {
+                    id: p.id,
+                    name: p.name,
+                    team: team?.name,
+                    teamFlag: team?.flag_emoji,
+                  };
+                })}
+                value={awards[type]?.player_id ?? null}
+                onChange={(id) => {
+                  const player = players.find((p) => p.id === id);
                   setAwards((prev) => ({
                     ...prev,
-                    [type]: { player_id: parseInt(v), player_name: player?.name },
+                    [type]: { player_id: id, player_name: player?.name },
                   }));
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar ganador..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {players.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.name}
-                      {(() => {
-                        const team = Array.isArray(p.teams) ? p.teams[0] : p.teams;
-                        return team ? ` · ${team.flag_emoji} ${team.name}` : "";
-                      })()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Buscar ganador..."
+              />
             ) : (
               <div className="space-y-2">
                 <Label className="text-ink-muted">Nombre del ganador</Label>

@@ -23,6 +23,7 @@ interface ProfileRow {
   id: string;
   display_name: string;
   has_paid: boolean;
+  is_active?: boolean | null;
 }
 
 interface TeamRow {
@@ -84,7 +85,7 @@ export default function PredictionComparePage() {
       ] =
         await Promise.all([
           supabase.from("tournament_config").select("key, value"),
-          supabase.from("profiles").select("id, display_name, has_paid").order("display_name"),
+          supabase.from("profiles").select("id, display_name, has_paid, is_active").order("display_name"),
           supabase.from("teams").select("id, name, flag_emoji"),
           supabase
             .from("matches")
