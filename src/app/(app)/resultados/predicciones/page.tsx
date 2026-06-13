@@ -8,6 +8,7 @@ import { Flag } from "@/components/ui/flag";
 import { isPredictionsLocked } from "@/lib/predictions/lock";
 import {
   buildMatchSearchLabel,
+  filterRankedPredictionProfiles,
   getPredictionCompareLoadPlan,
   getInitialSelectedMatchId,
   sortProfilesByCurrentRanking,
@@ -65,6 +66,7 @@ export default function PredictionComparePage() {
   const [predictions, setPredictions] = useState<PredictionRow[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
   const [matchSearch, setMatchSearch] = useState("");
+  const [playerSearch, setPlayerSearch] = useState("");
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
@@ -153,6 +155,14 @@ export default function PredictionComparePage() {
     }
     return map;
   }, [predictions, selectedMatchId]);
+  const filteredProfiles = useMemo(
+    () => filterRankedPredictionProfiles(rankedProfiles, playerSearch),
+    [playerSearch, rankedProfiles]
+  );
+  const currentUserProfile = rankedProfiles.find((profile) => profile.isCurrentUser) ?? null;
+  const currentUserPrediction = currentUserProfile
+    ? predictionsByUser.get(currentUserProfile.id) ?? null
+    : null;
 
   const getMatchNames = useCallback((match: MatchRow) => {
     const home = match.home_team_id ? teams.get(match.home_team_id) : null;
@@ -280,8 +290,45 @@ export default function PredictionComparePage() {
             </span>
           </div>
 
+          {currentUserProfile && (
+            <div className="mb-3 rounded-xl border border-blue/40 bg-blue/10 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-marcador text-[10px] font-bold uppercase tracking-widest text-blue">
+                    Tu pronostico
+                  </p>
+                  <p className="truncate text-xs font-semibold text-ink-muted">
+                    {currentUserProfile.rank ? `#${currentUserProfile.rank}` : "Sin ranking"} · {currentUserProfile.totalPoints} pts
+                  </p>
+                </div>
+                {currentUserPrediction ? (
+                  <div className="text-right">
+                    <p className="font-marcador text-2xl font-bold text-ink">
+                      {currentUserPrediction.home_score} - {currentUserPrediction.away_score}
+                    </p>
+                    {currentUserPrediction.home_score === currentUserPrediction.away_score &&
+                      currentUserPrediction.penalty_winner && (
+                        <p className="text-[10px] font-bold uppercase text-green">
+                          Pasa {currentUserPrediction.penalty_winner === "home" ? homeName : awayName}
+                        </p>
+                      )}
+                  </div>
+                ) : (
+                  <span className="text-xs font-semibold text-ink-muted">Sin pronostico</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <input
+            value={playerSearch}
+            onChange={(event) => setPlayerSearch(event.target.value)}
+            placeholder="Buscar jugador: nombre, #puesto, pendiente..."
+            className="mb-3 w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+          />
+
           <div className="divide-y divide-border">
-            {rankedProfiles.map((profile) => {
+            {filteredProfiles.map((profile) => {
               const prediction = predictionsByUser.get(profile.id);
               const passLabel =
                 prediction?.home_score === prediction?.away_score && prediction?.penalty_winner
@@ -290,12 +337,13 @@ export default function PredictionComparePage() {
                     : awayName
                   : null;
               return (
-                <div
+                <Link
                   key={profile.id}
+                  href={`/jugador/${profile.id}`}
                   className={`flex items-center justify-between gap-3 px-2 py-2 ${
                     profile.isCurrentUser
                       ? "rounded-lg border border-blue/40 bg-blue/10"
-                      : ""
+                      : "hover:bg-surface-sunken"
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -328,11 +376,16 @@ export default function PredictionComparePage() {
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-ink-faint">Sin pronóstico</span>
+                    <span className="text-xs text-ink-faint">Sin pronostico</span>
                   )}
-                </div>
+                </Link>
               );
             })}
+            {filteredProfiles.length === 0 && (
+              <p className="px-2 py-4 text-center text-xs text-ink-muted">
+                No hay jugadores que coincidan con la busqueda.
+              </p>
+            )}
           </div>
         </div>
       )}

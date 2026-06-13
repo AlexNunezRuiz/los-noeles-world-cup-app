@@ -6,6 +6,7 @@ import { MatchCalendar } from "@/components/calendar/match-calendar";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
 import { todayKey } from "@/lib/datetime";
 import { getTeams, getVenues } from "@/lib/data/static-cache";
+import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -37,6 +38,12 @@ interface MatchRow {
   is_finished: boolean;
 }
 
+interface PredictionRow {
+  match_id: number;
+  home_score: number;
+  away_score: number;
+}
+
 const STAGE_TABS: { key: StageFilter; label: string }[] = [
   { key: "todos", label: "Todos" },
   { key: "grupos", label: "Grupos" },
@@ -53,7 +60,12 @@ export default function CalendarioPage() {
 
   useEffect(() => {
     async function load() {
-      const [teamsRes, venuesRes, matchesRes] = await Promise.all([
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const uid = user?.id ?? "";
+
+      const [teamsRes, venuesRes, matchesRes, predictionsRes] = await Promise.all([
         getTeams(),
         getVenues(),
         supabase
@@ -62,6 +74,12 @@ export default function CalendarioPage() {
             "id, match_number, stage, group_letter, home_team_id, away_team_id, home_placeholder, away_placeholder, match_date, venue_id, home_score, away_score, is_finished"
           )
           .order("match_date", { ascending: true }),
+        uid
+          ? supabase
+              .from("match_predictions")
+              .select("match_id, home_score, away_score")
+              .eq("user_id", uid)
+          : Promise.resolve({ data: [] as PredictionRow[], error: null }),
       ]);
 
       const teamMap = new Map<number, TeamRow>(
@@ -98,7 +116,12 @@ export default function CalendarioPage() {
           };
         });
 
-      setMatches(assembled);
+      setMatches(
+        attachPredictionsToCalendarMatches(
+          assembled,
+          (predictionsRes.data ?? []) as PredictionRow[]
+        )
+      );
       setLoading(false);
     }
 

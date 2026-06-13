@@ -11,6 +11,7 @@ import {
   type PorraCompletion,
   type PorraPhaseState,
 } from "@/lib/predictions/completion";
+import { filterRankedPredictionProfiles } from "@/lib/results/prediction-compare";
 import { assignCompetitionPositions } from "@/lib/ranking/positions";
 import { cn } from "@/lib/utils";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
@@ -85,6 +86,7 @@ export default function RankingPage() {
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabMode>("lista");
+  const [playerSearch, setPlayerSearch] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
@@ -182,9 +184,41 @@ export default function RankingPage() {
 
   // Derive display data
   const { youIdx, you, rankingRows, top3, rest, pendingPlayers, statusProfiles } = useMemo(() => {
+    const filteredEntryIds = new Set(
+      filterRankedPredictionProfiles(
+        entries.map((entry) => ({
+          id: entry.user_id,
+          display_name: entry.name,
+          has_paid: true,
+          rank: entry.position,
+          totalPoints: entry.total_points,
+          isCurrentUser: entry.user_id === currentUserId,
+        })),
+        playerSearch
+      ).map((entry) => entry.id)
+    );
+    const filteredProfileIds = new Set(
+      filterRankedPredictionProfiles(
+        allProfiles.map((profile) => ({
+          id: profile.id,
+          display_name: profile.display_name,
+          has_paid: profile.has_paid,
+          rank: null,
+          totalPoints: entries.find((entry) => entry.user_id === profile.id)?.total_points ?? 0,
+          isCurrentUser: profile.id === currentUserId,
+        })),
+        playerSearch
+      ).map((profile) => profile.id)
+    );
+    const displayEntries = playerSearch.trim()
+      ? entries.filter((entry) => filteredEntryIds.has(entry.user_id))
+      : entries;
+    const displayProfiles = playerSearch.trim()
+      ? allProfiles.filter((profile) => filteredProfileIds.has(profile.id))
+      : allProfiles;
     const currentYouIdx = entries.findIndex((e) => e.isYou);
     const currentYou = currentYouIdx >= 0 ? entries[currentYouIdx] : null;
-    const rows: RankingRow[] = entries.map((e) => {
+    const rows: RankingRow[] = displayEntries.map((e) => {
       const isYou = e.user_id === currentUserId;
       const gapInfo =
         isYou && currentYouIdx >= 0
@@ -211,21 +245,21 @@ export default function RankingPage() {
       youIdx: currentYouIdx,
       you: currentYou,
       rankingRows: rows,
-      top3: entries.slice(0, 3).map((e) => ({
+      top3: displayEntries.slice(0, 3).map((e) => ({
         name: e.name,
         points: e.total_points,
         movement: 0,
         isYou: e.user_id === currentUserId,
       })),
-      rest: entries.slice(3),
-      pendingPlayers: allProfiles
+      rest: displayEntries.slice(3),
+      pendingPlayers: displayProfiles
         .filter((profile) => !entries.some((entry) => entry.user_id === profile.id))
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
-      statusProfiles: allProfiles
+      statusProfiles: displayProfiles
         .slice()
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
     };
-  }, [allProfiles, entries, currentUserId]);
+  }, [allProfiles, entries, currentUserId, playerSearch]);
 
   const youAbove =
     you && youIdx > 0
@@ -240,6 +274,13 @@ export default function RankingPage() {
           Clasificación
         </h1>
       </div>
+
+      <input
+        value={playerSearch}
+        onChange={(event) => setPlayerSearch(event.target.value)}
+        placeholder="Buscar jugador: nombre, #puesto, puntos, pendiente..."
+        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+      />
 
       {/* Toggle */}
       <div className="bg-surface-sunken rounded-lg p-1 flex">
@@ -283,7 +324,12 @@ export default function RankingPage() {
       )}
       {shouldShowEmptyState(loading, entries.length) && (
         <div className="rounded-xl border border-border bg-surface p-8 text-center text-ink-muted text-sm">
-          Aún no hay puntuaciones disponibles.
+          Aun no hay puntuaciones disponibles.
+        </div>
+      )}
+      {!loading && playerSearch.trim() && rankingRows.length === 0 && pendingPlayers.length === 0 && (
+        <div className="rounded-xl border border-border bg-surface p-6 text-center text-sm text-ink-muted">
+          No hay jugadores que coincidan con la busqueda.
         </div>
       )}
 

@@ -73,6 +73,13 @@ export function UpcomingStrip({
               <TeamLine team={m.home} placeholder={m.home_placeholder} />
               <TeamLine team={m.away} placeholder={m.away_placeholder} />
             </div>
+            {m.prediction && (
+              <div className="mt-2 rounded-lg border border-blue/30 bg-blue/10 px-2 py-1">
+                <p className="font-marcador text-[9px] font-bold uppercase tracking-wider text-blue">
+                  Tu {m.prediction.home}-{m.prediction.away}
+                </p>
+              </div>
+            )}
             {m.venue && (
               <p className="mt-1.5 truncate border-t border-dashed border-border pt-1.5 text-[9px] text-ink-muted">
                 {m.venue.city}

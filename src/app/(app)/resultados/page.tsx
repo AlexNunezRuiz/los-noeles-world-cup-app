@@ -6,8 +6,12 @@ import { TuJornadaCard } from "@/components/results/tu-jornada-card";
 import { MatchResultCard } from "@/components/results/match-result-card";
 import { UpcomingStrip } from "@/components/results/upcoming-strip";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
+import { Flag } from "@/components/ui/flag";
 import { getTeams, getVenues } from "@/lib/data/static-cache";
+import { buildRealGroupStandings } from "@/lib/results/group-standings";
+import type { TeamStanding } from "@/lib/tournament/standings";
 import { isCompetitionParticipant } from "@/lib/users/participation";
+import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -99,6 +103,8 @@ export default function ResultadosPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("partidos");
   const [finishedMatches, setFinishedMatches] = useState<FinishedMatchDisplay[]>([]);
   const [upcoming, setUpcoming] = useState<CalendarMatch[]>([]);
+  const [teams, setTeams] = useState<TeamRow[]>([]);
+  const [realGroupStandings, setRealGroupStandings] = useState<Map<string, TeamStanding[]>>(new Map());
   const [totalPuntos, setTotalPuntos] = useState(0);
   const [posicion, setPosicion] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -235,8 +241,10 @@ export default function ResultadosPage() {
           };
         });
 
-      setUpcoming(calendarMatches);
+      setUpcoming(attachPredictionsToCalendarMatches(calendarMatches, predictions));
       setFinishedMatches(finished);
+      setTeams(teams);
+      setRealGroupStandings(buildRealGroupStandings(teams, matches));
       setTotalPuntos(sumPts);
       setLoading(false);
     }
@@ -252,6 +260,14 @@ export default function ResultadosPage() {
         .filter((m) => m.outcome !== null)
         .map((m) => ({ tipo: m.outcome as OutcomeType, puntos: m.points })),
     [finishedMatches]
+  );
+  const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
+  const groupsWithPlayedMatches = useMemo(
+    () =>
+      Array.from(realGroupStandings.entries()).filter(([, standings]) =>
+        standings.some((standing) => standing.played > 0)
+      ),
+    [realGroupStandings]
   );
 
   const TABS: { key: TabKey; label: string }[] = [
@@ -351,13 +367,61 @@ export default function ResultadosPage() {
 
       {/* ── Grupos tab ── */}
       {activeTab === "grupos" && (
-        <div className="rounded-xl border border-border bg-surface p-6 text-center">
-          <p className="font-marcador text-base uppercase text-ink-muted">
-            Clasificación de grupos
-          </p>
-          <p className="mt-1 text-xs text-ink-faint">
-            La clasificación real de los grupos aparecerá aquí cuando avance el Mundial.
-          </p>
+        <div className="space-y-3">
+          {groupsWithPlayedMatches.length === 0 && (
+            <div className="rounded-xl border border-border bg-surface p-6 text-center">
+              <p className="font-marcador text-base uppercase text-ink-muted">
+                Clasificacion de grupos
+              </p>
+              <p className="mt-1 text-xs text-ink-faint">
+                La clasificacion real de los grupos aparecera aqui cuando haya partidos finalizados.
+              </p>
+            </div>
+          )}
+
+          {groupsWithPlayedMatches.map(([groupLetter, standings]) => (
+            <div key={groupLetter} className="overflow-hidden rounded-xl border border-border bg-surface">
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <p className="font-marcador text-sm uppercase tracking-widest text-ink-muted">
+                  Grupo {groupLetter}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-ink-faint">
+                  PJ Pts DG
+                </p>
+              </div>
+              <div className="divide-y divide-border">
+                {standings.map((standing) => {
+                  const team = teamMap.get(standing.team_id);
+                  return (
+                    <div
+                      key={standing.team_id}
+                      className="grid grid-cols-[28px_1fr_28px_32px_32px] items-center gap-2 px-3 py-2"
+                    >
+                      <span className="text-center font-marcador text-sm font-bold text-ink-muted">
+                        {standing.position}
+                      </span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        {team && <Flag emoji={team.flag_emoji} size={18} />}
+                        <span className="truncate text-sm font-semibold text-ink">
+                          {team?.name ?? "Equipo"}
+                        </span>
+                      </div>
+                      <span className="text-right font-marcador text-sm text-ink">
+                        {standing.played}
+                      </span>
+                      <span className="text-right font-marcador text-sm font-bold text-ink">
+                        {standing.points}
+                      </span>
+                      <span className="text-right font-marcador text-sm text-ink-muted">
+                        {standing.goal_difference > 0 ? "+" : ""}
+                        {standing.goal_difference}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

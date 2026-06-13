@@ -19,6 +19,13 @@ export interface RankedPredictionProfile extends ProfileForRanking {
   isCurrentUser: boolean;
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function buildMatchSearchLabel({
   match_number,
   stage,
@@ -101,4 +108,26 @@ export function sortProfilesByCurrentRanking(
       }))
       .sort((a, b) => a.display_name.localeCompare(b.display_name, "es")),
   ];
+}
+
+export function filterRankedPredictionProfiles<T extends RankedPredictionProfile>(
+  profiles: T[],
+  query: string
+) {
+  const terms = normalizeSearchText(query).trim().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return profiles;
+
+  return profiles.filter((profile) => {
+    const haystack = normalizeSearchText(
+      [
+        profile.display_name,
+        profile.rank ? `#${profile.rank} ${profile.rank}` : "",
+        `${profile.totalPoints} pts puntos`,
+        profile.has_paid ? "pagado registrado" : "pendiente pago sin pagar",
+        profile.isCurrentUser ? "tu yo mi" : "",
+      ].join(" ")
+    );
+
+    return terms.every((term) => haystack.includes(term));
+  });
 }

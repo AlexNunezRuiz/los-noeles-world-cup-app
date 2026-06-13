@@ -67,6 +67,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAppRoute = isProtectedAppRoute(pathname);
   const isAdminRoute = pathname.startsWith("/admin");
+  const isAuthRoute = pathname === "/login" || pathname === "/register";
 
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
   let userId = claimsData?.claims?.sub ?? null;
@@ -100,6 +101,12 @@ export async function updateSession(request: NextRequest) {
   if (!userId && (isAppRoute || isAdminRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  if (userId && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 

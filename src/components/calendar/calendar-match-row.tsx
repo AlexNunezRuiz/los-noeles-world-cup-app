@@ -5,6 +5,7 @@ import { Flag } from "@/components/ui/flag";
 import { FlapTile } from "@/components/ui/flap-tile";
 import { formatKickoff } from "@/lib/datetime";
 import { stageLabel } from "@/lib/tournament/labels";
+import type { CalendarPrediction } from "@/lib/calendar/predictions";
 
 export interface CalendarTeam {
   name: string;
@@ -25,6 +26,7 @@ export interface CalendarMatch {
   home_placeholder: string | null;
   away_placeholder: string | null;
   venue: { name: string; city: string } | null;
+  prediction?: CalendarPrediction | null;
 }
 
 function TeamSide({
@@ -116,6 +118,16 @@ export function CalendarMatchRow({ match }: { match: CalendarMatch }) {
         <p className="mt-2 truncate border-t border-dashed border-border pt-2 text-[10px] text-ink-muted">
           {match.venue.name} · {match.venue.city}
         </p>
+      )}
+      {match.prediction && (
+        <div className="mt-2 flex items-center justify-between rounded-lg border border-blue/30 bg-blue/10 px-2 py-1.5">
+          <span className="font-marcador text-[10px] font-bold uppercase tracking-wider text-blue">
+            Tu pronostico
+          </span>
+          <span className="font-marcador text-sm font-bold text-ink">
+            {match.prediction.home} - {match.prediction.away}
+          </span>
+        </div>
       )}
     </Link>
   );

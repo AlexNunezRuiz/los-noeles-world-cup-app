@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildMatchSearchLabel,
+  filterRankedPredictionProfiles,
   getPredictionCompareLoadPlan,
   getInitialSelectedMatchId,
   sortProfilesByCurrentRanking,
@@ -74,5 +75,35 @@ test("sorts paid profiles by current ranking and leaves unpaid profiles after th
       { id: "u4", rank: 3, totalPoints: 6, isCurrentUser: false },
       { id: "u3", rank: null, totalPoints: 0, isCurrentUser: false },
     ]
+  );
+});
+
+test("filters ranked prediction profiles by display name, rank and payment status", () => {
+  const profiles = [
+    {
+      id: "u1",
+      display_name: "Noe Garcia",
+      has_paid: true,
+      rank: 2,
+      totalPoints: 8,
+      isCurrentUser: false,
+    },
+    {
+      id: "u2",
+      display_name: "Maria Lopez",
+      has_paid: false,
+      rank: null,
+      totalPoints: 0,
+      isCurrentUser: false,
+    },
+  ];
+
+  assert.deepEqual(
+    filterRankedPredictionProfiles(profiles, "garcia #2").map((profile) => profile.id),
+    ["u1"]
+  );
+  assert.deepEqual(
+    filterRankedPredictionProfiles(profiles, "pendiente").map((profile) => profile.id),
+    ["u2"]
   );
 });
