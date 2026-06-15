@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, RefreshCw, Save, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Flag } from "@/components/ui/flag";
 import { useToast } from "@/components/ui/use-toast";
 import { recalculateAllScores, type ScoreEvent } from "@/lib/scoring/calculator";
@@ -16,6 +15,9 @@ import {
   buildNotificationRows,
   scoreEventsForMatchNotifications,
 } from "@/lib/notifications/internal";
+import { groupByMatchDay } from "@/lib/datetime";
+import { getAutoScrollDay, sortMatchesByCalendar } from "@/lib/calendar/match-position";
+import { stageLabel } from "@/lib/tournament/labels";
 
 interface Team {
   id: number;
@@ -33,27 +35,19 @@ interface Match {
   away_team_id: number;
   home_placeholder: string;
   away_placeholder: string;
+  match_date: string | null;
   home_score: number | null;
   away_score: number | null;
   penalty_winner_team_id: number | null;
   is_finished: boolean;
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  group: "Fase de Grupos",
-  round_of_32: "Dieciseisavos",
-  round_of_16: "Octavos",
-  quarter_final: "Cuartos",
-  semi_final: "Semifinales",
-  third_place: "3er Puesto",
-  final: "Final",
-};
-
 export default function AdminResultadosPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [editing, setEditing] = useState<Record<number, { home: string; away: string; penalty: string }>>({});
   const [recalculating, setRecalculating] = useState(false);
+  const hasAutoScrolled = useRef(false);
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -68,6 +62,20 @@ export default function AdminResultadosPage() {
     }
     load();
   }, []);
+
+  useEffect(() => {
+    if (hasAutoScrolled.current || matches.length === 0) return;
+    const targetDay = getAutoScrollDay(matches);
+    if (!targetDay) return;
+
+    hasAutoScrolled.current = true;
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-day="${targetDay}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [matches]);
 
   const teamsMap = new Map(teams.map((t) => [t.id, t]));
 
@@ -289,7 +297,115 @@ export default function AdminResultadosPage() {
     }
   };
 
-  const stages = ["group", "round_of_32", "round_of_16", "quarter_final", "semi_final", "third_place", "final"];
+  const sortedMatches = sortMatchesByCalendar(matches);
+  const datedMatches = sortedMatches.filter(
+    (match): match is Match & { match_date: string } => Boolean(match.match_date)
+  );
+  const undatedMatches = sortedMatches.filter((match) => !match.match_date);
+  const matchGroups = groupByMatchDay(datedMatches);
+
+  const renderMatchCard = (match: Match) => {
+    const home = teamsMap.get(match.home_team_id);
+    const away = teamsMap.get(match.away_team_id);
+    const edit = editing[match.id] || {
+      home: match.home_score?.toString() || "",
+      away: match.away_score?.toString() || "",
+      penalty: match.penalty_winner_team_id?.toString() || "",
+    };
+
+    return (
+      <Card key={match.id} className={match.is_finished ? "border-green/30 bg-surface" : "bg-surface"}>
+        <CardContent className="p-3 flex items-center gap-2 flex-wrap">
+          <span className="flex w-20 shrink-0 flex-col">
+            <span className="font-marcador text-xs text-ink-faint">P{match.match_number}</span>
+            <span className="truncate text-[9px] font-bold uppercase tracking-wide text-ink-faint">
+              {stageLabel(match.stage, match.group_letter)}
+            </span>
+          </span>
+
+          <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1 text-ink font-sans">
+            {home ? <><Flag emoji={home.flag_emoji} size={16} />{home.code}</> : match.home_placeholder || "TBD"}
+          </span>
+
+          <Input
+            type="number"
+            className="w-14 h-8 text-center text-sm p-0 font-marcador"
+            value={edit.home}
+            onChange={(e) =>
+              setEditing((prev) => ({
+                ...prev,
+                [match.id]: { ...edit, home: e.target.value },
+              }))
+            }
+          />
+          <span className="text-ink-muted font-marcador">-</span>
+          <Input
+            type="number"
+            className="w-14 h-8 text-center text-sm p-0 font-marcador"
+            value={edit.away}
+            onChange={(e) =>
+              setEditing((prev) => ({
+                ...prev,
+                [match.id]: { ...edit, away: e.target.value },
+              }))
+            }
+          />
+
+          <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end text-ink font-sans">
+            {away ? <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></> : match.away_placeholder || "TBD"}
+          </span>
+
+          {edit.home !== "" && edit.away !== "" && parseInt(edit.home) === parseInt(edit.away) && match.stage !== "group" && home && away && (
+            <select
+              value={edit.penalty}
+              onChange={(e) => setEditing((prev) => ({ ...prev, [match.id]: { ...edit, penalty: e.target.value } }))}
+              className="h-8 rounded-md border border-border bg-surface px-2 text-xs text-ink"
+              aria-label={`Ganador por penaltis P${match.match_number}`}
+            >
+              <option value="">Gana...</option>
+              <option value={home.id}>{home.code}</option>
+              <option value={away.id}>{away.code}</option>
+            </select>
+          )}
+          {match.is_finished && (
+            <Badge
+              variant="success-soft"
+              className="h-8 w-8 shrink-0 justify-center rounded-md p-0"
+              title="Final"
+              aria-label="Final"
+            >
+              <Check className="h-4 w-4" aria-hidden="true" />
+            </Badge>
+          )}
+          <Button
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => handleSaveResult(match)}
+            title={match.is_finished ? "Actualizar resultado" : "Guardar resultado"}
+            aria-label={match.is_finished ? "Actualizar resultado" : "Guardar resultado"}
+          >
+            {match.is_finished ? (
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Save className="h-4 w-4" aria-hidden="true" />
+            )}
+          </Button>
+          {match.is_finished && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-8 w-8 shrink-0 text-red hover:text-red"
+              onClick={() => handleDeleteResult(match)}
+              title="Eliminar resultado"
+              aria-label="Eliminar resultado"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -300,127 +416,35 @@ export default function AdminResultadosPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="group">
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0">
-          {stages.map((s) => (
-            <TabsTrigger key={s} value={s} className="text-xs">
-              {STAGE_LABELS[s]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <div className="space-y-5">
+        {matchGroups.map((group) => (
+          <section key={group.key} data-day={group.key} className="scroll-mt-16">
+            <div className="sticky top-14 z-10 -mx-1 bg-cream/95 px-1 py-1.5 backdrop-blur md:top-0">
+              <h2 className="font-marcador text-sm font-bold uppercase tracking-wide text-ink">
+                {group.label}
+              </h2>
+            </div>
+            <div className="mt-1 space-y-2">
+              {group.matches.map(renderMatchCard)}
+            </div>
+          </section>
+        ))}
 
-        {stages.map((stage) => {
-          const stageMatches = matches.filter((m) => m.stage === stage);
-          return (
-            <TabsContent key={stage} value={stage}>
-              <div className="space-y-2 mt-3">
-                {stageMatches.map((match) => {
-                  const home = teamsMap.get(match.home_team_id);
-                  const away = teamsMap.get(match.away_team_id);
-                  const edit = editing[match.id] || {
-                    home: match.home_score?.toString() || "",
-                    away: match.away_score?.toString() || "",
-                    penalty: match.penalty_winner_team_id?.toString() || "",
-                  };
+        {undatedMatches.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="font-marcador text-sm font-bold uppercase tracking-wide text-ink">
+              Sin fecha
+            </h2>
+            {undatedMatches.map(renderMatchCard)}
+          </section>
+        )}
 
-                  return (
-                    <Card key={match.id} className={match.is_finished ? "border-green/30 bg-surface" : "bg-surface"}>
-                      <CardContent className="p-3 flex items-center gap-2 flex-wrap">
-                        <span className="font-marcador text-xs text-ink-faint w-8">P{match.match_number}</span>
-
-                        <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1 text-ink font-sans">
-                          {home ? <><Flag emoji={home.flag_emoji} size={16} />{home.code}</> : match.home_placeholder || "TBD"}
-                        </span>
-
-                        <Input
-                          type="number"
-                          className="w-14 h-8 text-center text-sm p-0 font-marcador"
-                          value={edit.home}
-                          onChange={(e) =>
-                            setEditing((prev) => ({
-                              ...prev,
-                              [match.id]: { ...edit, home: e.target.value },
-                            }))
-                          }
-                        />
-                        <span className="text-ink-muted font-marcador">-</span>
-                        <Input
-                          type="number"
-                          className="w-14 h-8 text-center text-sm p-0 font-marcador"
-                          value={edit.away}
-                          onChange={(e) =>
-                            setEditing((prev) => ({
-                              ...prev,
-                              [match.id]: { ...edit, away: e.target.value },
-                            }))
-                          }
-                        />
-
-                        <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end text-ink font-sans">
-                          {away ? <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></> : match.away_placeholder || "TBD"}
-                        </span>
-
-                        {edit.home !== "" && edit.away !== "" && parseInt(edit.home) === parseInt(edit.away) && match.stage !== "group" && home && away && (
-                          <select
-                            value={edit.penalty}
-                            onChange={(e) => setEditing((prev) => ({ ...prev, [match.id]: { ...edit, penalty: e.target.value } }))}
-                            className="h-8 rounded-md border border-border bg-surface px-2 text-xs text-ink"
-                            aria-label={`Ganador por penaltis P${match.match_number}`}
-                          >
-                            <option value="">Gana...</option>
-                            <option value={home.id}>{home.code}</option>
-                            <option value={away.id}>{away.code}</option>
-                          </select>
-                        )}
-                        {match.is_finished && (
-                          <Badge
-                            variant="success-soft"
-                            className="h-8 w-8 shrink-0 justify-center rounded-md p-0"
-                            title="Final"
-                            aria-label="Final"
-                          >
-                            <Check className="h-4 w-4" aria-hidden="true" />
-                          </Badge>
-                        )}
-                        <Button
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => handleSaveResult(match)}
-                          title={match.is_finished ? "Actualizar resultado" : "Guardar resultado"}
-                          aria-label={match.is_finished ? "Actualizar resultado" : "Guardar resultado"}
-                        >
-                          {match.is_finished ? (
-                            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                          ) : (
-                            <Save className="h-4 w-4" aria-hidden="true" />
-                          )}
-                        </Button>
-                        {match.is_finished && (
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            className="h-8 w-8 shrink-0 text-red hover:text-red"
-                            onClick={() => handleDeleteResult(match)}
-                            title="Eliminar resultado"
-                            aria-label="Eliminar resultado"
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                {stageMatches.length === 0 && (
-                  <p className="text-center text-ink-muted py-8 font-sans text-sm">
-                    No hay partidos en esta fase.
-                  </p>
-                )}
-              </div>
-            </TabsContent>
-          );
-        })}
-      </Tabs>
+        {matches.length === 0 && (
+          <p className="text-center text-ink-muted py-8 font-sans text-sm">
+            No hay partidos disponibles.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

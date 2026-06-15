@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MatchCalendar } from "@/components/calendar/match-calendar";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
-import { todayKey } from "@/lib/datetime";
 import { getTeams, getVenues } from "@/lib/data/static-cache";
 import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
+import { getAutoScrollDay } from "@/lib/calendar/match-position";
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -140,15 +140,27 @@ export default function CalendarioPage() {
     [matches, stage, group]
   );
 
+  useEffect(() => {
+    if (loading || filtered.length === 0) return;
+    const targetDay = getAutoScrollDay(filtered);
+    if (!targetDay) return;
+
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-day="${targetDay}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [filtered, loading]);
+
   function jumpToday() {
-    const today = todayKey();
-    const days = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-day]")
-    );
-    const target =
-      days.find((d) => (d.dataset.day ?? "") >= today) ??
-      days[days.length - 1];
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const targetDay = getAutoScrollDay(filtered);
+    if (!targetDay) return;
+
+    document.querySelector<HTMLElement>(`[data-day="${targetDay}"]`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   const showGroupChips = stage !== "eliminatorias";

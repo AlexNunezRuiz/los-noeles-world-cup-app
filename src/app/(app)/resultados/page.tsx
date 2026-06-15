@@ -7,11 +7,13 @@ import { MatchResultCard } from "@/components/results/match-result-card";
 import { UpcomingStrip } from "@/components/results/upcoming-strip";
 import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
 import { Flag } from "@/components/ui/flag";
+import { formatMatchDay, matchDayKey } from "@/lib/datetime";
 import { getTeams, getVenues } from "@/lib/data/static-cache";
 import { buildRealGroupStandings } from "@/lib/results/group-standings";
 import type { TeamStanding } from "@/lib/tournament/standings";
 import { isCompetitionParticipant } from "@/lib/users/participation";
 import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
+import { getAutoScrollDay, sortMatchesByCalendar } from "@/lib/calendar/match-position";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -87,6 +89,9 @@ type TabKey = "partidos" | "grupos" | "cuadro";
 interface FinishedMatchDisplay {
   matchId: number;
   matchNumber: number;
+  match_number: number;
+  match_date: string;
+  is_finished: boolean;
   groupLetter: string | null;
   homeTeam: { name: string; flag_emoji: string };
   awayTeam: { name: string; flag_emoji: string };
@@ -176,6 +181,7 @@ export default function ResultadosPage() {
         if (!m.is_finished) continue;
         if (m.home_score === null || m.away_score === null) continue;
         if (m.home_team_id === null || m.away_team_id === null) continue;
+        if (!m.match_date) continue;
 
         const homeTeam = teamMap.get(m.home_team_id);
         const awayTeam = teamMap.get(m.away_team_id);
@@ -200,6 +206,9 @@ export default function ResultadosPage() {
         finished.push({
           matchId: m.id,
           matchNumber: m.match_number,
+          match_number: m.match_number,
+          match_date: m.match_date,
+          is_finished: true,
           groupLetter: m.group_letter,
           homeTeam: { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji },
           awayTeam: { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji },
@@ -242,7 +251,7 @@ export default function ResultadosPage() {
         });
 
       setUpcoming(attachPredictionsToCalendarMatches(calendarMatches, predictions));
-      setFinishedMatches(finished);
+      setFinishedMatches(sortMatchesByCalendar(finished));
       setTeams(teams);
       setRealGroupStandings(buildRealGroupStandings(teams, matches));
       setTotalPuntos(sumPts);
@@ -258,7 +267,12 @@ export default function ResultadosPage() {
     () =>
       finishedMatches
         .filter((m) => m.outcome !== null)
-        .map((m) => ({ tipo: m.outcome as OutcomeType, puntos: m.points })),
+        .map((m) => ({
+          tipo: m.outcome as OutcomeType,
+          puntos: m.points,
+          matchId: m.matchId,
+          matchNumber: m.matchNumber,
+        })),
     [finishedMatches]
   );
   const teamMap = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
@@ -269,6 +283,19 @@ export default function ResultadosPage() {
       ),
     [realGroupStandings]
   );
+
+  useEffect(() => {
+    if (loading || finishedMatches.length === 0) return;
+    const targetDay = getAutoScrollDay(finishedMatches);
+    if (!targetDay) return;
+
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-day="${targetDay}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [finishedMatches, loading]);
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: "partidos", label: "Partidos" },
@@ -309,7 +336,11 @@ export default function ResultadosPage() {
       )}
 
       {/* Próximos partidos */}
-      {!loading && <UpcomingStrip matches={upcoming} />}
+      {!loading && (
+        <div className="sticky top-14 z-20 -mx-1 bg-cream/95 px-1 py-1 backdrop-blur">
+          <UpcomingStrip matches={upcoming} />
+        </div>
+      )}
 
       {/* Sub-tab switcher */}
       <div className="flex gap-1.5">
@@ -342,9 +373,19 @@ export default function ResultadosPage() {
               <p className="font-sans text-[9px] font-bold uppercase tracking-widest text-ink-faint px-0.5">
                 Jugados
               </p>
-              {finishedMatches.map((m) => (
-                <MatchResultCard
-                  key={m.matchId}
+              {finishedMatches.map((m, index) => {
+                const day = matchDayKey(m.match_date);
+                const previous = finishedMatches[index - 1];
+                const showDay = !previous || matchDayKey(previous.match_date) !== day;
+
+                return (
+                  <section key={m.matchId} data-day={day} className="scroll-mt-48 space-y-2">
+                    {showDay && (
+                      <p className="px-0.5 font-marcador text-xs font-bold uppercase tracking-wide text-ink-muted">
+                        {formatMatchDay(m.match_date)}
+                      </p>
+                    )}
+                    <MatchResultCard
                   matchId={m.matchId}
                   label={
                     m.groupLetter
@@ -358,8 +399,10 @@ export default function ResultadosPage() {
                   prediction={m.prediction}
                   outcome={m.outcome}
                   points={m.points}
-                />
-              ))}
+                    />
+                  </section>
+                );
+              })}
             </>
           )}
         </div>
