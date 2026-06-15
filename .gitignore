@@ -40,6 +40,9 @@ supabase/.temp/
 # local agent metadata
 .serena/
 
+# local feature worktrees
+.worktrees/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
