@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { DEFAULT_APP_ROUTE } from "@/lib/navigation/default-route";
 
 const adminNav = [
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
@@ -60,7 +61,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-cream">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-border bg-surface px-4 py-5 md:flex md:flex-col">
         <Link
-          href="/dashboard"
+          href={DEFAULT_APP_ROUTE}
           className="mb-6 flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -90,7 +91,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           Panel Admin
         </span>
         <Link
-          href="/dashboard"
+          href={DEFAULT_APP_ROUTE}
           className="flex h-9 w-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
           aria-label="Volver a la app"
         >

@@ -4,6 +4,7 @@ import {
   clearAuthContextHeaders,
   writeAuthContextHeaders,
 } from "@/lib/auth/request-context";
+import { DEFAULT_APP_ROUTE } from "@/lib/navigation/default-route";
 
 const MOCK =
   process.env.NEXT_PUBLIC_MOCK === "true" ||
@@ -106,13 +107,13 @@ export async function updateSession(request: NextRequest) {
 
   if (userId && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = DEFAULT_APP_ROUTE;
     return NextResponse.redirect(url);
   }
 
   if (isAdminRoute && userId && adminChecked && !isAdmin) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = DEFAULT_APP_ROUTE;
     return NextResponse.redirect(url);
   }
 

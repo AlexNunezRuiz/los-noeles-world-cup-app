@@ -12,6 +12,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { useToast } from "@/components/ui/use-toast";
 import { normalizeUsername, validateUsername } from "@/lib/auth/username";
 import { getMissingRegisterFields } from "@/lib/auth/register-validation";
+import { DEFAULT_APP_ROUTE } from "@/lib/navigation/default-route";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -113,7 +114,7 @@ export default function RegisterPage() {
       description: "¡Bienvenido a la porra!",
     });
 
-    router.push("/dashboard");
+    router.push(DEFAULT_APP_ROUTE);
     router.refresh();
   };
 

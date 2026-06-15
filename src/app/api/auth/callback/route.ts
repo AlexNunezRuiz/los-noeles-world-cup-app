@@ -1,11 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { DEFAULT_APP_ROUTE } from "@/lib/navigation/default-route";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? DEFAULT_APP_ROUTE;
 
   if (code) {
     const cookieStore = cookies();

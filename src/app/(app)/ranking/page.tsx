@@ -12,25 +12,19 @@ import {
   type PorraCompletion,
   type PorraPhaseState,
 } from "@/lib/predictions/completion";
-import { assignCompetitionPositions } from "@/lib/ranking/positions";
 import {
   filterRankingSearchTargets,
   getRankingSearchSuggestions,
   type RankingSearchTarget,
 } from "@/lib/ranking/search";
 import { fetchRankingProfiles, type RankingProfileRow } from "@/lib/ranking/profiles";
+import {
+  buildRankingLeaderboard,
+  type RankingLeaderboardEntry,
+  type RankingLeaderboardScore,
+} from "@/lib/ranking/leaderboard";
 import { cn } from "@/lib/utils";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
-import { isCompetitionParticipant } from "@/lib/users/participation";
-
-interface UserScoreRow {
-  user_id: string;
-  total_points: number;
-  group_stage_points: number;
-  knockout_exact_points: number;
-  qualification_points: number;
-  award_points: number;
-}
 
 type ProfileRow = RankingProfileRow;
 
@@ -42,17 +36,7 @@ interface CompletionStatusRow {
   award_prediction_count: number;
 }
 
-interface LeaderboardEntry {
-  position: number;
-  user_id: string;
-  name: string;
-  total_points: number;
-  group_stage_points: number;
-  knockout_exact_points: number;
-  qualification_points: number;
-  award_points: number;
-  isYou: boolean;
-}
+type LeaderboardEntry = RankingLeaderboardEntry;
 
 type TabMode = "lista" | "podio" | "estado";
 
@@ -120,9 +104,6 @@ export default function RankingPage() {
         const uid = user?.id ?? "";
         if (uid) setCurrentUserId(uid);
 
-        const profileMap = new Map<string, ProfileRow>(
-          ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
-        );
         setAllProfiles(((profiles ?? []) as ProfileRow[]).filter((profile) => profile.is_active !== false));
         setCompletionByUser(
           new Map(
@@ -138,32 +119,13 @@ export default function RankingPage() {
           )
         );
 
-        const scoreEntries = ((scores ?? []) as UserScoreRow[])
-          .map((s) => {
-            const profile = profileMap.get(s.user_id);
-            return {
-              position: 0,
-              user_id: s.user_id,
-              name: profile?.display_name ?? "Desconocido",
-              total_points: s.total_points,
-              group_stage_points: s.group_stage_points,
-              knockout_exact_points: s.knockout_exact_points,
-              qualification_points: s.qualification_points,
-              award_points: s.award_points,
-              isYou: s.user_id === uid,
-              has_paid: profile?.has_paid ?? false,
-              is_active: profile?.is_active,
-            };
+        setEntries(
+          buildRankingLeaderboard({
+            profiles: (profiles ?? []) as ProfileRow[],
+            scores: (scores ?? []) as RankingLeaderboardScore[],
+            currentUserId: uid || null,
           })
-          .filter(isCompetitionParticipant)
-          .sort((a, b) => b.total_points - a.total_points);
-
-        const paid: LeaderboardEntry[] = assignCompetitionPositions(
-          scoreEntries,
-          (entry) => entry.total_points
         );
-
-        setEntries(paid);
       } catch (error) {
         console.error("Error loading ranking", error);
         setEntries([]);

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { headers } from "next/headers";
 import { readAuthContext } from "@/lib/auth/request-context";
+import { DEFAULT_APP_ROUTE } from "@/lib/navigation/default-route";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const authContext = readAuthContext(headers());
@@ -30,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   if (!userId) redirect("/login");
-  if (!isAdmin) redirect("/dashboard");
+  if (!isAdmin) redirect(DEFAULT_APP_ROUTE);
 
   return <AdminShell>{children}</AdminShell>;
 }

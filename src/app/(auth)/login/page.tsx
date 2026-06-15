@@ -11,6 +11,7 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { usernameToEmail } from "@/lib/auth/username";
+import { DEFAULT_APP_ROUTE } from "@/lib/navigation/default-route";
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
@@ -54,7 +55,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(DEFAULT_APP_ROUTE);
     router.refresh();
   };
 
