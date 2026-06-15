@@ -116,6 +116,10 @@ class MockQuery implements PromiseLike<any> {
     this.filters.push((r) => r[col] !== val);
     return this;
   }
+  is(col: string, val: any) {
+    this.filters.push((r) => r[col] === val);
+    return this;
+  }
   in(col: string, vals: any[]) {
     this.filters.push((r) => vals.includes(r[col]));
     return this;

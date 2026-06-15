@@ -49,7 +49,7 @@ export function RankingList({ players }: { players: RankingRow[] }) {
         if (p.isYou) {
           return (
             <Link
-              key={p.position}
+              key={p.userId}
               href={`/jugador/${p.userId}`}
               className="block rounded-xl border-2 border-red bg-surface p-3 shadow-[0_6px_16px_-10px_rgba(221,53,43,0.5)]"
             >
@@ -76,7 +76,7 @@ export function RankingList({ players }: { players: RankingRow[] }) {
         }
         return (
           <Link
-            key={p.position}
+            key={p.userId}
             href={`/jugador/${p.userId}`}
             className={cn(
               "grid grid-cols-[20px_28px_1fr_auto] items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5",

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RankingList, RankingRow } from "@/components/ranking/ranking-list";
 import { Podium } from "@/components/ranking/podium";
@@ -11,8 +12,12 @@ import {
   type PorraCompletion,
   type PorraPhaseState,
 } from "@/lib/predictions/completion";
-import { filterRankedPredictionProfiles } from "@/lib/results/prediction-compare";
 import { assignCompetitionPositions } from "@/lib/ranking/positions";
+import {
+  filterRankingSearchTargets,
+  getRankingSearchSuggestions,
+  type RankingSearchTarget,
+} from "@/lib/ranking/search";
 import { cn } from "@/lib/utils";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 import { isCompetitionParticipant } from "@/lib/users/participation";
@@ -183,38 +188,36 @@ export default function RankingPage() {
   }, []);
 
   // Derive display data
-  const { youIdx, you, rankingRows, top3, rest, pendingPlayers, statusProfiles } = useMemo(() => {
-    const filteredEntryIds = new Set(
-      filterRankedPredictionProfiles(
-        entries.map((entry) => ({
-          id: entry.user_id,
-          display_name: entry.name,
-          has_paid: true,
-          rank: entry.position,
-          totalPoints: entry.total_points,
-          isCurrentUser: entry.user_id === currentUserId,
-        })),
-        playerSearch
-      ).map((entry) => entry.id)
-    );
-    const filteredProfileIds = new Set(
-      filterRankedPredictionProfiles(
-        allProfiles.map((profile) => ({
-          id: profile.id,
-          display_name: profile.display_name,
-          has_paid: profile.has_paid,
-          rank: null,
-          totalPoints: entries.find((entry) => entry.user_id === profile.id)?.total_points ?? 0,
-          isCurrentUser: profile.id === currentUserId,
-        })),
-        playerSearch
-      ).map((profile) => profile.id)
+  const {
+    youIdx,
+    you,
+    rankingRows,
+    top3,
+    rest,
+    pendingPlayers,
+    statusProfiles,
+    searchSuggestions,
+  } = useMemo(() => {
+    const entryByUserId = new Map(entries.map((entry) => [entry.user_id, entry]));
+    const searchTargets: RankingSearchTarget[] = allProfiles.map((profile) => {
+      const entry = entryByUserId.get(profile.id);
+      return {
+        id: profile.id,
+        displayName: profile.display_name,
+        hasPaid: profile.has_paid,
+        position: entry?.position ?? null,
+        totalPoints: entry?.total_points ?? 0,
+        isCurrentUser: profile.id === currentUserId,
+      };
+    });
+    const filteredIds = new Set(
+      filterRankingSearchTargets(searchTargets, playerSearch).map((target) => target.id)
     );
     const displayEntries = playerSearch.trim()
-      ? entries.filter((entry) => filteredEntryIds.has(entry.user_id))
+      ? entries.filter((entry) => filteredIds.has(entry.user_id))
       : entries;
     const displayProfiles = playerSearch.trim()
-      ? allProfiles.filter((profile) => filteredProfileIds.has(profile.id))
+      ? allProfiles.filter((profile) => filteredIds.has(profile.id))
       : allProfiles;
     const currentYouIdx = entries.findIndex((e) => e.isYou);
     const currentYou = currentYouIdx >= 0 ? entries[currentYouIdx] : null;
@@ -258,6 +261,7 @@ export default function RankingPage() {
       statusProfiles: displayProfiles
         .slice()
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+      searchSuggestions: getRankingSearchSuggestions(searchTargets, playerSearch),
     };
   }, [allProfiles, entries, currentUserId, playerSearch]);
 
@@ -275,12 +279,52 @@ export default function RankingPage() {
         </h1>
       </div>
 
-      <input
-        value={playerSearch}
-        onChange={(event) => setPlayerSearch(event.target.value)}
-        placeholder="Buscar jugador: nombre, #puesto, puntos, pendiente..."
-        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
-      />
+      <div className="space-y-2">
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+          />
+          <input
+            value={playerSearch}
+            onChange={(event) => {
+              setPlayerSearch(event.target.value);
+              if (tab !== "lista") setTab("lista");
+            }}
+            type="text"
+            aria-label="Buscar jugador"
+            placeholder="Buscar jugador..."
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-blue/25"
+          />
+          {playerSearch.trim() && (
+            <button
+              type="button"
+              onClick={() => setPlayerSearch("")}
+              aria-label="Limpiar busqueda"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-faint hover:bg-surface-sunken hover:text-ink focus:outline-none focus:ring-2 focus:ring-blue/25"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {searchSuggestions.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {searchSuggestions.map((suggestion) => (
+              <button
+                key={suggestion.id}
+                type="button"
+                onClick={() => {
+                  setPlayerSearch(suggestion.value);
+                  setTab("lista");
+                }}
+                className="shrink-0 rounded-md border border-border bg-surface px-2.5 py-1 text-left text-[11px] font-semibold text-ink-muted hover:border-blue/40 hover:text-ink focus:outline-none focus:ring-2 focus:ring-blue/25"
+              >
+                {suggestion.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Toggle */}
       <div className="bg-surface-sunken rounded-lg p-1 flex">

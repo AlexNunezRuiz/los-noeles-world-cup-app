@@ -1,10 +1,14 @@
 "use client";
 
+import * as React from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface BoletinItem {
   tipo: "exacto" | "signo" | "fallo";
   puntos: number;
+  matchId: number;
+  matchNumber: number;
 }
 
 interface TuJornadaCardProps {
@@ -20,6 +24,18 @@ const TILE: Record<BoletinItem["tipo"], { cls: string; label: string }> = {
   signo: { cls: "bg-green/[0.07] text-green border border-green/25", label: "Signo" },
   fallo: { cls: "bg-surface-sunken text-ink-faint", label: "Fallo" },
 };
+
+function formatMatchNumber(matchNumber: number) {
+  return `P${String(matchNumber).padStart(2, "0")}`;
+}
+
+function formatPoints(points: number) {
+  return points > 0 ? `+${points}` : "0";
+}
+
+function pointsLabel(points: number) {
+  return `${formatPoints(points)} ${Math.abs(points) === 1 ? "punto" : "puntos"}`;
+}
 
 export function TuJornadaCard({ jornada, puntos, posicion, movimiento, boletin }: TuJornadaCardProps) {
   return (
@@ -49,12 +65,30 @@ export function TuJornadaCard({ jornada, puntos, posicion, movimiento, boletin }
           <p className="mb-1.5 font-sans text-[9px] font-bold uppercase tracking-widest text-ink-faint">
             Tu boletín
           </p>
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
             {boletin.map((b, i) => (
-              <div key={i} className={cn("flex-1 rounded-md py-1.5 text-center", TILE[b.tipo].cls)}>
-                <p className="font-marcador text-sm font-bold">{b.puntos > 0 ? `+${b.puntos}` : "0"}</p>
-                <p className="text-[7.5px] font-bold uppercase tracking-wide">{TILE[b.tipo].label}</p>
-              </div>
+              <Link
+                key={`${b.matchId}-${i}`}
+                href={`/resultados/predicciones?partido=${b.matchId}`}
+                aria-label={`Ver partido ${formatMatchNumber(b.matchNumber)}: ${TILE[
+                  b.tipo
+                ].label.toLowerCase()}, ${pointsLabel(b.puntos)}`}
+                title={`Ver ${formatMatchNumber(b.matchNumber)} - ${TILE[b.tipo].label}`}
+                className={cn(
+                  "w-[62px] shrink-0 rounded-md px-2 py-1.5 text-center transition-colors hover:ring-2 hover:ring-blue/20 focus:outline-none focus:ring-2 focus:ring-blue/30",
+                  TILE[b.tipo].cls
+                )}
+              >
+                <p className="font-marcador text-[10px] font-bold leading-none text-ink-muted">
+                  {formatMatchNumber(b.matchNumber)}
+                </p>
+                <p className="mt-0.5 font-marcador text-base font-bold leading-none">
+                  {formatPoints(b.puntos)}
+                </p>
+                <p className="mt-0.5 truncate text-[8px] font-bold uppercase">
+                  {TILE[b.tipo].label}
+                </p>
+              </Link>
             ))}
           </div>
         </div>
