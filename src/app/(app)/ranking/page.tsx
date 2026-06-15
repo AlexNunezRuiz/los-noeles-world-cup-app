@@ -18,6 +18,7 @@ import {
   getRankingSearchSuggestions,
   type RankingSearchTarget,
 } from "@/lib/ranking/search";
+import { fetchRankingProfiles, type RankingProfileRow } from "@/lib/ranking/profiles";
 import { cn } from "@/lib/utils";
 import { shouldShowEmptyState } from "@/lib/ui/loading-state";
 import { isCompetitionParticipant } from "@/lib/users/participation";
@@ -31,12 +32,7 @@ interface UserScoreRow {
   award_points: number;
 }
 
-interface ProfileRow {
-  id: string;
-  display_name: string;
-  has_paid: boolean;
-  is_active?: boolean | null;
-}
+type ProfileRow = RankingProfileRow;
 
 interface CompletionStatusRow {
   user_id: string;
@@ -90,82 +86,93 @@ export default function RankingPage() {
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabMode>("lista");
   const [playerSearch, setPlayerSearch] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const userPromise = supabase.auth.getUser();
-      const scoresPromise = supabase
-        .from("user_scores")
-        .select(
-          "user_id, total_points, group_stage_points, knockout_exact_points, qualification_points, award_points"
-        )
-        .order("total_points", { ascending: false });
+      setLoading(true);
+      setLoadError(null);
 
-      const profilesPromise = supabase
-        .from("profiles")
-        .select("id, display_name, has_paid, is_active");
-      const completionPromise = supabase.rpc("get_porra_completion_status");
+      try {
+        const userPromise = supabase.auth.getUser();
+        const scoresPromise = supabase
+          .from("user_scores")
+          .select(
+            "user_id, total_points, group_stage_points, knockout_exact_points, qualification_points, award_points"
+          )
+          .order("total_points", { ascending: false });
 
-      const [
-        {
-          data: { user },
-        },
-        { data: scores },
-        { data: profiles },
-        { data: completionRows },
-      ] = await Promise.all([userPromise, scoresPromise, profilesPromise, completionPromise]);
+        const profilesPromise = fetchRankingProfiles(supabase);
+        const completionPromise = supabase.rpc("get_porra_completion_status");
 
-      const uid = user?.id ?? "";
-      if (uid) setCurrentUserId(uid);
+        const [
+          {
+            data: { user },
+          },
+          { data: scores },
+          profiles,
+          { data: completionRows },
+        ] = await Promise.all([userPromise, scoresPromise, profilesPromise, completionPromise]);
 
-      const profileMap = new Map<string, ProfileRow>(
-        ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
-      );
-      setAllProfiles(((profiles ?? []) as ProfileRow[]).filter((profile) => profile.is_active !== false));
-      setCompletionByUser(
-        new Map(
-          ((completionRows ?? []) as CompletionStatusRow[]).map((row) => [
-            row.user_id,
-            getPorraCompletion({
-              groupPredictionCount: row.group_prediction_count,
-              groupStandingRows: row.group_standing_rows,
-              knockoutPredictionCount: row.knockout_prediction_count,
-              awardPredictionCount: row.award_prediction_count,
-            }),
-          ])
-        )
-      );
+        const uid = user?.id ?? "";
+        if (uid) setCurrentUserId(uid);
 
-      const scoreEntries = ((scores ?? []) as UserScoreRow[])
-        .map((s) => {
-          const profile = profileMap.get(s.user_id);
-          return {
-            position: 0,
-            user_id: s.user_id,
-            name: profile?.display_name ?? "Desconocido",
-            total_points: s.total_points,
-            group_stage_points: s.group_stage_points,
-            knockout_exact_points: s.knockout_exact_points,
-            qualification_points: s.qualification_points,
-            award_points: s.award_points,
-            isYou: s.user_id === uid,
-            has_paid: profile?.has_paid ?? false,
-            is_active: profile?.is_active,
-          };
-        })
-        .filter(isCompetitionParticipant)
-        .sort((a, b) => b.total_points - a.total_points);
+        const profileMap = new Map<string, ProfileRow>(
+          ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p])
+        );
+        setAllProfiles(((profiles ?? []) as ProfileRow[]).filter((profile) => profile.is_active !== false));
+        setCompletionByUser(
+          new Map(
+            ((completionRows ?? []) as CompletionStatusRow[]).map((row) => [
+              row.user_id,
+              getPorraCompletion({
+                groupPredictionCount: row.group_prediction_count,
+                groupStandingRows: row.group_standing_rows,
+                knockoutPredictionCount: row.knockout_prediction_count,
+                awardPredictionCount: row.award_prediction_count,
+              }),
+            ])
+          )
+        );
 
-      const paid: LeaderboardEntry[] = assignCompetitionPositions(
-        scoreEntries,
-        (entry) => entry.total_points
-      );
+        const scoreEntries = ((scores ?? []) as UserScoreRow[])
+          .map((s) => {
+            const profile = profileMap.get(s.user_id);
+            return {
+              position: 0,
+              user_id: s.user_id,
+              name: profile?.display_name ?? "Desconocido",
+              total_points: s.total_points,
+              group_stage_points: s.group_stage_points,
+              knockout_exact_points: s.knockout_exact_points,
+              qualification_points: s.qualification_points,
+              award_points: s.award_points,
+              isYou: s.user_id === uid,
+              has_paid: profile?.has_paid ?? false,
+              is_active: profile?.is_active,
+            };
+          })
+          .filter(isCompetitionParticipant)
+          .sort((a, b) => b.total_points - a.total_points);
 
-      setEntries(paid);
-      setLoading(false);
+        const paid: LeaderboardEntry[] = assignCompetitionPositions(
+          scoreEntries,
+          (entry) => entry.total_points
+        );
+
+        setEntries(paid);
+      } catch (error) {
+        console.error("Error loading ranking", error);
+        setEntries([]);
+        setAllProfiles([]);
+        setCompletionByUser(new Map());
+        setLoadError("No se pudo cargar el ranking.");
+      } finally {
+        setLoading(false);
+      }
     }
 
     load();
@@ -366,7 +373,12 @@ export default function RankingPage() {
           Cargando clasificacion...
         </div>
       )}
-      {shouldShowEmptyState(loading, entries.length) && (
+      {!loading && loadError && (
+        <div className="rounded-xl border border-red/30 bg-red/5 p-8 text-center text-sm font-semibold text-red">
+          {loadError}
+        </div>
+      )}
+      {!loadError && shouldShowEmptyState(loading, entries.length) && (
         <div className="rounded-xl border border-border bg-surface p-8 text-center text-ink-muted text-sm">
           Aun no hay puntuaciones disponibles.
         </div>
