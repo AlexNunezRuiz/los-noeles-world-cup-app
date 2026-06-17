@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/ui/flag";
 import { useToast } from "@/components/ui/use-toast";
 import { recalculateAllScores, type ScoreEvent } from "@/lib/scoring/calculator";
+import { runRecalculationBeforeNotifications } from "@/lib/admin/result-recalculation";
 import {
   assertNotificationInsertSucceeded,
   buildNotificationRows,
@@ -184,16 +185,15 @@ export default function AdminResultadosPage() {
         )
       );
       toast({ title: `P${match.match_number} resultado guardado` });
-      try {
-        const actorUserId = await publishGlobalNotification({
-          type: "result_update",
-          title: "Nuevo resultado",
-          body: `Resultado actualizado: ${matchLabel(updatedMatch)}`,
-          link: "/resultados",
-        });
-
-        const recalc = await recalculateAllScores(supabase);
-        if (recalc.success) {
+      await runRecalculationBeforeNotifications<ScoreEvent>({
+        recalculate: () => recalculateAllScores(supabase),
+        publishNotifications: async (recalc) => {
+          const actorUserId = await publishGlobalNotification({
+            type: "result_update",
+            title: "Nuevo resultado",
+            body: `Resultado actualizado: ${matchLabel(updatedMatch)}`,
+            link: "/resultados",
+          });
           await publishCorrectPredictionNotifications(updatedMatch, actorUserId, recalc.events ?? []);
           await publishGlobalNotification({
             type: "ranking_update",
@@ -201,23 +201,25 @@ export default function AdminResultadosPage() {
             body: "La clasificacion se ha actualizado tras el ultimo resultado.",
             link: "/ranking",
           });
-        } else {
+        },
+        onRecalculateError: (error) => {
           toast({
             title: "Resultado guardado, pero no se recalculo la clasificacion",
-            description: recalc.error,
+            description: error,
             variant: "destructive",
           });
-        }
-      } catch (notificationError) {
-        toast({
-          title: "Resultado guardado, pero fallo la notificacion",
-          description:
-            notificationError instanceof Error
-              ? notificationError.message
-              : "No se pudieron crear las notificaciones internas.",
-          variant: "destructive",
-        });
-      }
+        },
+        onNotificationError: (notificationError) => {
+          toast({
+            title: "Clasificacion recalculada, pero fallo la notificacion",
+            description:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "No se pudieron crear las notificaciones internas.",
+            variant: "destructive",
+          });
+        },
+      });
     }
   };
 
@@ -244,39 +246,40 @@ export default function AdminResultadosPage() {
     }));
     toast({ title: `P${match.match_number} resultado eliminado` });
 
-    try {
-      await publishGlobalNotification({
-        type: "result_update",
-        title: "Resultado eliminado",
-        body: `Resultado eliminado: P${match.match_number}`,
-        link: "/resultados",
-      });
-
-      const recalc = await recalculateAllScores(supabase);
-      if (recalc.success) {
+    await runRecalculationBeforeNotifications<ScoreEvent>({
+      recalculate: () => recalculateAllScores(supabase),
+      publishNotifications: async () => {
+        await publishGlobalNotification({
+          type: "result_update",
+          title: "Resultado eliminado",
+          body: `Resultado eliminado: P${match.match_number}`,
+          link: "/resultados",
+        });
         await publishGlobalNotification({
           type: "ranking_update",
           title: "Clasificacion actualizada",
           body: "La clasificacion se ha actualizado tras eliminar un resultado.",
           link: "/ranking",
         });
-      } else {
+      },
+      onRecalculateError: (error) => {
         toast({
           title: "Resultado eliminado, pero no se recalculo la clasificacion",
-          description: recalc.error,
+          description: error,
           variant: "destructive",
         });
-      }
-    } catch (notificationError) {
-      toast({
-        title: "Resultado eliminado, pero fallo la notificacion",
-        description:
-          notificationError instanceof Error
-            ? notificationError.message
-            : "No se pudieron crear las notificaciones internas.",
-        variant: "destructive",
-      });
-    }
+      },
+      onNotificationError: (notificationError) => {
+        toast({
+          title: "Clasificacion recalculada, pero fallo la notificacion",
+          description:
+            notificationError instanceof Error
+              ? notificationError.message
+              : "No se pudieron crear las notificaciones internas.",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   const handleRecalculate = async () => {
