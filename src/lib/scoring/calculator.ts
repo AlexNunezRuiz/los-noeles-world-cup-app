@@ -32,19 +32,6 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
       rules.set(r.rule_key, r.points);
     }
 
-    // Clear existing score events and user scores
-    const { error: deleteEventsError } = await supabase
-      .from("score_events")
-      .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
-    assertNoSupabaseError(deleteEventsError, "Error borrando eventos de puntuacion");
-
-    const { error: deleteScoresError } = await supabase
-      .from("user_scores")
-      .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
-    assertNoSupabaseError(deleteScoresError, "Error borrando clasificacion");
-
     const { data: knockoutMatchesForPredictions, error: knockoutMatchesError } = await supabase
       .from("matches")
       .select("*")
@@ -69,17 +56,6 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
     for (const category of configuredCategories) {
       const scorer = categoryScorers[category];
       if (scorer) allEvents.push(...await scorer());
-    }
-
-    // Insert all score events
-    if (allEvents.length > 0) {
-      // Insert in batches
-      const batchSize = 100;
-      for (let i = 0; i < allEvents.length; i += batchSize) {
-        const batch = allEvents.slice(i, i + batchSize);
-        const { error: insertEventsError } = await supabase.from("score_events").insert(batch);
-        assertNoSupabaseError(insertEventsError, "Error guardando eventos de puntuacion");
-      }
     }
 
     // Aggregate into user_scores
@@ -131,6 +107,22 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
         .from("user_scores")
         .upsert(scoreRows, { onConflict: "user_id" });
       assertNoSupabaseError(upsertScoresError, "Error guardando clasificacion");
+    }
+
+    // Replace detailed score events only after the ranking cache is safely written.
+    const { error: deleteEventsError } = await supabase
+      .from("score_events")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    assertNoSupabaseError(deleteEventsError, "Error borrando eventos de puntuacion");
+
+    if (allEvents.length > 0) {
+      const batchSize = 100;
+      for (let i = 0; i < allEvents.length; i += batchSize) {
+        const batch = allEvents.slice(i, i + batchSize);
+        const { error: insertEventsError } = await supabase.from("score_events").insert(batch);
+        assertNoSupabaseError(insertEventsError, "Error guardando eventos de puntuacion");
+      }
     }
 
     return { success: true, events: allEvents };
