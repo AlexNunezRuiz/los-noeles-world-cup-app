@@ -8,7 +8,7 @@ import { getBestThirds, type TeamStanding } from "../tournament/standings";
 
 export interface ScoreEvent {
   user_id: string;
-  match_id: number;
+  match_id: number | null;
   rule_key: string;
   points: number;
   description: string;

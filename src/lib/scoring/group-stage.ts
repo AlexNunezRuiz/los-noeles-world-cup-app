@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface ScoreEvent {
   user_id: string;
-  match_id: number;
+  match_id: number | null;
   rule_key: string;
   points: number;
   description: string;
@@ -97,7 +97,7 @@ export async function scoreGroupPositions(
       if (pts > 0) {
         events.push({
           user_id: userId,
-          match_id: 0,
+          match_id: null,
           rule_key: ruleKey,
           points: pts,
           description: `Acertó ${actual.position}º de grupo ${groupLetter}`,

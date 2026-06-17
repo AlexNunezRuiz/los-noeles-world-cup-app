@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { didPredictTeamInStage, didPredictTeamLoseStage, didPredictTeamWinStage } from "./qualification";
+import {
+  didPredictTeamInStage,
+  didPredictTeamLoseStage,
+  didPredictTeamWinStage,
+  scoreQualification,
+} from "./qualification";
 
 test("comprueba campeon usando el partido final aunque la regla sea qualify_champion", () => {
   const matches = [
@@ -51,4 +56,56 @@ test("subcampeon y cuarto puesto exigen que el equipo sea perdedor previsto del 
   assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "final", 2), false);
   assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "third_place", 4), true);
   assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "third_place", 3), false);
+});
+
+function fakeSupabase(matches: unknown[]) {
+  return {
+    from(table: string) {
+      assert.equal(table, "matches");
+
+      return {
+        select() {
+          return this;
+        },
+        neq() {
+          return this;
+        },
+        then<TResult1 = { data: unknown[] }, TResult2 = never>(
+          onfulfilled?: ((value: { data: unknown[] }) => TResult1 | PromiseLike<TResult1>) | null,
+          onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+        ) {
+          return Promise.resolve({ data: matches }).then(onfulfilled, onrejected);
+        },
+      };
+    },
+  };
+}
+
+test("los puntos por clasificacion de ronda no apuntan a un partido inexistente", async () => {
+  const events = await scoreQualification(
+    fakeSupabase([
+      {
+        id: 73,
+        match_number: 73,
+        stage: "round_of_32",
+        home_team_id: 1,
+        away_team_id: 2,
+        home_score: null,
+        away_score: null,
+        penalty_winner_team_id: null,
+        is_finished: false,
+      },
+    ]) as never,
+    new Map([["qualify_r32", 1]]),
+    new Map([
+      [
+        "u1",
+        new Map([
+          [73, { home_team_id: 1, away_team_id: 2 }],
+        ]),
+      ],
+    ])
+  );
+
+  assert.equal(events[0]?.match_id, null);
 });

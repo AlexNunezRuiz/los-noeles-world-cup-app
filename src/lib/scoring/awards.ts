@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface ScoreEvent {
   user_id: string;
-  match_id: number;
+  match_id: number | null;
   rule_key: string;
   points: number;
   description: string;
@@ -44,7 +44,7 @@ export async function scoreAwards(
       if (matchById || matchByName) {
         events.push({
           user_id: pred.user_id,
-          match_id: 0,
+          match_id: null,
           rule_key: actual.award_type,
           points: pts,
           description: `Acertó ${AWARD_LABELS[actual.award_type]}: ${actual.player_name}`,
