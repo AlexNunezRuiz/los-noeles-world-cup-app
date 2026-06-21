@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, KeyRound, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { MANUAL_PASSWORD_MIN_LENGTH } from "@/lib/admin/password-reset";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -53,6 +55,8 @@ export default function AdminUsuariosPage() {
   const [lastPredictionUpdateByUser, setLastPredictionUpdateByUser] = useState<Map<string, string | null>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<AdminUserSort>({ key: "created_at", direction: "desc" });
+  const [passwordDraftByUser, setPasswordDraftByUser] = useState<Record<string, string>>({});
+  const [passwordResettingByUser, setPasswordResettingByUser] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -201,6 +205,57 @@ export default function AdminUsuariosPage() {
     }
   }
 
+  function updatePasswordDraft(userId: string, value: string) {
+    setPasswordDraftByUser((prev) => ({ ...prev, [userId]: value }));
+  }
+
+  async function resetPassword(userId: string) {
+    const password = passwordDraftByUser[userId]?.trim() ?? "";
+    const targetProfile = profiles.find((profile) => profile.id === userId);
+
+    if (password.length < MANUAL_PASSWORD_MIN_LENGTH) {
+      toast({
+        title: "Contrasena demasiado corta",
+        description: `Usa al menos ${MANUAL_PASSWORD_MIN_LENGTH} caracteres para la clave temporal.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPasswordResettingByUser((prev) => ({ ...prev, [userId]: true }));
+
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "No se pudo cambiar la contrasena.");
+      }
+
+      setPasswordDraftByUser((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      toast({
+        title: "Contrasena actualizada",
+        description: `Nueva clave temporal guardada para ${targetProfile?.display_name ?? "usuario"}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error al cambiar contrasena",
+        description: error instanceof Error ? error.message : "No se pudo cambiar la contrasena.",
+        variant: "destructive",
+      });
+    } finally {
+      setPasswordResettingByUser((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -250,13 +305,16 @@ export default function AdminUsuariosPage() {
                   <SortHeader label="Activo" sortKey="is_active" sort={sort} onSort={toggleSort} align="center" />
                   <SortHeader label="Ban Chat" sortKey="is_chat_banned" sort={sort} onSort={toggleSort} align="center" />
                   <SortHeader label="Admin" sortKey="is_admin" sort={sort} onSort={toggleSort} align="center" />
+                  <th className="py-3 px-2 text-left font-sans font-medium text-xs text-ink-muted">
+                    Clave
+                  </th>
                   <SortHeader label="Registro" sortKey="created_at" sort={sort} onSort={toggleSort} />
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={10} className="py-8 px-4 text-center text-sm text-ink-muted">
+                    <td colSpan={11} className="py-8 px-4 text-center text-sm text-ink-muted">
                       Cargando usuarios...
                     </td>
                   </tr>
@@ -317,6 +375,29 @@ export default function AdminUsuariosPage() {
                     <td className="py-3 px-2 text-center">
                       {p.is_admin && <Badge variant="default">Admin</Badge>}
                     </td>
+                    <td className="py-3 px-2 min-w-[230px]">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          value={passwordDraftByUser[p.id] ?? ""}
+                          onChange={(event) => updatePasswordDraft(p.id, event.target.value)}
+                          placeholder="Temporal"
+                          autoComplete="off"
+                          aria-label={`Nueva contrasena de ${p.display_name}`}
+                          className="h-9 min-w-28 text-xs"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => resetPassword(p.id)}
+                          disabled={passwordResettingByUser[p.id] || !(passwordDraftByUser[p.id]?.trim())}
+                        >
+                          <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                          {passwordResettingByUser[p.id] ? "..." : "Cambiar"}
+                        </Button>
+                      </div>
+                    </td>
                     <td className="py-3 px-2 text-ink-faint text-xs font-marcador">
                       {new Date(p.created_at).toLocaleDateString("es-ES")}
                     </td>
@@ -325,7 +406,7 @@ export default function AdminUsuariosPage() {
                 })}
                 {shouldShowEmptyState(loading, displayedProfiles.length) && (
                   <tr>
-                    <td colSpan={10} className="py-8 px-4 text-center text-sm text-ink-muted">
+                    <td colSpan={11} className="py-8 px-4 text-center text-sm text-ink-muted">
                       {searchQuery.trim() ? "No hay usuarios que coincidan con la busqueda." : "No hay usuarios registrados."}
                     </td>
                   </tr>
