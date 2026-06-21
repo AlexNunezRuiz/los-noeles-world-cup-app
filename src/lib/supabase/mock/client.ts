@@ -8,6 +8,7 @@
 // ============================================================
 
 import { createDb, MOCK_USER, UUID_TABLES, type Db, type Row } from "./data";
+import { isCompleteKnockoutPrediction } from "@/lib/predictions/knockout-editing";
 
 // One in-memory DB per runtime (server module / browser tab).
 const db: Db = createDb();
@@ -335,7 +336,13 @@ export function createMockClient(): any {
             (standing) => standing.user_id === profile.id
           ).length,
           knockout_prediction_count: userMatchPredictions.filter(
-            (prediction) => matchesById.get(prediction.match_id)?.stage !== "group"
+            (prediction) =>
+              matchesById.get(prediction.match_id)?.stage !== "group" &&
+              isCompleteKnockoutPrediction(
+                prediction.home_score,
+                prediction.away_score,
+                prediction.penalty_winner
+              )
           ).length,
           award_prediction_count: (db.award_predictions ?? []).filter(
             (award) => award.user_id === profile.id

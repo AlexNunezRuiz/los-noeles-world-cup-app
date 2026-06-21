@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isCompleteKnockoutPrediction,
   getKnockoutEditingViewState,
   type KnockoutEditingState,
 } from "./knockout-editing";
@@ -43,4 +44,11 @@ test("mantiene seleccionada una eliminatoria empatada sin ganador aunque venga d
   assert.equal(view.selected, true);
   assert.equal(view.focusedSide, null);
   assert.equal(view.scorePadOpen, false);
+});
+
+test("no considera completa una eliminatoria empatada sin ganador", () => {
+  assert.equal(isCompleteKnockoutPrediction(1, 1, null), false);
+  assert.equal(isCompleteKnockoutPrediction(1, 1, undefined), false);
+  assert.equal(isCompleteKnockoutPrediction(1, 1, "home"), true);
+  assert.equal(isCompleteKnockoutPrediction(2, 1, null), true);
 });

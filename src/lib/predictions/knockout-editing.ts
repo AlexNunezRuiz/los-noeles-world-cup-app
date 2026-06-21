@@ -5,6 +5,16 @@ export interface KnockoutEditingState {
   awaitingWinnerMatch: number | null;
 }
 
+export function isCompleteKnockoutPrediction(
+  homeScore: number | null | undefined,
+  awayScore: number | null | undefined,
+  penaltyWinner?: KnockoutEditingSide | null
+): boolean {
+  if (homeScore === null || homeScore === undefined) return false;
+  if (awayScore === null || awayScore === undefined) return false;
+  return homeScore !== awayScore || penaltyWinner === "home" || penaltyWinner === "away";
+}
+
 export function getKnockoutEditingViewState(
   state: KnockoutEditingState,
   matchNumber: number,

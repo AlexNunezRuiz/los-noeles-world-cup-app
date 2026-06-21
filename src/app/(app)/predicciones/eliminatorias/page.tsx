@@ -13,7 +13,7 @@ import { Flag } from "@/components/ui/flag";
 import { cn } from "@/lib/utils";
 import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
-import { getKnockoutEditingViewState } from "@/lib/predictions/knockout-editing";
+import { getKnockoutEditingViewState, isCompleteKnockoutPrediction } from "@/lib/predictions/knockout-editing";
 import { canEditPredictions } from "@/lib/predictions/lock";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,11 +51,6 @@ interface BestThirdOverride {
 interface ConfigRow {
   key: string;
   value: string;
-}
-
-/** A prediction only counts once BOTH scores have been entered. */
-function isKoComplete(p: KoPrediction | undefined): boolean {
-  return p !== undefined && p.home_score !== null && p.away_score !== null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -369,6 +364,10 @@ export default function EliminatoriasPage() {
   const handlePenaltyWinner = useCallback(
     (matchNumber: number, winner: "home" | "away") => {
       if (!canEditPredictions(isLocked)) return;
+      if (saveTimeout.current) {
+        clearTimeout(saveTimeout.current);
+        saveTimeout.current = undefined;
+      }
       const pred = predictions.get(matchNumber);
       setPredictions((prev) => {
         const next = new Map(prev);
@@ -466,11 +465,7 @@ export default function EliminatoriasPage() {
   const completedCount = useMemo(
     () =>
       Array.from(predictions.values()).filter(
-        (pred) =>
-          isKoComplete(pred) &&
-          (pred.home_score !== pred.away_score ||
-            pred.penalty_winner === "home" ||
-            pred.penalty_winner === "away")
+        (pred) => isCompleteKnockoutPrediction(pred.home_score, pred.away_score, pred.penalty_winner)
       ).length,
     [predictions]
   );
