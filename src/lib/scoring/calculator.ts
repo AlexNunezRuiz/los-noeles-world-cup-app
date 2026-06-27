@@ -4,7 +4,7 @@ import { scoreKnockoutExact } from "./knockout";
 import { scoreAwards } from "./awards";
 import { scoreQualification, type PredictedKnockoutMatch } from "./qualification";
 import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "../tournament/bracket";
-import { getBestThirds, type TeamStanding } from "../tournament/standings";
+import { calculateGroupStandings, getBestThirds, type TeamStanding } from "../tournament/standings";
 
 export interface ScoreEvent {
   user_id: string;
@@ -71,7 +71,7 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
       const current = userTotals.get(e.user_id) || { total: 0, group: 0, knockout: 0, qualification: 0, awards: 0 };
       current.total += e.points;
 
-      if (e.rule_key.startsWith("correct_sign") || e.rule_key.startsWith("exact_score") || e.rule_key.startsWith("group_pos")) {
+      if (e.rule_key === "qualify_r32" || e.rule_key.startsWith("correct_sign") || e.rule_key.startsWith("exact_score") || e.rule_key.startsWith("group_pos")) {
         current.group += e.points;
       } else if (e.rule_key.startsWith("exact_")) {
         current.knockout += e.points;
@@ -134,38 +134,11 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
 function calculateActualPositions(
   matches: Array<{ home_team_id: number; away_team_id: number; home_score: number; away_score: number }>
 ): Array<{ team_id: number; position: number }> {
-  const stats = new Map<number, { points: number; gd: number; gf: number }>();
-
-  for (const m of matches) {
-    if (!stats.has(m.home_team_id)) stats.set(m.home_team_id, { points: 0, gd: 0, gf: 0 });
-    if (!stats.has(m.away_team_id)) stats.set(m.away_team_id, { points: 0, gd: 0, gf: 0 });
-
-    const home = stats.get(m.home_team_id)!;
-    const away = stats.get(m.away_team_id)!;
-
-    home.gf += m.home_score;
-    home.gd += m.home_score - m.away_score;
-    away.gf += m.away_score;
-    away.gd += m.away_score - m.home_score;
-
-    if (m.home_score > m.away_score) {
-      home.points += 3;
-    } else if (m.home_score < m.away_score) {
-      away.points += 3;
-    } else {
-      home.points += 1;
-      away.points += 1;
-    }
-  }
-
-  const sorted = Array.from(stats.entries())
-    .sort(([, a], [, b]) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.gd !== a.gd) return b.gd - a.gd;
-      return b.gf - a.gf;
-    });
-
-  return sorted.map(([teamId], i) => ({ team_id: teamId, position: i + 1 }));
+  const teamIds = Array.from(new Set(matches.flatMap((match) => [match.home_team_id, match.away_team_id])));
+  return calculateGroupStandings(teamIds, matches).map((standing) => ({
+    team_id: standing.team_id,
+    position: standing.position,
+  }));
 }
 
 async function scoreGroupStage(supabase: SupabaseClient, rules: Map<string, number>): Promise<ScoreEvent[]> {
@@ -176,7 +149,13 @@ async function scoreGroupStage(supabase: SupabaseClient, rules: Map<string, numb
   const { data: allGroupMatches } = await supabase.from("matches").select("*").eq("stage", "group");
   for (const group of Array.from(finishedGroups)) {
     const groupMs = (allGroupMatches || []).filter((m) => m.group_letter === group);
-    if (groupMs.every((m) => m.is_finished)) {
+    if (groupMs.every((m) =>
+      m.is_finished &&
+      typeof m.home_team_id === "number" &&
+      typeof m.away_team_id === "number" &&
+      typeof m.home_score === "number" &&
+      typeof m.away_score === "number"
+    )) {
       events.push(...await scoreGroupPositions(supabase, group, calculateActualPositions(groupMs), rules));
     }
   }

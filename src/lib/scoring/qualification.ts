@@ -18,6 +18,17 @@ export interface PredictedKnockoutMatch {
   penalty_winner?: Side;
 }
 
+type QualificationMatch = {
+  match_number: number;
+  stage: string;
+  home_team_id?: number | null;
+  away_team_id?: number | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  penalty_winner_team_id?: number | null;
+  is_finished?: boolean | null;
+};
+
 export async function scoreQualification(
   supabase: SupabaseClient,
   rules: Map<string, number>,
@@ -32,9 +43,13 @@ export async function scoreQualification(
   if (!matches) return events;
 
   for (const stage of ["round_of_32", "round_of_16", "quarter_final", "semi_final", "final"]) {
+    const stageMatches = (matches as QualificationMatch[]).filter((match) => match.stage === stage);
+    if (stage === "round_of_32" && !areAllStageMatchesPopulated(stageMatches)) {
+      continue;
+    }
+
     const qualifiedTeamIds = Array.from(new Set(
-      matches
-        .filter((match) => match.stage === stage)
+      stageMatches
         .flatMap((match) => [match.home_team_id, match.away_team_id])
         .filter((teamId): teamId is number => typeof teamId === "number")
     ));
@@ -71,6 +86,13 @@ export async function scoreQualification(
   }
 
   return events;
+}
+
+function areAllStageMatchesPopulated(matches: QualificationMatch[]): boolean {
+  return matches.length > 0 && matches.every((match) =>
+    typeof match.home_team_id === "number" &&
+    typeof match.away_team_id === "number"
+  );
 }
 
 function scoreQualificationStage(

@@ -109,3 +109,43 @@ test("los puntos por clasificacion de ronda no apuntan a un partido inexistente"
 
   assert.equal(events[0]?.match_id, null);
 });
+
+test("no puntua clasificados a dieciseisavos hasta que todos los cruces esten definidos", async () => {
+  const events = await scoreQualification(
+    fakeSupabase([
+      {
+        id: 73,
+        match_number: 73,
+        stage: "round_of_32",
+        home_team_id: 1,
+        away_team_id: 2,
+        home_score: null,
+        away_score: null,
+        penalty_winner_team_id: null,
+        is_finished: false,
+      },
+      {
+        id: 74,
+        match_number: 74,
+        stage: "round_of_32",
+        home_team_id: 3,
+        away_team_id: null,
+        home_score: null,
+        away_score: null,
+        penalty_winner_team_id: null,
+        is_finished: false,
+      },
+    ]) as never,
+    new Map([["qualify_r32", 1]]),
+    new Map([
+      [
+        "u1",
+        new Map([
+          [73, { home_team_id: 1, away_team_id: 2 }],
+        ]),
+      ],
+    ])
+  );
+
+  assert.deepEqual(events, []);
+});
