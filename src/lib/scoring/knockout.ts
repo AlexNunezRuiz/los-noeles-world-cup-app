@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PredictedKnockoutMatch } from "./qualification";
 
 interface ScoreEvent {
   user_id: string;
@@ -28,7 +28,26 @@ const STAGE_LABEL: Record<string, string> = {
 
 type Side = "home" | "away";
 
-interface KnockoutExactInput {
+export function findUserPredictionForPairing(
+  userBracket: Map<number, PredictedKnockoutMatch>,
+  stageByMatchNumber: Map<number, string>,
+  stage: string,
+  teamA: number,
+  teamB: number
+): PredictedKnockoutMatch | null {
+  for (const [matchNumber, predicted] of Array.from(userBracket.entries())) {
+    if (stageByMatchNumber.get(matchNumber) !== stage) continue;
+    const home = predicted.home_team_id;
+    const away = predicted.away_team_id;
+    if (home === undefined || away === undefined) continue;
+    if ((home === teamA && away === teamB) || (home === teamB && away === teamA)) {
+      return predicted;
+    }
+  }
+  return null;
+}
+
+interface KnockoutPairingInput {
   actual: {
     homeTeamId: number;
     awayTeamId: number;
@@ -36,87 +55,98 @@ interface KnockoutExactInput {
     awayScore: number;
     penaltyWinner?: Side | null;
   };
-  predicted: {
-    homeTeamId?: number;
-    awayTeamId?: number;
-    homeScore: number;
-    awayScore: number;
-    penaltyWinner?: Side | null;
-  };
+  predicted: PredictedKnockoutMatch;
 }
 
-export function isKnockoutExactEligible({ actual, predicted }: KnockoutExactInput): boolean {
-  if (predicted.homeTeamId !== actual.homeTeamId || predicted.awayTeamId !== actual.awayTeamId) {
+export function isKnockoutPairingExact({ actual, predicted }: KnockoutPairingInput): boolean {
+  const predHome = predicted.home_team_id;
+  const predAway = predicted.away_team_id;
+  const predHomeScore = predicted.home_score;
+  const predAwayScore = predicted.away_score;
+  if (predHome === undefined || predAway === undefined) return false;
+  if (predHomeScore === undefined || predAwayScore === undefined) return false;
+
+  const samePairing =
+    (predHome === actual.homeTeamId && predAway === actual.awayTeamId) ||
+    (predHome === actual.awayTeamId && predAway === actual.homeTeamId);
+  if (!samePairing) return false;
+
+  const predGoalsForActualHome = predHome === actual.homeTeamId ? predHomeScore : predAwayScore;
+  const predGoalsForActualAway = predHome === actual.homeTeamId ? predAwayScore : predHomeScore;
+  if (predGoalsForActualHome !== actual.homeScore || predGoalsForActualAway !== actual.awayScore) {
     return false;
   }
-  if (predicted.homeScore !== actual.homeScore || predicted.awayScore !== actual.awayScore) {
-    return false;
-  }
+
   if (actual.homeScore === actual.awayScore) {
-    return predicted.penaltyWinner === actual.penaltyWinner;
+    const predWinnerTeam =
+      predicted.penalty_winner === "home"
+        ? predHome
+        : predicted.penalty_winner === "away"
+          ? predAway
+          : undefined;
+    const actualWinnerTeam =
+      actual.penaltyWinner === "home"
+        ? actual.homeTeamId
+        : actual.penaltyWinner === "away"
+          ? actual.awayTeamId
+          : undefined;
+    return predWinnerTeam !== undefined && predWinnerTeam === actualWinnerTeam;
   }
+
   return true;
 }
 
-export async function scoreKnockoutExact(
-  supabase: SupabaseClient,
+export function scoreKnockoutExact(
   match: {
     id: number;
     match_number: number;
     stage: string;
     home_score: number;
     away_score: number;
-    penalty_winner_team_id?: number;
+    penalty_winner_team_id?: number | null;
     home_team_id: number;
     away_team_id: number;
   },
   rules: Map<string, number>,
-  predictedMatchesByUser?: Map<string, Map<number, { home_team_id?: number; away_team_id?: number }>>
-): Promise<ScoreEvent[]> {
+  predictedMatchesByUser: Map<string, Map<number, PredictedKnockoutMatch>>,
+  stageByMatchNumber: Map<number, string>
+): ScoreEvent[] {
   const events: ScoreEvent[] = [];
   const ruleKey = STAGE_RULE_MAP[match.stage];
   if (!ruleKey) return events;
+  const pts = rules.get(ruleKey) || 0;
+  if (pts <= 0) return events;
 
-  const { data: predictions } = await supabase
-    .from("match_predictions")
-    .select("*")
-    .eq("match_id", match.id);
+  const actual = {
+    homeTeamId: match.home_team_id,
+    awayTeamId: match.away_team_id,
+    homeScore: match.home_score,
+    awayScore: match.away_score,
+    penaltyWinner:
+      match.penalty_winner_team_id === match.home_team_id
+        ? ("home" as Side)
+        : match.penalty_winner_team_id === match.away_team_id
+          ? ("away" as Side)
+          : null,
+  };
 
-  if (!predictions) return events;
-
-  for (const pred of predictions) {
-    const predictedMatch = predictedMatchesByUser?.get(pred.user_id)?.get(match.match_number);
-    if (isKnockoutExactEligible({
-      actual: {
-        homeTeamId: match.home_team_id,
-        awayTeamId: match.away_team_id,
-        homeScore: match.home_score,
-        awayScore: match.away_score,
-        penaltyWinner:
-          match.penalty_winner_team_id === match.home_team_id
-            ? "home"
-            : match.penalty_winner_team_id === match.away_team_id
-              ? "away"
-              : null,
-      },
-      predicted: {
-        homeTeamId: predictedMatch?.home_team_id,
-        awayTeamId: predictedMatch?.away_team_id,
-        homeScore: pred.home_score,
-        awayScore: pred.away_score,
-        penaltyWinner: pred.penalty_winner,
-      },
-    })) {
-      const pts = rules.get(ruleKey) || 0;
-      if (pts > 0) {
-        events.push({
-          user_id: pred.user_id,
-          match_id: match.id,
-          rule_key: ruleKey,
-          points: pts,
-          description: `Exacto ${match.home_score}-${match.away_score} en ${STAGE_LABEL[match.stage]} P${match.match_number}`,
-        });
-      }
+  for (const [userId, userBracket] of Array.from(predictedMatchesByUser.entries())) {
+    const predicted = findUserPredictionForPairing(
+      userBracket,
+      stageByMatchNumber,
+      match.stage,
+      match.home_team_id,
+      match.away_team_id
+    );
+    if (!predicted) continue;
+    if (isKnockoutPairingExact({ actual, predicted })) {
+      events.push({
+        user_id: userId,
+        match_id: match.id,
+        rule_key: ruleKey,
+        points: pts,
+        description: `Exacto ${match.home_score}-${match.away_score} en ${STAGE_LABEL[match.stage]} P${match.match_number}`,
+      });
     }
   }
 
