@@ -44,10 +44,15 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
       knockoutMatchesForPredictions || []
     );
 
+    const stageByMatchNumber = new Map<number, string>();
+    for (const m of knockoutMatchesForPredictions || []) {
+      stageByMatchNumber.set(m.match_number, m.stage);
+    }
+
     const categoryScorers: Record<ScoreCategory, () => Promise<ScoreEvent[]>> = {
       group_stage: () => scoreGroupStage(supabase, rules),
       qualification: () => scoreQualification(supabase, rules, predictedMatchesByUser),
-      knockout_exact: () => scoreKnockoutExactScores(supabase, rules, predictedMatchesByUser),
+      knockout_exact: () => scoreKnockoutExactScores(supabase, rules, predictedMatchesByUser, stageByMatchNumber),
       awards: () => scoreAwards(supabase, rules),
     };
 
@@ -165,13 +170,14 @@ async function scoreGroupStage(supabase: SupabaseClient, rules: Map<string, numb
 async function scoreKnockoutExactScores(
   supabase: SupabaseClient,
   rules: Map<string, number>,
-  predictedMatchesByUser: Map<string, Map<number, PredictedKnockoutMatch>>
+  predictedMatchesByUser: Map<string, Map<number, PredictedKnockoutMatch>>,
+  stageByMatchNumber: Map<number, string>
 ): Promise<ScoreEvent[]> {
   const events: ScoreEvent[] = [];
   const { data: knockoutMatches } = await supabase.from("matches").select("*").neq("stage", "group").eq("is_finished", true);
   for (const match of knockoutMatches || []) {
     if (!match.home_team_id || !match.away_team_id || match.home_score === null || match.away_score === null) continue;
-    events.push(...await scoreKnockoutExact(supabase, match, rules, predictedMatchesByUser));
+    events.push(...scoreKnockoutExact(match, rules, predictedMatchesByUser, stageByMatchNumber));
   }
   return events;
 }
