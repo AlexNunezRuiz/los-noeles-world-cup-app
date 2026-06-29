@@ -14,6 +14,10 @@ import type { TeamStanding } from "@/lib/tournament/standings";
 import { isCompetitionParticipant } from "@/lib/users/participation";
 import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
 import { getAutoScrollDay, sortMatchesByCalendar } from "@/lib/calendar/match-position";
+import { buildUserBracket } from "@/lib/results/user-bracket";
+import { compareRealMatchToUser } from "@/lib/results/knockout-comparison";
+import { getBestThirds } from "@/lib/tournament/standings";
+import { KnockoutBracketResults, type KnockoutResultRow } from "@/components/results/knockout-bracket-results";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -110,6 +114,8 @@ export default function ResultadosPage() {
   const [upcoming, setUpcoming] = useState<CalendarMatch[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [realGroupStandings, setRealGroupStandings] = useState<Map<string, TeamStanding[]>>(new Map());
+  const [knockoutRows, setKnockoutRows] = useState<KnockoutResultRow[]>([]);
+  const [bestThirdIds, setBestThirdIds] = useState<Set<number>>(new Set());
   const [totalPuntos, setTotalPuntos] = useState(0);
   const [posicion, setPosicion] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -125,7 +131,7 @@ export default function ResultadosPage() {
       const uid = user?.id ?? "";
 
       // Parallel fetches
-      const [teamsRes, venuesRes, matchesRes, predictionsRes, scoresRes, profilesRes] =
+      const [teamsRes, venuesRes, matchesRes, predictionsRes, scoresRes, profilesRes, predStandingsRes, bestThirdRes, positionsRes] =
         await Promise.all([
           getTeams(),
           getVenues(),
@@ -138,7 +144,7 @@ export default function ResultadosPage() {
           uid
             ? supabase
                 .from("match_predictions")
-                .select("match_id, home_score, away_score")
+                .select("match_id, home_score, away_score, penalty_winner")
                 .eq("user_id", uid)
             : Promise.resolve({ data: [] as PredictionRow[], error: null }),
           supabase
@@ -146,6 +152,13 @@ export default function ResultadosPage() {
             .select("user_id, total_points")
             .order("total_points", { ascending: false }),
           supabase.from("profiles").select("id, has_paid, is_active"),
+          uid
+            ? supabase.from("predicted_group_standings").select("group_letter, team_id, position, points, goals_for, goals_against, goal_difference").eq("user_id", uid)
+            : Promise.resolve({ data: [], error: null }),
+          uid
+            ? supabase.from("predicted_best_third_order").select("team_id, rank").eq("user_id", uid)
+            : Promise.resolve({ data: [], error: null }),
+          supabase.from("knockout_bracket_positions").select("*"),
         ]);
 
       const teams: TeamRow[] = teamsRes as TeamRow[];
@@ -249,6 +262,67 @@ export default function ResultadosPage() {
             venue: venue ? { name: venue.name, city: venue.city } : null,
           };
         });
+
+      // ── Knockout bracket: real vs user prediction ──
+      const predStandings = (predStandingsRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["predictedStandings"];
+      const bestThirdOrder = (bestThirdRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["bestThirdOrder"];
+      const bracketPositions = (positionsRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["bracketPositions"];
+
+      const knockoutBase = matches
+        .filter((m) => m.stage !== "group")
+        .map((m) => ({ match_number: m.match_number, stage: m.stage, home_placeholder: m.home_placeholder, away_placeholder: m.away_placeholder }));
+
+      const predForBracket = predictions.map((p) => {
+        const match = matches.find((m) => m.id === p.match_id);
+        return {
+          match_number: match?.match_number ?? -1,
+          home_score: p.home_score,
+          away_score: p.away_score,
+          penalty_winner: (p as PredictionRow & { penalty_winner?: "home" | "away" | null }).penalty_winner ?? null,
+        };
+      }).filter((p) => p.match_number > 0);
+
+      const { byMatchNumber, stageByMatchNumber } = buildUserBracket({
+        baseMatches: knockoutBase,
+        predictedStandings: predStandings,
+        bestThirdOrder,
+        predictions: predForBracket,
+        bracketPositions,
+      });
+
+      const rows: KnockoutResultRow[] = matches
+        .filter((m) => m.stage !== "group")
+        .sort((a, b) => a.match_number - b.match_number)
+        .map((m) => {
+          const home = m.home_team_id ? teamMap.get(m.home_team_id) : undefined;
+          const away = m.away_team_id ? teamMap.get(m.away_team_id) : undefined;
+          let comparison = null;
+          if (m.home_team_id && m.away_team_id && m.home_score !== null && m.away_score !== null) {
+            comparison = compareRealMatchToUser({
+              userBracket: byMatchNumber,
+              stageByMatchNumber,
+              stage: m.stage,
+              realHomeTeamId: m.home_team_id,
+              realAwayTeamId: m.away_team_id,
+              realHomeScore: m.home_score,
+              realAwayScore: m.away_score,
+              realPenaltyWinnerTeamId: null,
+            });
+          }
+          return {
+            matchNumber: m.match_number,
+            stage: m.stage,
+            home: home ? { name: home.name, flag_emoji: home.flag_emoji } : null,
+            away: away ? { name: away.name, flag_emoji: away.flag_emoji } : null,
+            homeScore: m.home_score,
+            awayScore: m.away_score,
+            comparison,
+          };
+        });
+      setKnockoutRows(rows);
+
+      const thirds = getBestThirds(buildRealGroupStandings(teams, matches));
+      setBestThirdIds(new Set(thirds.map((t) => t.team_id)));
 
       setUpcoming(attachPredictionsToCalendarMatches(calendarMatches, predictions));
       setFinishedMatches(sortMatchesByCalendar(finished));
@@ -448,6 +522,15 @@ export default function ResultadosPage() {
                         <span className="truncate text-sm font-semibold text-ink">
                           {team?.name ?? "Equipo"}
                         </span>
+                        {standing.position === 1 && (
+                          <span className="shrink-0 rounded bg-green/15 px-1 text-[9px] font-bold uppercase text-green">1º</span>
+                        )}
+                        {(standing.position === 1 || standing.position === 2) && (
+                          <span className="shrink-0 rounded bg-blue/15 px-1 text-[9px] font-bold uppercase text-blue">Clasificado</span>
+                        )}
+                        {standing.position === 3 && bestThirdIds.has(standing.team_id) && (
+                          <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[9px] font-bold uppercase text-amber-600">Mejor 3º</span>
+                        )}
                       </div>
                       <span className="text-right font-marcador text-sm text-ink">
                         {standing.played}
@@ -470,14 +553,7 @@ export default function ResultadosPage() {
 
       {/* ── Cuadro tab ── */}
       {activeTab === "cuadro" && (
-        <div className="rounded-xl border border-border bg-surface p-6 text-center">
-          <p className="font-marcador text-base uppercase text-ink-muted">
-            Cuadro eliminatorio
-          </p>
-          <p className="mt-1 text-xs text-ink-faint">
-            El cuadro real se irá dibujando con los resultados.
-          </p>
-        </div>
+        <KnockoutBracketResults rows={knockoutRows} />
       )}
     </div>
   );
