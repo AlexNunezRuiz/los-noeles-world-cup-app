@@ -3,6 +3,17 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Flag } from "@/components/ui/flag";
+import type { PairingComparison } from "@/lib/results/knockout-comparison";
+
+// Maps a real-vs-prediction comparison to a tiny dot colour. `null` → no badge.
+function comparisonDotClass(comparison: PairingComparison | undefined): string | null {
+  if (!comparison) return null;
+  if (comparison.kind === "exact") return "bg-green";
+  if (comparison.kind === "pairing") return "bg-amber-500";
+  // kind === "teams": only show when at least one real team was in this round.
+  if (comparison.home.inRound || comparison.away.inRound) return "bg-blue";
+  return null;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +40,7 @@ interface BracketPrediction {
 interface ClassicBracketProps {
   matches: BracketMatchView[];
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (matchNumber: number) => void;
 }
 
@@ -58,14 +70,16 @@ const THIRD_PLACE_NUM = 103;
 interface MatchNodeProps {
   match: BracketMatchView;
   prediction: BracketPrediction | undefined;
+  comparison?: PairingComparison;
   onClick: () => void;
   /** extra width for the final node */
   wide?: boolean;
 }
 
-function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
+function MatchNode({ match, prediction, comparison, onClick, wide }: MatchNodeProps) {
   const homeScore = prediction?.home_score ?? null;
   const awayScore = prediction?.away_score ?? null;
+  const dotClass = comparisonDotClass(comparison);
 
   const homeWins =
     homeScore !== null &&
@@ -83,11 +97,21 @@ function MatchNode({ match, prediction, onClick, wide }: MatchNodeProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-lg border border-border bg-surface text-left transition-colors",
+        "relative rounded-lg border border-border bg-surface text-left transition-colors",
         "hover:border-red/50 active:border-red",
         wide ? "w-[164px]" : "w-[148px]"
       )}
     >
+      {/* Real-result overlay badge (read-only): green=exacto, ámbar=cruce, azul=equipo en ronda */}
+      {dotClass && (
+        <span
+          className={cn(
+            "absolute -top-1 -right-1 z-10 h-2.5 w-2.5 rounded-full border border-surface",
+            dotClass
+          )}
+        />
+      )}
+
       {/* Home row */}
       <div
         className={cn(
@@ -168,6 +192,7 @@ interface LeftPairConnectorProps {
   top: BracketMatchView;
   bottom: BracketMatchView;
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (n: number) => void;
 }
 
@@ -175,6 +200,7 @@ function LeftPairConnector({
   top,
   bottom,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
 }: LeftPairConnectorProps) {
   return (
@@ -186,6 +212,7 @@ function LeftPairConnector({
           <MatchNode
             match={top}
             prediction={predictions.get(top.match_number)}
+            comparison={comparisonByMatchNumber?.get(top.match_number)}
             onClick={() => onSelectMatch(top.match_number)}
           />
           {/* Right elbow: border-right + border-bottom */}
@@ -199,6 +226,7 @@ function LeftPairConnector({
           <MatchNode
             match={bottom}
             prediction={predictions.get(bottom.match_number)}
+            comparison={comparisonByMatchNumber?.get(bottom.match_number)}
             onClick={() => onSelectMatch(bottom.match_number)}
           />
           {/* Right elbow: border-right + border-top */}
@@ -227,6 +255,7 @@ interface RightPairConnectorProps {
   top: BracketMatchView;
   bottom: BracketMatchView;
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (n: number) => void;
 }
 
@@ -234,6 +263,7 @@ function RightPairConnector({
   top,
   bottom,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
 }: RightPairConnectorProps) {
   return (
@@ -245,6 +275,7 @@ function RightPairConnector({
           <MatchNode
             match={top}
             prediction={predictions.get(top.match_number)}
+            comparison={comparisonByMatchNumber?.get(top.match_number)}
             onClick={() => onSelectMatch(top.match_number)}
           />
           {/* Left elbow: border-left + border-bottom */}
@@ -258,6 +289,7 @@ function RightPairConnector({
           <MatchNode
             match={bottom}
             prediction={predictions.get(bottom.match_number)}
+            comparison={comparisonByMatchNumber?.get(bottom.match_number)}
             onClick={() => onSelectMatch(bottom.match_number)}
           />
           {/* Left elbow: border-left + border-top */}
@@ -278,10 +310,12 @@ function RightPairConnector({
 function LeftSingleNode({
   match,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
 }: {
   match: BracketMatchView;
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (n: number) => void;
 }) {
   return (
@@ -289,6 +323,7 @@ function LeftSingleNode({
       <MatchNode
         match={match}
         prediction={predictions.get(match.match_number)}
+        comparison={comparisonByMatchNumber?.get(match.match_number)}
         onClick={() => onSelectMatch(match.match_number)}
       />
       <div className="w-6 border-t-2 border-border" />
@@ -301,10 +336,12 @@ function LeftSingleNode({
 function RightSingleNode({
   match,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
 }: {
   match: BracketMatchView;
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (n: number) => void;
 }) {
   return (
@@ -312,6 +349,7 @@ function RightSingleNode({
       <MatchNode
         match={match}
         prediction={predictions.get(match.match_number)}
+        comparison={comparisonByMatchNumber?.get(match.match_number)}
         onClick={() => onSelectMatch(match.match_number)}
       />
       <div className="w-6 border-t-2 border-border" />
@@ -358,6 +396,7 @@ function LeftColumn({
   matchNums,
   allMatches,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
   width,
   topOffset = 0,
@@ -367,6 +406,7 @@ function LeftColumn({
   matchNums: number[];
   allMatches: BracketMatchView[];
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (n: number) => void;
   width?: number;
   topOffset?: number;
@@ -390,6 +430,7 @@ function LeftColumn({
         key={ordered[0].match_number}
         match={ordered[0]}
         predictions={predictions}
+        comparisonByMatchNumber={comparisonByMatchNumber}
         onSelectMatch={onSelectMatch}
       />
     );
@@ -404,6 +445,7 @@ function LeftColumn({
             top={top}
             bottom={bot}
             predictions={predictions}
+            comparisonByMatchNumber={comparisonByMatchNumber}
             onSelectMatch={onSelectMatch}
           />
         );
@@ -413,6 +455,7 @@ function LeftColumn({
             key={top.match_number}
             match={top}
             predictions={predictions}
+            comparisonByMatchNumber={comparisonByMatchNumber}
             onSelectMatch={onSelectMatch}
           />
         );
@@ -436,6 +479,7 @@ function RightColumn({
   matchNums,
   allMatches,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
   width,
   topOffset = 0,
@@ -445,6 +489,7 @@ function RightColumn({
   matchNums: number[];
   allMatches: BracketMatchView[];
   predictions: Map<number, BracketPrediction>;
+  comparisonByMatchNumber?: Map<number, PairingComparison>;
   onSelectMatch: (n: number) => void;
   width?: number;
   topOffset?: number;
@@ -466,6 +511,7 @@ function RightColumn({
         key={ordered[0].match_number}
         match={ordered[0]}
         predictions={predictions}
+        comparisonByMatchNumber={comparisonByMatchNumber}
         onSelectMatch={onSelectMatch}
       />
     );
@@ -480,6 +526,7 @@ function RightColumn({
             top={top}
             bottom={bot}
             predictions={predictions}
+            comparisonByMatchNumber={comparisonByMatchNumber}
             onSelectMatch={onSelectMatch}
           />
         );
@@ -489,6 +536,7 @@ function RightColumn({
             key={top.match_number}
             match={top}
             predictions={predictions}
+            comparisonByMatchNumber={comparisonByMatchNumber}
             onSelectMatch={onSelectMatch}
           />
         );
@@ -508,6 +556,7 @@ function RightColumn({
 export function ClassicBracket({
   matches,
   predictions,
+  comparisonByMatchNumber,
   onSelectMatch,
 }: ClassicBracketProps) {
   const matchMap = useMemo(
@@ -541,6 +590,7 @@ export function ClassicBracket({
           matchNums={LEFT_R32}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_R32}
           rowGap={12}
@@ -552,6 +602,7 @@ export function ClassicBracket({
           matchNums={LEFT_R16}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
           topOffset={R16_OFFSET}
@@ -564,6 +615,7 @@ export function ClassicBracket({
           matchNums={LEFT_QF}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
           topOffset={QF_OFFSET}
@@ -575,6 +627,7 @@ export function ClassicBracket({
           matchNums={LEFT_SF}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_SF}
           topOffset={SF_OFFSET}
@@ -594,6 +647,7 @@ export function ClassicBracket({
                   <MatchNode
                     match={finalMatch}
                     prediction={predictions.get(FINAL_NUM)}
+                    comparison={comparisonByMatchNumber?.get(FINAL_NUM)}
                     onClick={() => onSelectMatch(FINAL_NUM)}
                     wide
                   />
@@ -610,6 +664,7 @@ export function ClassicBracket({
                 <MatchNode
                   match={thirdPlaceMatch}
                   prediction={predictions.get(THIRD_PLACE_NUM)}
+                  comparison={comparisonByMatchNumber?.get(THIRD_PLACE_NUM)}
                   onClick={() => onSelectMatch(THIRD_PLACE_NUM)}
                 />
               </div>
@@ -625,6 +680,7 @@ export function ClassicBracket({
           matchNums={RIGHT_SF}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_SF}
           topOffset={SF_OFFSET}
@@ -636,6 +692,7 @@ export function ClassicBracket({
           matchNums={RIGHT_QF}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
           topOffset={QF_OFFSET}
@@ -647,6 +704,7 @@ export function ClassicBracket({
           matchNums={RIGHT_R16}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_MID}
           topOffset={R16_OFFSET}
@@ -659,6 +717,7 @@ export function ClassicBracket({
           matchNums={RIGHT_R32}
           allMatches={matches}
           predictions={predictions}
+          comparisonByMatchNumber={comparisonByMatchNumber}
           onSelectMatch={onSelectMatch}
           width={COL_R32}
           rowGap={12}

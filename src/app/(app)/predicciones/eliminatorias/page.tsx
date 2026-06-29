@@ -15,6 +15,8 @@ import { getTeams, getBracketPositions } from "@/lib/data/static-cache";
 import { usePredictionLockRealtime } from "@/lib/predictions/use-lock-realtime";
 import { getKnockoutEditingViewState, isCompleteKnockoutPrediction } from "@/lib/predictions/knockout-editing";
 import { canEditPredictions } from "@/lib/predictions/lock";
+import { buildUserBracket } from "@/lib/results/user-bracket";
+import { compareRealMatchToUser, type PairingComparison } from "@/lib/results/knockout-comparison";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,6 +134,7 @@ export default function EliminatoriasPage() {
   const [awaitingWinnerMatch, setAwaitingWinnerMatch] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"rondas" | "cuadro">("rondas");
   const [cuadroSelectedMatch, setCuadroSelectedMatch] = useState<number | null>(null);
+  const [comparisonByMatchNumber, setComparisonByMatchNumber] = useState<Map<number, PairingComparison>>(new Map());
   const saveTimeout = useRef<NodeJS.Timeout>();
   const supabase = createClient();
   const { setLockConfigRows } = usePredictionLockRealtime(supabase, setIsLocked);
@@ -292,6 +295,78 @@ export default function EliminatoriasPage() {
       );
 
       setBracketMatches(populated);
+
+      // ── Real-result overlay for the "Cuadro" view ─────────────────────────
+      // Build the user's resolved bracket once, then compare each REAL finished
+      // knockout match to it. Read-only badge data; does not touch predictions.
+      const { byMatchNumber, stageByMatchNumber } = buildUserBracket({
+        baseMatches: knockoutMatches.map((m) => ({
+          match_number: m.match_number,
+          stage: m.stage,
+          home_placeholder: m.home_placeholder,
+          away_placeholder: m.away_placeholder,
+        })),
+        predictedStandings: (standingsRes.data || []).map((s: {
+          group_letter: string;
+          team_id: number;
+          position: number;
+          points: number;
+          goals_for: number;
+          goals_against: number;
+          goal_difference: number;
+        }) => ({
+          group_letter: s.group_letter,
+          team_id: s.team_id,
+          position: s.position,
+          points: s.points,
+          goals_for: s.goals_for,
+          goals_against: s.goals_against,
+          goal_difference: s.goal_difference,
+        })),
+        bestThirdOrder: (bestThirdOrderRes.data || []) as BestThirdOverride[],
+        predictions: Array.from(predMap.values())
+          .filter((p) => p.home_score !== null && p.away_score !== null)
+          .map((p) => ({
+            match_number: p.match_number,
+            home_score: p.home_score,
+            away_score: p.away_score,
+            penalty_winner: p.penalty_winner ?? null,
+          })),
+        bracketPositions: bpList,
+      });
+
+      const comparisonMap = new Map<number, PairingComparison>();
+      for (const m of (matchesRes.data || []) as Array<{
+        match_number: number;
+        stage: string;
+        home_team_id: number | null;
+        away_team_id: number | null;
+        home_score: number | null;
+        away_score: number | null;
+      }>) {
+        if (
+          m.home_team_id == null ||
+          m.away_team_id == null ||
+          m.home_score == null ||
+          m.away_score == null
+        ) {
+          continue;
+        }
+        comparisonMap.set(
+          m.match_number,
+          compareRealMatchToUser({
+            userBracket: byMatchNumber,
+            stageByMatchNumber,
+            stage: m.stage,
+            realHomeTeamId: m.home_team_id,
+            realAwayTeamId: m.away_team_id,
+            realHomeScore: m.home_score,
+            realAwayScore: m.away_score,
+            realPenaltyWinnerTeamId: null,
+          })
+        );
+      }
+      setComparisonByMatchNumber(comparisonMap);
     }
     load();
   }, []);
@@ -727,6 +802,7 @@ export default function EliminatoriasPage() {
           <ClassicBracket
             matches={bracketMatchViews}
             predictions={predictions}
+            comparisonByMatchNumber={comparisonByMatchNumber}
             onSelectMatch={(matchNumber) => setCuadroSelectedMatch(matchNumber)}
           />
 
