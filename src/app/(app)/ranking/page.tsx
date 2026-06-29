@@ -239,6 +239,15 @@ export default function RankingPage() {
       ? entries[0].total_points - you.total_points
       : null;
 
+  // Líder de la porra en la fase de grupos (más puntos de fase de grupos).
+  const groupPhaseChampion = useMemo(() => {
+    if (entries.length === 0) return null;
+    return entries.reduce(
+      (best, e) => (e.group_stage_points > best.group_stage_points ? e : best),
+      entries[0]
+    );
+  }, [entries]);
+
   return (
     <div className="space-y-4 pb-6">
       {/* Header */}
@@ -247,6 +256,29 @@ export default function RankingPage() {
           Clasificación
         </h1>
       </div>
+
+      {/* Campeón de la fase de grupos */}
+      {!loading && groupPhaseChampion && groupPhaseChampion.group_stage_points > 0 && (
+        <Link
+          href={`/jugador/${groupPhaseChampion.user_id}`}
+          className="block rounded-xl border border-gold/40 bg-gold/[0.08] p-3 transition-colors hover:border-gold/70"
+        >
+          <p className="font-sans text-[9px] font-bold uppercase tracking-widest text-[#B07D3E]">
+            👑 Campeón de la fase de grupos
+          </p>
+          <div className="mt-1 flex items-baseline justify-between gap-2">
+            <span className="truncate font-marcador text-lg font-bold text-ink">
+              {groupPhaseChampion.name}
+              {groupPhaseChampion.isYou && (
+                <span className="ml-1 text-[10px] font-bold uppercase text-[#B07D3E]">· tú</span>
+              )}
+            </span>
+            <span className="shrink-0 font-marcador text-base font-bold text-[#B07D3E]">
+              {groupPhaseChampion.group_stage_points} pts
+            </span>
+          </div>
+        </Link>
+      )}
 
       <div className="space-y-2">
         <div className="relative">

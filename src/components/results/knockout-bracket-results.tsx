@@ -16,7 +16,7 @@ export interface KnockoutResultRow {
 
 const STAGE_ORDER = ["round_of_32", "round_of_16", "quarter_final", "semi_final", "third_place", "final"];
 
-function ComparisonChip({ comparison }: { comparison: PairingComparison | null }) {
+export function KnockoutComparisonChip({ comparison }: { comparison: PairingComparison | null }) {
   if (!comparison) {
     return <span className="text-[10px] font-bold uppercase tracking-wide text-ink-faint">Sin predicción</span>;
   }
@@ -84,7 +84,7 @@ export function KnockoutBracketResults({ rows }: { rows: KnockoutResultRow[] }) 
                 </span>
               </div>
               <div className="mt-1.5">
-                <ComparisonChip comparison={m.comparison} />
+                <KnockoutComparisonChip comparison={m.comparison} />
               </div>
             </div>
           ))}

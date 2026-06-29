@@ -15,9 +15,10 @@ import { isCompetitionParticipant } from "@/lib/users/participation";
 import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
 import { getAutoScrollDay, sortMatchesByCalendar } from "@/lib/calendar/match-position";
 import { buildUserBracket } from "@/lib/results/user-bracket";
-import { compareRealMatchToUser } from "@/lib/results/knockout-comparison";
+import { compareRealMatchToUser, type PairingComparison } from "@/lib/results/knockout-comparison";
 import { getBestThirds } from "@/lib/tournament/standings";
-import { KnockoutBracketResults, type KnockoutResultRow } from "@/components/results/knockout-bracket-results";
+import { stageLabel } from "@/lib/tournament/labels";
+import { KnockoutBracketResults, KnockoutComparisonChip, type KnockoutResultRow } from "@/components/results/knockout-bracket-results";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -96,7 +97,10 @@ interface FinishedMatchDisplay {
   match_number: number;
   match_date: string;
   is_finished: boolean;
+  stage: string;
   groupLetter: string | null;
+  isKnockout: boolean;
+  comparison: PairingComparison | null;
   homeTeam: { name: string; flag_emoji: string };
   awayTeam: { name: string; flag_emoji: string };
   homeScore: number;
@@ -186,9 +190,38 @@ export default function ResultadosPage() {
       const myRank = myRankIdx >= 0 ? myRankIdx + 1 : paidScoresSorted.length + 1;
       setPosicion(myRank);
 
+      // Authoritative total from real scoring (group + cuadro by pairing + clasificación + premios)
+      const myTotalPoints = scores.find((s) => s.user_id === uid)?.total_points ?? 0;
+
+      // ── User's predicted knockout bracket (for pairing comparison) ──
+      const predStandings = (predStandingsRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["predictedStandings"];
+      const bestThirdOrder = (bestThirdRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["bestThirdOrder"];
+      const bracketPositions = (positionsRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["bracketPositions"];
+
+      const knockoutBase = matches
+        .filter((m) => m.stage !== "group")
+        .map((m) => ({ match_number: m.match_number, stage: m.stage, home_placeholder: m.home_placeholder, away_placeholder: m.away_placeholder }));
+
+      const predForBracket = predictions.map((p) => {
+        const match = matches.find((m) => m.id === p.match_id);
+        return {
+          match_number: match?.match_number ?? -1,
+          home_score: p.home_score,
+          away_score: p.away_score,
+          penalty_winner: (p as PredictionRow & { penalty_winner?: "home" | "away" | null }).penalty_winner ?? null,
+        };
+      }).filter((p) => p.match_number > 0);
+
+      const { byMatchNumber, stageByMatchNumber } = buildUserBracket({
+        baseMatches: knockoutBase,
+        predictedStandings: predStandings,
+        bestThirdOrder,
+        predictions: predForBracket,
+        bracketPositions,
+      });
+
       // Build finished match displays
       const finished: FinishedMatchDisplay[] = [];
-      let sumPts = 0;
 
       for (const m of matches) {
         if (!m.is_finished) continue;
@@ -200,11 +233,26 @@ export default function ResultadosPage() {
         const awayTeam = teamMap.get(m.away_team_id);
         if (!homeTeam || !awayTeam) continue;
 
+        const isKnockout = m.stage !== "group";
         const pred = predMap.get(m.id) ?? null;
         let outcome: OutcomeType | null = null;
         let pts = 0;
+        let comparison: PairingComparison | null = null;
+        let predictionDisplay: { home: number; away: number } | null = null;
 
-        if (pred) {
+        if (isKnockout) {
+          // Cuadro: se compara por par de equipos en la misma ronda, no por slot.
+          comparison = compareRealMatchToUser({
+            userBracket: byMatchNumber,
+            stageByMatchNumber,
+            stage: m.stage,
+            realHomeTeamId: m.home_team_id,
+            realAwayTeamId: m.away_team_id,
+            realHomeScore: m.home_score,
+            realAwayScore: m.away_score,
+            realPenaltyWinnerTeamId: null,
+          });
+        } else if (pred) {
           const result = computeOutcome(
             pred.home_score,
             pred.away_score,
@@ -213,7 +261,7 @@ export default function ResultadosPage() {
           );
           outcome = result.tipo;
           pts = result.puntos;
-          sumPts += pts;
+          predictionDisplay = { home: pred.home_score, away: pred.away_score };
         }
 
         finished.push({
@@ -222,14 +270,15 @@ export default function ResultadosPage() {
           match_number: m.match_number,
           match_date: m.match_date,
           is_finished: true,
+          stage: m.stage,
           groupLetter: m.group_letter,
+          isKnockout,
+          comparison,
           homeTeam: { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji },
           awayTeam: { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji },
           homeScore: m.home_score,
           awayScore: m.away_score,
-          prediction: pred
-            ? { home: pred.home_score, away: pred.away_score }
-            : null,
+          prediction: predictionDisplay,
           outcome,
           points: pts,
         });
@@ -263,33 +312,7 @@ export default function ResultadosPage() {
           };
         });
 
-      // ── Knockout bracket: real vs user prediction ──
-      const predStandings = (predStandingsRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["predictedStandings"];
-      const bestThirdOrder = (bestThirdRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["bestThirdOrder"];
-      const bracketPositions = (positionsRes.data ?? []) as Parameters<typeof buildUserBracket>[0]["bracketPositions"];
-
-      const knockoutBase = matches
-        .filter((m) => m.stage !== "group")
-        .map((m) => ({ match_number: m.match_number, stage: m.stage, home_placeholder: m.home_placeholder, away_placeholder: m.away_placeholder }));
-
-      const predForBracket = predictions.map((p) => {
-        const match = matches.find((m) => m.id === p.match_id);
-        return {
-          match_number: match?.match_number ?? -1,
-          home_score: p.home_score,
-          away_score: p.away_score,
-          penalty_winner: (p as PredictionRow & { penalty_winner?: "home" | "away" | null }).penalty_winner ?? null,
-        };
-      }).filter((p) => p.match_number > 0);
-
-      const { byMatchNumber, stageByMatchNumber } = buildUserBracket({
-        baseMatches: knockoutBase,
-        predictedStandings: predStandings,
-        bestThirdOrder,
-        predictions: predForBracket,
-        bracketPositions,
-      });
-
+      // ── Knockout bracket rows (Cuadro tab): real vs user prediction ──
       const rows: KnockoutResultRow[] = matches
         .filter((m) => m.stage !== "group")
         .sort((a, b) => a.match_number - b.match_number)
@@ -328,7 +351,7 @@ export default function ResultadosPage() {
       setFinishedMatches(sortMatchesByCalendar(finished));
       setTeams(teams);
       setRealGroupStandings(buildRealGroupStandings(teams, matches));
-      setTotalPuntos(sumPts);
+      setTotalPuntos(myTotalPoints);
       setLoading(false);
     }
 
@@ -459,21 +482,45 @@ export default function ResultadosPage() {
                         {formatMatchDay(m.match_date)}
                       </p>
                     )}
-                    <MatchResultCard
-                  matchId={m.matchId}
-                  label={
-                    m.groupLetter
-                      ? `Grupo ${m.groupLetter} · Finalizado`
-                      : `Partido ${m.matchNumber} · Finalizado`
-                  }
-                  homeTeam={m.homeTeam}
-                  awayTeam={m.awayTeam}
-                  homeScore={m.homeScore}
-                  awayScore={m.awayScore}
-                  prediction={m.prediction}
-                  outcome={m.outcome}
-                  points={m.points}
-                    />
+                    {m.isKnockout ? (
+                      <div className="rounded-xl border border-border bg-surface p-3">
+                        <p className="font-sans text-[8px] font-bold uppercase tracking-widest text-ink-faint">
+                          {stageLabel(m.stage, null)} · Finalizado
+                        </p>
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <Flag emoji={m.homeTeam.flag_emoji} size={22} />
+                            <span className="truncate text-sm font-bold text-ink">{m.homeTeam.name}</span>
+                          </div>
+                          <span className="shrink-0 font-marcador text-base font-bold text-ink">
+                            {m.homeScore}–{m.awayScore}
+                          </span>
+                          <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2">
+                            <Flag emoji={m.awayTeam.flag_emoji} size={22} />
+                            <span className="truncate text-right text-sm font-bold text-ink">{m.awayTeam.name}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 border-t border-dashed border-border pt-2">
+                          <KnockoutComparisonChip comparison={m.comparison} />
+                        </div>
+                      </div>
+                    ) : (
+                      <MatchResultCard
+                        matchId={m.matchId}
+                        label={
+                          m.groupLetter
+                            ? `Grupo ${m.groupLetter} · Finalizado`
+                            : `Partido ${m.matchNumber} · Finalizado`
+                        }
+                        homeTeam={m.homeTeam}
+                        awayTeam={m.awayTeam}
+                        homeScore={m.homeScore}
+                        awayScore={m.awayScore}
+                        prediction={m.prediction}
+                        outcome={m.outcome}
+                        points={m.points}
+                      />
+                    )}
                   </section>
                 );
               })}
