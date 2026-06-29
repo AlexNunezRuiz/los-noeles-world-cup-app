@@ -6,6 +6,7 @@ import {
   didPredictTeamLoseStage,
   didPredictTeamWinStage,
   scoreQualification,
+  type PredictedKnockoutMatch,
 } from "./qualification";
 
 test("comprueba campeon usando el partido final aunque la regla sea qualify_champion", () => {
@@ -148,4 +149,16 @@ test("no puntua clasificados a dieciseisavos hasta que todos los cruces esten de
   );
 
   assert.deepEqual(events, []);
+});
+
+test("clasificado a ronda puntúa aunque el equipo llegue por otra rama (#4)", () => {
+  const matches = [
+    { match_number: 89, stage: "round_of_16" },
+    { match_number: 90, stage: "round_of_16" },
+  ];
+  const userBracket = new Map<number, PredictedKnockoutMatch>([
+    [90, { home_team_id: 7, away_team_id: 8 }],
+  ]);
+  assert.equal(didPredictTeamInStage(matches, userBracket, "round_of_16", 7), true);
+  assert.equal(didPredictTeamInStage(matches, userBracket, "round_of_16", 99), false);
 });
