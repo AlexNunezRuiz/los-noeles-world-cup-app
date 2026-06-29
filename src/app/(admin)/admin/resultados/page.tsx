@@ -445,20 +445,23 @@ export default function AdminResultadosPage() {
           </span>
 
           <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1 text-ink font-sans">
-            {home ? (
+            {match.stage !== "group" ? (
+              <>
+                {home && <Flag emoji={home.flag_emoji} size={16} />}
+                <select
+                  value={home ? String(home.id) : ""}
+                  onChange={(e) => handleAssignTeam(match, "home", parseInt(e.target.value))}
+                  className="h-8 min-w-0 flex-1 rounded-md border border-border bg-surface px-1 text-xs text-ink"
+                  aria-label={`Equipo local P${match.match_number}`}
+                >
+                  <option value="">{match.home_placeholder || "TBD"}</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.code}</option>
+                  ))}
+                </select>
+              </>
+            ) : home ? (
               <><Flag emoji={home.flag_emoji} size={16} />{home.code}</>
-            ) : match.stage !== "group" ? (
-              <select
-                value=""
-                onChange={(e) => handleAssignTeam(match, "home", parseInt(e.target.value))}
-                className="h-8 rounded-md border border-border bg-surface px-1 text-xs text-ink"
-                aria-label={`Equipo local P${match.match_number}`}
-              >
-                <option value="">{match.home_placeholder || "TBD"}</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>{t.code}</option>
-                ))}
-              </select>
             ) : (
               match.home_placeholder || "TBD"
             )}
@@ -489,20 +492,23 @@ export default function AdminResultadosPage() {
           />
 
           <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end text-ink font-sans">
-            {away ? (
+            {match.stage !== "group" ? (
+              <>
+                <select
+                  value={away ? String(away.id) : ""}
+                  onChange={(e) => handleAssignTeam(match, "away", parseInt(e.target.value))}
+                  className="h-8 min-w-0 flex-1 rounded-md border border-border bg-surface px-1 text-xs text-ink"
+                  aria-label={`Equipo visitante P${match.match_number}`}
+                >
+                  <option value="">{match.away_placeholder || "TBD"}</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.code}</option>
+                  ))}
+                </select>
+                {away && <Flag emoji={away.flag_emoji} size={16} />}
+              </>
+            ) : away ? (
               <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></>
-            ) : match.stage !== "group" ? (
-              <select
-                value=""
-                onChange={(e) => handleAssignTeam(match, "away", parseInt(e.target.value))}
-                className="h-8 rounded-md border border-border bg-surface px-1 text-xs text-ink"
-                aria-label={`Equipo visitante P${match.match_number}`}
-              >
-                <option value="">{match.away_placeholder || "TBD"}</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>{t.code}</option>
-                ))}
-              </select>
             ) : (
               match.away_placeholder || "TBD"
             )}
@@ -562,13 +568,13 @@ export default function AdminResultadosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Resultados</h1>
-        <div className="flex items-center gap-2">
-          <Button onClick={handleGenerateBracket} disabled={generatingBracket} variant="outline">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={handleGenerateBracket} disabled={generatingBracket} variant="outline" size="sm">
             {generatingBracket ? "Generando..." : "Generar cuadro real"}
           </Button>
-          <Button onClick={handleRecalculate} disabled={recalculating} variant="default">
+          <Button onClick={handleRecalculate} disabled={recalculating} variant="default" size="sm">
             {recalculating ? "Recalculando..." : "Recalcular Puntuaciones"}
           </Button>
         </div>
