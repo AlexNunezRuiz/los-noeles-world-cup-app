@@ -19,12 +19,15 @@ import {
 import { groupByMatchDay } from "@/lib/datetime";
 import { getAutoScrollDay, sortMatchesByCalendar } from "@/lib/calendar/match-position";
 import { stageLabel } from "@/lib/tournament/labels";
+import { buildRealGroupStandings } from "@/lib/results/group-standings";
+import { seedRound32FromGroups, cascadeKnockoutWinners, type ActualBracketMatch, type BracketPositionRow, type SlotAssignment } from "@/lib/tournament/actual-bracket";
 
 interface Team {
   id: number;
   name: string;
   code: string;
   flag_emoji: string;
+  group_letter: string | null;
 }
 
 interface Match {
@@ -48,18 +51,22 @@ export default function AdminResultadosPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [editing, setEditing] = useState<Record<number, { home: string; away: string; penalty: string }>>({});
   const [recalculating, setRecalculating] = useState(false);
+  const [bracketPositions, setBracketPositions] = useState<BracketPositionRow[]>([]);
+  const [generatingBracket, setGeneratingBracket] = useState(false);
   const hasAutoScrolled = useRef(false);
   const { toast } = useToast();
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const [teamsRes, matchesRes] = await Promise.all([
-        supabase.from("teams").select("*").order("id"),
+      const [teamsRes, matchesRes, positionsRes] = await Promise.all([
+        supabase.from("teams").select("id, name, code, flag_emoji, group_letter").order("id"),
         supabase.from("matches").select("*").order("match_number"),
+        supabase.from("knockout_bracket_positions").select("*"),
       ]);
       setTeams(teamsRes.data || []);
       setMatches(matchesRes.data || []);
+      setBracketPositions((positionsRes.data || []) as BracketPositionRow[]);
     }
     load();
   }, []);
@@ -140,6 +147,99 @@ export default function AdminResultadosPage() {
     );
   };
 
+  const persistSlotAssignments = async (assignments: SlotAssignment[]) => {
+    if (assignments.length === 0) return;
+    for (const a of assignments) {
+      const column = a.slot === "home" ? "home_team_id" : "away_team_id";
+      const { error } = await supabase.from("matches").update({ [column]: a.team_id }).eq("match_number", a.match_number);
+      if (error) {
+        toast({ title: "Error rellenando el cuadro", description: error.message, variant: "destructive" });
+        return;
+      }
+    }
+    setMatches((prev) =>
+      prev.map((m) => {
+        const forMatch = assignments.filter((a) => a.match_number === m.match_number);
+        if (forMatch.length === 0) return m;
+        const next = { ...m };
+        for (const a of forMatch) {
+          if (a.slot === "home") next.home_team_id = a.team_id;
+          else next.away_team_id = a.team_id;
+        }
+        return next;
+      })
+    );
+  };
+
+  const handleGenerateBracket = async () => {
+    setGeneratingBracket(true);
+    const realStandings = buildRealGroupStandings(
+      teams.map((t) => ({ id: t.id, name: t.name, flag_emoji: t.flag_emoji, group_letter: t.group_letter })),
+      matches.map((m) => ({
+        group_letter: m.group_letter,
+        home_team_id: m.home_team_id,
+        away_team_id: m.away_team_id,
+        home_score: m.home_score,
+        away_score: m.away_score,
+        is_finished: m.is_finished,
+      }))
+    );
+
+    const seed = seedRound32FromGroups(
+      realStandings,
+      matches.map((m) => ({
+        match_number: m.match_number,
+        stage: m.stage,
+        home_team_id: m.home_team_id,
+        away_team_id: m.away_team_id,
+        home_placeholder: m.home_placeholder,
+        away_placeholder: m.away_placeholder,
+      })),
+      bracketPositions
+    );
+    await persistSlotAssignments(seed);
+
+    const seeded: ActualBracketMatch[] = matches.map((m) => {
+      const forMatch = seed.filter((a) => a.match_number === m.match_number);
+      let homeId = m.home_team_id;
+      let awayId = m.away_team_id;
+      for (const a of forMatch) {
+        if (a.slot === "home") homeId = a.team_id;
+        else awayId = a.team_id;
+      }
+      return {
+        match_number: m.match_number,
+        stage: m.stage,
+        home_team_id: homeId,
+        away_team_id: awayId,
+        home_score: m.home_score,
+        away_score: m.away_score,
+        penalty_winner_team_id: m.penalty_winner_team_id,
+        is_finished: m.is_finished,
+        home_placeholder: m.home_placeholder,
+        away_placeholder: m.away_placeholder,
+      };
+    });
+    const cascade = cascadeKnockoutWinners(seeded, bracketPositions);
+    await persistSlotAssignments(cascade);
+
+    await recalculateAllScores(supabase);
+    setGeneratingBracket(false);
+    toast({ title: `Cuadro actualizado (${seed.length + cascade.length} equipos colocados)` });
+  };
+
+  const handleAssignTeam = async (match: Match, slot: "home" | "away", teamId: number) => {
+    if (!teamId) return;
+    const column = slot === "home" ? "home_team_id" : "away_team_id";
+    const { error } = await supabase.from("matches").update({ [column]: teamId }).eq("id", match.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    setMatches((prev) => prev.map((m) => (m.id === match.id ? { ...m, [column]: teamId } : m)));
+    toast({ title: `Equipo asignado en P${match.match_number}` });
+  };
+
   const handleSaveResult = async (match: Match) => {
     const edit = editing[match.id];
     if (!edit) return;
@@ -185,6 +285,24 @@ export default function AdminResultadosPage() {
         )
       );
       toast({ title: `P${match.match_number} resultado guardado` });
+      if (updatedMatch.stage !== "group") {
+        const nextMatches: ActualBracketMatch[] = matches.map((m) => {
+          const base = m.id === match.id ? { ...m, ...updates } : m;
+          return {
+            match_number: base.match_number,
+            stage: base.stage,
+            home_team_id: base.home_team_id,
+            away_team_id: base.away_team_id,
+            home_score: base.home_score,
+            away_score: base.away_score,
+            penalty_winner_team_id: base.penalty_winner_team_id,
+            is_finished: base.is_finished,
+            home_placeholder: base.home_placeholder,
+            away_placeholder: base.away_placeholder,
+          };
+        });
+        await persistSlotAssignments(cascadeKnockoutWinners(nextMatches, bracketPositions));
+      }
       await runRecalculationBeforeNotifications<ScoreEvent>({
         recalculate: () => recalculateAllScores(supabase),
         publishNotifications: async (recalc) => {
@@ -327,7 +445,23 @@ export default function AdminResultadosPage() {
           </span>
 
           <span className="text-sm flex-1 min-w-0 truncate flex items-center gap-1 text-ink font-sans">
-            {home ? <><Flag emoji={home.flag_emoji} size={16} />{home.code}</> : match.home_placeholder || "TBD"}
+            {home ? (
+              <><Flag emoji={home.flag_emoji} size={16} />{home.code}</>
+            ) : match.stage !== "group" ? (
+              <select
+                value=""
+                onChange={(e) => handleAssignTeam(match, "home", parseInt(e.target.value))}
+                className="h-8 rounded-md border border-border bg-surface px-1 text-xs text-ink"
+                aria-label={`Equipo local P${match.match_number}`}
+              >
+                <option value="">{match.home_placeholder || "TBD"}</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.code}</option>
+                ))}
+              </select>
+            ) : (
+              match.home_placeholder || "TBD"
+            )}
           </span>
 
           <Input
@@ -355,7 +489,23 @@ export default function AdminResultadosPage() {
           />
 
           <span className="text-sm flex-1 min-w-0 truncate text-right flex items-center gap-1 justify-end text-ink font-sans">
-            {away ? <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></> : match.away_placeholder || "TBD"}
+            {away ? (
+              <>{away.code}<Flag emoji={away.flag_emoji} size={16} /></>
+            ) : match.stage !== "group" ? (
+              <select
+                value=""
+                onChange={(e) => handleAssignTeam(match, "away", parseInt(e.target.value))}
+                className="h-8 rounded-md border border-border bg-surface px-1 text-xs text-ink"
+                aria-label={`Equipo visitante P${match.match_number}`}
+              >
+                <option value="">{match.away_placeholder || "TBD"}</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.code}</option>
+                ))}
+              </select>
+            ) : (
+              match.away_placeholder || "TBD"
+            )}
           </span>
 
           {edit.home !== "" && edit.away !== "" && parseInt(edit.home) === parseInt(edit.away) && match.stage !== "group" && home && away && (
@@ -414,9 +564,14 @@ export default function AdminResultadosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-marcador font-bold uppercase tracking-wide text-2xl text-ink">Resultados</h1>
-        <Button onClick={handleRecalculate} disabled={recalculating} variant="default">
-          {recalculating ? "Recalculando..." : "Recalcular Puntuaciones"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleGenerateBracket} disabled={generatingBracket} variant="outline">
+            {generatingBracket ? "Generando..." : "Generar cuadro real"}
+          </Button>
+          <Button onClick={handleRecalculate} disabled={recalculating} variant="default">
+            {recalculating ? "Recalculando..." : "Recalcular Puntuaciones"}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-5">
