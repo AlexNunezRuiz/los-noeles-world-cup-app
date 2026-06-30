@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { BreakdownBar } from "@/components/ranking/breakdown-bar";
+import { BreakdownBar, BreakdownLegend } from "@/components/ranking/breakdown-bar";
 import { Flag } from "@/components/ui/flag";
 import { UserStatusIcon } from "@/components/users/user-status-icon";
 import { isPredictionsLocked } from "@/lib/predictions/lock";
@@ -12,8 +12,11 @@ import { calculatePotentialSummary, type PredictedMilestone } from "@/lib/scorin
 import { GroupChips } from "@/components/porra/group-chips";
 import { GroupStandingsTable } from "@/components/predictions/GroupStandingsTable";
 import { ClassicBracket, type BracketMatchView } from "@/components/predictions/classic-bracket";
-import { getBestThirds, type TeamStanding } from "@/lib/tournament/standings";
+import { calculateGroupStandings, getBestThirds, type TeamStanding } from "@/lib/tournament/standings";
 import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "@/lib/tournament/bracket";
+import { aggregateBreakdown, ruleKeyToBreakdownType } from "@/lib/scoring/breakdown";
+import { PointsAudit, type EliminatoriaRow, type PremioRow } from "@/components/profile/points-audit";
+import { auditGroupMatches, auditGroupOrder, auditQualified } from "@/lib/results/points-audit";
 
 // ── DB row interfaces ─────────────────────────────────────────────────────────
 
@@ -119,6 +122,13 @@ interface BestThirdOrderRow {
   rank: number;
 }
 
+interface ScoreEventRow {
+  rule_key: string;
+  match_id: number | null;
+  points: number;
+  description: string | null;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const AWARD_LABELS: Record<string, string> = {
@@ -181,6 +191,7 @@ export default function JugadorPage() {
   const [isLocked, setIsLocked] = useState(false);
   const [scoringRules, setScoringRules] = useState<Map<string, number>>(new Map());
   const [actualAwards, setActualAwards] = useState<ActualAwardRow[]>([]);
+  const [scoreEvents, setScoreEvents] = useState<ScoreEventRow[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("A");
   const [bracketView, setBracketView] = useState<"cuadro" | "rondas">("cuadro");
   const [loading, setLoading] = useState(true);
@@ -208,6 +219,7 @@ export default function JugadorPage() {
         { data: configData },
         { data: rulesData },
         { data: actualAwardsData },
+        { data: scoreEventsData },
       ] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from("profiles").select("id, display_name, has_paid, is_admin").eq("id", playerId).single(),
@@ -223,6 +235,7 @@ export default function JugadorPage() {
         supabase.from("tournament_config").select("key, value"),
         supabase.from("scoring_rules").select("rule_key, points"),
         supabase.from("actual_awards").select("award_type, player_id, player_name"),
+        supabase.from("score_events").select("rule_key, match_id, points, description").eq("user_id", playerId),
       ]);
 
       setCurrentUserId(user?.id ?? "");
@@ -245,6 +258,7 @@ export default function JugadorPage() {
         )
       );
       setActualAwards((actualAwardsData ?? []) as ActualAwardRow[]);
+      setScoreEvents((scoreEventsData ?? []) as ScoreEventRow[]);
 
       const teamMap = new Map<number, TeamRow>();
       for (const t of (teamsData ?? []) as TeamRow[]) teamMap.set(t.id, t);
@@ -425,10 +439,7 @@ export default function JugadorPage() {
   }
 
   const totalPoints = scores?.total_points ?? 0;
-  const groupPoints = scores?.group_stage_points ?? 0;
-  const knockoutPoints = scores?.knockout_exact_points ?? 0;
-  const qualPoints = scores?.qualification_points ?? 0;
-  const awardPoints = scores?.award_points ?? 0;
+  const breakdownData = aggregateBreakdown(scoreEvents);
 
   // Knockout predictions grouped by stage
   const knockoutByStage = new Map<string, Array<{ match: MatchRow; pred: MatchPredictionRow }>>();
@@ -595,6 +606,126 @@ export default function JugadorPage() {
     })),
   });
 
+  // ── Points audit (where the points come from) ───────────────────────────────
+  const signPts = scoringRules.get("correct_sign") ?? 1;
+  const exactPts = scoringRules.get("exact_score") ?? 1;
+  const posPoints: Record<number, number> = {
+    1: scoringRules.get("group_pos_1st") ?? 1,
+    2: scoringRules.get("group_pos_2nd") ?? 1,
+    3: scoringRules.get("group_pos_3rd") ?? 2,
+    4: scoringRules.get("group_pos_4th") ?? 2,
+  };
+
+  const matchAudit = auditGroupMatches(
+    Array.from(matches.values())
+      .filter((m) => m.stage === "group")
+      .map((m) => ({
+        match_id: m.id,
+        match_number: m.match_number,
+        stage: m.stage,
+        group_letter: m.group_letter,
+        home_team_id: m.home_team_id,
+        away_team_id: m.away_team_id,
+        home_score: m.home_score,
+        away_score: m.away_score,
+        is_finished: m.is_finished,
+      })),
+    new Map(
+      Array.from(predictionsByMatchId.entries()).map(([id, p]) => [
+        id,
+        { match_id: id, home_score: p.home_score, away_score: p.away_score },
+      ])
+    ),
+    signPts,
+    exactPts
+  );
+
+  const actualPositionsByGroup = new Map<string, Array<{ team_id: number; position: number }>>();
+  for (const group of GROUPS) {
+    const groupMatchRows = Array.from(matches.values()).filter(
+      (m) => m.stage === "group" && m.group_letter === group
+    );
+    if (
+      groupMatchRows.length === 0 ||
+      !groupMatchRows.every(
+        (m) =>
+          m.is_finished &&
+          m.home_team_id !== null &&
+          m.away_team_id !== null &&
+          m.home_score !== null &&
+          m.away_score !== null
+      )
+    ) {
+      continue;
+    }
+    const teamIds = Array.from(teams.values())
+      .filter((t) => t.group_letter === group)
+      .map((t) => t.id);
+    const results = groupMatchRows.map((m) => ({
+      home_team_id: m.home_team_id as number,
+      away_team_id: m.away_team_id as number,
+      home_score: m.home_score as number,
+      away_score: m.away_score as number,
+    }));
+    const standings = calculateGroupStandings(teamIds, results);
+    actualPositionsByGroup.set(
+      group,
+      standings.map((s) => ({ team_id: s.team_id, position: s.position }))
+    );
+  }
+  const predictedPositionByGroup = new Map<string, Map<number, number>>();
+  for (const [group, rows] of Array.from(standingsByGroup.entries())) {
+    predictedPositionByGroup.set(group, new Map(rows.map((r) => [r.team_id, r.position])));
+  }
+  const orderAudit = auditGroupOrder(actualPositionsByGroup, predictedPositionByGroup, posPoints);
+
+  const predictedR32TeamIds: number[] = [];
+  for (const m of predictedBracketMatches) {
+    if (m.stage !== "round_of_32") continue;
+    if (m.home_team_id != null) predictedR32TeamIds.push(m.home_team_id);
+    if (m.away_team_id != null) predictedR32TeamIds.push(m.away_team_id);
+  }
+  const actualQualifiedTeamIds = new Set<number>();
+  for (const m of Array.from(matches.values())) {
+    if (m.stage !== "round_of_32") continue;
+    if (m.home_team_id != null) actualQualifiedTeamIds.add(m.home_team_id);
+    if (m.away_team_id != null) actualQualifiedTeamIds.add(m.away_team_id);
+  }
+  const qualifiedAudit = auditQualified(
+    predictedR32TeamIds,
+    actualQualifiedTeamIds,
+    scoringRules.get("qualify_r32") ?? 1
+  );
+
+  const eliminatoriasAudit: EliminatoriaRow[] = scoreEvents
+    .filter((e) => ruleKeyToBreakdownType(e.rule_key) === "eliminatorias")
+    .map((e, index) => ({
+      key: `${e.rule_key}-${e.match_id ?? "x"}-${index}`,
+      detail: e.description ?? e.rule_key,
+      points: e.points,
+    }));
+
+  const actualAwardByType = new Map(actualAwards.map((a) => [a.award_type, a]));
+  const premiosAudit: PremioRow[] = awardPredictions.map((award) => {
+    const pick =
+      award.player_name ??
+      (award.player_id != null ? players.get(award.player_id)?.name : null) ??
+      "—";
+    const actual = actualAwardByType.get(award.award_type);
+    let correct: boolean | null = null;
+    if (actual && (actual.player_id != null || actual.player_name)) {
+      correct =
+        (award.player_id != null && award.player_id === actual.player_id) ||
+        (!!award.player_name && award.player_name === actual.player_name);
+    }
+    const points = correct ? scoringRules.get(award.award_type) ?? 0 : 0;
+    return { label: AWARD_LABELS[award.award_type] ?? award.award_type, pick, correct, points };
+  });
+
+  const auditTeams = new Map(
+    Array.from(teams.values()).map((t) => [t.id, { name: t.name, flag_emoji: t.flag_emoji }])
+  );
+
   return (
     <div className="space-y-5 pb-8 pt-1">
       {/* Back link */}
@@ -619,12 +750,8 @@ export default function JugadorPage() {
             <span className="text-sm font-sans font-normal text-ink-muted ml-1">pts</span>
           </span>
         </div>
-        <BreakdownBar
-          grupos={groupPoints}
-          cuadro={knockoutPoints}
-          clasif={qualPoints}
-          premios={awardPoints}
-        />
+        <BreakdownBar data={breakdownData} />
+        <BreakdownLegend data={breakdownData} />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -646,6 +773,15 @@ export default function JugadorPage() {
       {/* Fase de grupos */}
       {canSeePicks && (
         <>
+      <PointsAudit
+        teams={auditTeams}
+        matchAudit={matchAudit}
+        orderAudit={orderAudit}
+        qualified={qualifiedAudit}
+        eliminatorias={eliminatoriasAudit}
+        premios={premiosAudit}
+      />
+
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <SectionTitle>Resultados</SectionTitle>
