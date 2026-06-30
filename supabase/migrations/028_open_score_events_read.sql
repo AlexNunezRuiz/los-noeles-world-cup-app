@@ -6,6 +6,7 @@
 -- also everyone else's, so there are no doubts about the ranking.
 
 DROP POLICY IF EXISTS "Users can view own score events" ON score_events;
+DROP POLICY IF EXISTS "Score events viewable by authenticated" ON score_events;
 
 CREATE POLICY "Score events viewable by authenticated" ON score_events
   FOR SELECT TO authenticated USING (true);
