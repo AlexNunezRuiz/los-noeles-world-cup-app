@@ -108,7 +108,11 @@ export function populateKnockoutBracket(
     source_group?: string;
     source_match_number?: number;
     best_third_pool?: string;
-  }>
+  }>,
+  // Only the REAL bracket uses the official FIFA allocation table. User-predicted
+  // brackets keep the historical ranking-based placement (their porras were made
+  // and scored against it; changing it would misalign their knockout picks).
+  useOfficialThirdAllocation = false
 ): BracketMatch[] {
   const matchMap = new Map<number, BracketMatch>();
   for (const m of knockoutMatches) {
@@ -132,7 +136,7 @@ export function populateKnockoutBracket(
   const qualifyingThirdGroups = bestThirds
     .map((t) => teamGroupMap.get(t.team_id))
     .filter((g): g is string => g !== undefined);
-  const allocation = allocateThirdPlaces(qualifyingThirdGroups);
+  const allocation = useOfficialThirdAllocation ? allocateThirdPlaces(qualifyingThirdGroups) : null;
 
   if (allocation) {
     // Map each best_third slot to the third of the group the table assigns to

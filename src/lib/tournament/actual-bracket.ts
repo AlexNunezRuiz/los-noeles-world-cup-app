@@ -46,7 +46,8 @@ export function seedRound32FromGroups(
     getBestThirds(realGroupStandings),
     baseMatches,
     new Map(),
-    bracketPositions
+    bracketPositions,
+    true // real bracket uses the official FIFA third-place allocation
   );
 
   const currentByNumber = new Map(matches.map((m) => [m.match_number, m]));
