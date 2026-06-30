@@ -5,6 +5,7 @@ import { scoreAwards } from "./awards";
 import { scoreQualification, type PredictedKnockoutMatch } from "./qualification";
 import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "../tournament/bracket";
 import { calculateGroupStandings, getBestThirds, type TeamStanding } from "../tournament/standings";
+import { fetchAllRows } from "../supabase/fetch-all";
 
 export interface ScoreEvent {
   user_id: string;
@@ -192,11 +193,16 @@ async function buildPredictedKnockoutMatchesByUser(
     away_placeholder?: string | null;
   }>
 ): Promise<Map<string, Map<number, PredictedKnockoutMatch>>> {
+  // These tables hold one row per user per group/match, so they easily exceed
+  // PostgREST's row cap. They MUST be paginated or the recalc silently reads a
+  // truncated subset and undercounts qualification points (see fetch-all.ts).
   const [standingsRes, bestThirdOrderRes, predictionsRes, bracketPositionsRes] = await Promise.all([
-    supabase.from("predicted_group_standings").select("*"),
-    supabase.from("predicted_best_third_order").select("user_id, team_id, rank"),
-    supabase.from("match_predictions").select("*"),
-    supabase.from("knockout_bracket_positions").select("*"),
+    fetchAllRows((from, to) => supabase.from("predicted_group_standings").select("*").range(from, to)),
+    fetchAllRows((from, to) =>
+      supabase.from("predicted_best_third_order").select("user_id, team_id, rank").range(from, to)
+    ),
+    fetchAllRows((from, to) => supabase.from("match_predictions").select("*").range(from, to)),
+    fetchAllRows((from, to) => supabase.from("knockout_bracket_positions").select("*").range(from, to)),
   ]);
   assertNoSupabaseError(standingsRes.error, "Error cargando clasificaciones pronosticadas");
   assertNoSupabaseError(bestThirdOrderRes.error, "Error cargando orden de mejores terceros");

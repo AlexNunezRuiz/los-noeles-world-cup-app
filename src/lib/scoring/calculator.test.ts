@@ -46,6 +46,10 @@ class FakeQuery {
     return this;
   }
 
+  range() {
+    return this;
+  }
+
   then<TResult1 = QueryResult, TResult2 = never>(
     onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
@@ -97,6 +101,10 @@ class TableQuery {
   }
 
   order() {
+    return this;
+  }
+
+  range() {
     return this;
   }
 

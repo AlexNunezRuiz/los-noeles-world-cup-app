@@ -6,7 +6,9 @@ import { Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RankingList, RankingRow } from "@/components/ranking/ranking-list";
 import { Podium } from "@/components/ranking/podium";
-import { BreakdownBar } from "@/components/ranking/breakdown-bar";
+import { BreakdownBar, BreakdownLegend } from "@/components/ranking/breakdown-bar";
+import { emptyBreakdown } from "@/lib/scoring/breakdown";
+import { fetchScoreBreakdownByUser, type UserBreakdown } from "@/lib/scoring/fetch-breakdown";
 import {
   getPorraCompletion,
   type PorraCompletion,
@@ -68,6 +70,7 @@ export default function RankingPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [allProfiles, setAllProfiles] = useState<ProfileRow[]>([]);
   const [completionByUser, setCompletionByUser] = useState<Map<string, PorraCompletion>>(new Map());
+  const [breakdownByUser, setBreakdownByUser] = useState<Map<string, UserBreakdown>>(new Map());
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,6 +94,7 @@ export default function RankingPage() {
 
         const profilesPromise = fetchRankingProfiles(supabase);
         const completionPromise = supabase.rpc("get_porra_completion_status");
+        const breakdownPromise = fetchScoreBreakdownByUser(supabase);
 
         const [
           {
@@ -99,7 +103,16 @@ export default function RankingPage() {
           { data: scores },
           profiles,
           { data: completionRows },
-        ] = await Promise.all([userPromise, scoresPromise, profilesPromise, completionPromise]);
+          breakdown,
+        ] = await Promise.all([
+          userPromise,
+          scoresPromise,
+          profilesPromise,
+          completionPromise,
+          breakdownPromise,
+        ]);
+
+        setBreakdownByUser(breakdown);
 
         const uid = user?.id ?? "";
         if (uid) setCurrentUserId(uid);
@@ -131,6 +144,7 @@ export default function RankingPage() {
         setEntries([]);
         setAllProfiles([]);
         setCompletionByUser(new Map());
+        setBreakdownByUser(new Map());
         setLoadError("No se pudo cargar el ranking.");
       } finally {
         setLoading(false);
@@ -203,12 +217,7 @@ export default function RankingPage() {
         points: e.total_points,
         isYou,
         userId: e.user_id,
-        breakdown: {
-          grupos: e.group_stage_points,
-          cuadro: e.knockout_exact_points,
-          clasif: e.qualification_points,
-          premios: e.award_points,
-        },
+        breakdown: breakdownByUser.get(e.user_id) ?? emptyBreakdown(),
         gapInfo,
       };
     });
@@ -232,7 +241,7 @@ export default function RankingPage() {
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
       searchSuggestions: getRankingSearchSuggestions(searchTargets, playerSearch),
     };
-  }, [allProfiles, entries, currentUserId, playerSearch]);
+  }, [allProfiles, entries, currentUserId, playerSearch, breakdownByUser]);
 
   const youAbove =
     you && youIdx > 0
@@ -429,12 +438,10 @@ export default function RankingPage() {
                   {you.position}º · tu resumen
                 </span>
               </div>
-              <BreakdownBar
-                grupos={you.group_stage_points}
-                cuadro={you.knockout_exact_points}
-                clasif={you.qualification_points}
-                premios={you.award_points}
-              />
+              <BreakdownBar data={breakdownByUser.get(you.user_id) ?? emptyBreakdown()} />
+              <div className="mt-2.5">
+                <BreakdownLegend data={breakdownByUser.get(you.user_id) ?? emptyBreakdown()} />
+              </div>
               {youAbove !== null && youAbove > 0 && (
                 <p className="mt-2 text-[10px] font-semibold text-ink-muted">
                   A {youAbove} del 1º
