@@ -39,12 +39,24 @@ test("seedRound32FromGroups rellena slots vacíos de R32 desde los grupos", () =
   );
 });
 
-test("seedRound32FromGroups no pisa slots ya fijados", () => {
+test("seedRound32FromGroups corrige (sobrescribe) un slot R32 con el equipo correcto del grupo", () => {
   const matches = [
     { match_number: 73, stage: "round_of_32", home_team_id: 99, away_team_id: null },
   ];
   const assignments = seedRound32FromGroups(standings(), matches, positions);
-  assert.equal(assignments.some((a) => a.match_number === 73 && a.slot === "home"), false);
+  // El home de P73 es el 1º del grupo A (equipo 1): debe sobrescribir el 99.
+  assert.deepEqual(
+    assignments.find((a) => a.match_number === 73 && a.slot === "home"),
+    { match_number: 73, slot: "home", team_id: 1 }
+  );
+});
+
+test("seedRound32FromGroups no re-emite un slot que ya tiene el equipo correcto", () => {
+  const matches = [
+    { match_number: 73, stage: "round_of_32", home_team_id: 1, away_team_id: 4 },
+  ];
+  const assignments = seedRound32FromGroups(standings(), matches, positions);
+  assert.equal(assignments.length, 0);
 });
 
 test("cascadeKnockoutWinners avanza el ganador al slot vacío de la ronda siguiente", () => {

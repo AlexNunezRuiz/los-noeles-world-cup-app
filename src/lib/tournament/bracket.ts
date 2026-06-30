@@ -1,4 +1,5 @@
 import type { TeamStanding } from "./standings";
+import { allocateThirdPlaces } from "./third-place-allocation";
 
 export interface BracketMatch {
   match_number: number;
@@ -114,7 +115,7 @@ export function populateKnockoutBracket(
     matchMap.set(m.match_number, { ...m });
   }
 
-  // Build team->group lookup for pool-aware best-third assignment
+  // Build team->group lookup for best-third assignment
   const teamGroupMap = buildTeamGroupMap(groupStandings);
 
   // Collect all best_third slots in bracket order
@@ -122,12 +123,40 @@ export function populateKnockoutBracket(
     .filter((bp) => bp.source_type === "best_third" && bp.best_third_pool)
     .map((bp) => ({ matchNumber: bp.match_number, slot: bp.slot, pool: bp.best_third_pool! }));
 
-  // Assign best thirds to slots respecting pools
-  const bestThirdAssignments = assignBestThirds(bestThirds, bestThirdSlots, teamGroupMap);
   const bestThirdMap = new Map<string, number | undefined>();
-  bestThirdSlots.forEach((s, i) => {
-    bestThirdMap.set(`${s.matchNumber}:${s.slot}`, bestThirdAssignments[i]);
-  });
+
+  // Official FIFA allocation: each third-placed team is assigned by GROUP,
+  // deterministically from the set of 8 qualifying third-place groups (not by
+  // ranking). Falls back to the pool-aware greedy when the group stage is
+  // incomplete (fewer than 8 thirds / unknown combination).
+  const qualifyingThirdGroups = bestThirds
+    .map((t) => teamGroupMap.get(t.team_id))
+    .filter((g): g is string => g !== undefined);
+  const allocation = allocateThirdPlaces(qualifyingThirdGroups);
+
+  if (allocation) {
+    // Map each best_third slot to the third of the group the table assigns to
+    // that slot's home group winner.
+    const winnerGroupByMatch = new Map<number, string>();
+    for (const bp of bracketPositions) {
+      if (bp.source_type === "group_winner" && bp.source_group) {
+        winnerGroupByMatch.set(bp.match_number, bp.source_group);
+      }
+    }
+    for (const s of bestThirdSlots) {
+      const winnerGroup = winnerGroupByMatch.get(s.matchNumber);
+      const thirdGroup = winnerGroup ? allocation[winnerGroup] : undefined;
+      const teamId = thirdGroup
+        ? groupStandings.get(thirdGroup)?.find((st) => st.position === 3)?.team_id
+        : undefined;
+      bestThirdMap.set(`${s.matchNumber}:${s.slot}`, teamId);
+    }
+  } else {
+    const bestThirdAssignments = assignBestThirds(bestThirds, bestThirdSlots, teamGroupMap);
+    bestThirdSlots.forEach((s, i) => {
+      bestThirdMap.set(`${s.matchNumber}:${s.slot}`, bestThirdAssignments[i]);
+    });
+  }
 
   // First pass: populate from group results
   for (const bp of bracketPositions) {

@@ -54,10 +54,13 @@ export function seedRound32FromGroups(
   for (const pm of populated) {
     const current = currentByNumber.get(pm.match_number);
     if (!current) continue;
-    if (pm.home_team_id !== undefined && current.home_team_id === null) {
+    // R32 slots are fully determined by group results (1st/2nd + official
+    // best-third allocation), so overwrite when the computed team differs. This
+    // lets a re-generation correct an earlier wrong placement.
+    if (pm.home_team_id !== undefined && current.home_team_id !== pm.home_team_id) {
       assignments.push({ match_number: pm.match_number, slot: "home", team_id: pm.home_team_id });
     }
-    if (pm.away_team_id !== undefined && current.away_team_id === null) {
+    if (pm.away_team_id !== undefined && current.away_team_id !== pm.away_team_id) {
       assignments.push({ match_number: pm.match_number, slot: "away", team_id: pm.away_team_id });
     }
   }
