@@ -16,7 +16,7 @@ import { calculateGroupStandings, getBestThirds, type TeamStanding } from "@/lib
 import { populateKnockoutBracket, type BracketMatch, type KnockoutPrediction } from "@/lib/tournament/bracket";
 import { aggregateBreakdown, ruleKeyToBreakdownType } from "@/lib/scoring/breakdown";
 import { PointsAudit, type EliminatoriaRow, type PremioRow } from "@/components/profile/points-audit";
-import { auditGroupMatches, auditGroupOrder, auditQualified } from "@/lib/results/points-audit";
+import { auditGroupMatches, auditGroupOrder, auditQualifiedByRound } from "@/lib/results/points-audit";
 
 // ── DB row interfaces ─────────────────────────────────────────────────────────
 
@@ -679,23 +679,7 @@ export default function JugadorPage() {
   }
   const orderAudit = auditGroupOrder(actualPositionsByGroup, predictedPositionByGroup, posPoints);
 
-  const predictedR32TeamIds: number[] = [];
-  for (const m of predictedBracketMatches) {
-    if (m.stage !== "round_of_32") continue;
-    if (m.home_team_id != null) predictedR32TeamIds.push(m.home_team_id);
-    if (m.away_team_id != null) predictedR32TeamIds.push(m.away_team_id);
-  }
-  const actualQualifiedTeamIds = new Set<number>();
-  for (const m of Array.from(matches.values())) {
-    if (m.stage !== "round_of_32") continue;
-    if (m.home_team_id != null) actualQualifiedTeamIds.add(m.home_team_id);
-    if (m.away_team_id != null) actualQualifiedTeamIds.add(m.away_team_id);
-  }
-  const qualifiedAudit = auditQualified(
-    predictedR32TeamIds,
-    actualQualifiedTeamIds,
-    scoringRules.get("qualify_r32") ?? 1
-  );
+  const qualifiedByRound = auditQualifiedByRound(scoreEvents);
 
   const eliminatoriasAudit: EliminatoriaRow[] = scoreEvents
     .filter((e) => ruleKeyToBreakdownType(e.rule_key) === "eliminatorias")
@@ -777,7 +761,7 @@ export default function JugadorPage() {
         teams={auditTeams}
         matchAudit={matchAudit}
         orderAudit={orderAudit}
-        qualified={qualifiedAudit}
+        qualifiedByRound={qualifiedByRound}
         eliminatorias={eliminatoriasAudit}
         premios={premiosAudit}
       />
