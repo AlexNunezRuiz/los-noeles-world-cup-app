@@ -14,6 +14,9 @@ import {
   sortProfilesByCurrentRanking,
   type RankedPredictionProfile,
 } from "@/lib/results/prediction-compare";
+import { loadUserBracket } from "@/lib/results/load-user-bracket";
+import { PronosticoCruce, type PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
 
 interface ConfigRow {
   key: string;
@@ -67,6 +70,9 @@ export default function PredictionComparePage() {
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
   const [matchSearch, setMatchSearch] = useState("");
   const [playerSearch, setPlayerSearch] = useState("");
+  const [bracket, setBracket] = useState<Map<number, PredictedKnockoutMatch> | undefined>(undefined);
+  const [stageByMatchNumber, setStageByMatchNumber] = useState<Map<number, string> | undefined>(undefined);
+  const [pronosticoTeams, setPronosticoTeams] = useState<Map<number, PronosticoCruceTeam> | undefined>(undefined);
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
@@ -118,6 +124,31 @@ export default function PredictionComparePage() {
           searchParams.get("partido")
         )
       );
+
+      if (uid) {
+        const { data: myPreds } = await supabase
+          .from("match_predictions")
+          .select("match_id, home_score, away_score, penalty_winner")
+          .eq("user_id", uid);
+        const rawMatches = loadedMatches.map((m) => ({
+          id: m.id,
+          match_number: m.match_number,
+          stage: m.stage,
+          home_placeholder: m.home_placeholder,
+          away_placeholder: m.away_placeholder,
+        }));
+        const built = await loadUserBracket(
+          supabase,
+          uid,
+          rawMatches,
+          (myPreds ?? []) as { match_id: number; home_score: number; away_score: number; penalty_winner?: "home" | "away" | null }[]
+        );
+        setBracket(built.byMatchNumber);
+        setStageByMatchNumber(built.stageByMatchNumber);
+        setPronosticoTeams(
+          new Map(((teamRows ?? []) as TeamRow[]).map((t) => [t.id, { name: t.name, flag_emoji: t.flag_emoji }]))
+        );
+      }
     }
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -290,7 +321,21 @@ export default function PredictionComparePage() {
             </span>
           </div>
 
-          {currentUserProfile && (
+          {currentUserProfile && selectedMatch && selectedMatch.stage !== "group" &&
+          selectedMatch.home_team_id !== null && selectedMatch.away_team_id !== null &&
+          bracket && stageByMatchNumber && pronosticoTeams ? (
+            <div className="mb-3">
+              <PronosticoCruce
+                matchNumber={selectedMatch.match_number}
+                stage={selectedMatch.stage}
+                realHomeTeamId={selectedMatch.home_team_id}
+                realAwayTeamId={selectedMatch.away_team_id}
+                bracket={bracket}
+                stageByMatchNumber={stageByMatchNumber}
+                teams={pronosticoTeams}
+              />
+            </div>
+          ) : currentUserProfile ? (
             <div className="mb-3 rounded-xl border border-blue/40 bg-blue/10 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -318,7 +363,7 @@ export default function PredictionComparePage() {
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
           <input
             value={playerSearch}
