@@ -20,6 +20,7 @@ import { getBestThirds } from "@/lib/tournament/standings";
 import { stageLabel } from "@/lib/tournament/labels";
 import { KnockoutBracketResults, type KnockoutResultRow } from "@/components/results/knockout-bracket-results";
 import { PronosticoCruce } from "@/components/results/pronostico-cruce";
+import { FlapTile } from "@/components/ui/flap-tile";
 import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
@@ -518,9 +519,10 @@ export default function ResultadosPage() {
                             <Flag emoji={m.homeTeam.flag_emoji} size={22} />
                             <span className="truncate text-sm font-bold text-ink">{m.homeTeam.name}</span>
                           </div>
-                          <span className="shrink-0 font-marcador text-base font-bold text-ink">
-                            {m.homeScore}–{m.awayScore}
-                          </span>
+                          <div className="flex shrink-0 gap-1.5">
+                            <FlapTile value={m.homeScore} size="sm" />
+                            <FlapTile value={m.awayScore} size="sm" />
+                          </div>
                           <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2">
                             <Flag emoji={m.awayTeam.flag_emoji} size={22} />
                             <span className="truncate text-right text-sm font-bold text-ink">{m.awayTeam.name}</span>
