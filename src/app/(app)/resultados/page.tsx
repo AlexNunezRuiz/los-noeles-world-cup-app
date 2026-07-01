@@ -18,7 +18,10 @@ import { buildUserBracket } from "@/lib/results/user-bracket";
 import { compareRealMatchToUser, type PairingComparison } from "@/lib/results/knockout-comparison";
 import { getBestThirds } from "@/lib/tournament/standings";
 import { stageLabel } from "@/lib/tournament/labels";
-import { KnockoutBracketResults, KnockoutComparisonChip, type KnockoutResultRow } from "@/components/results/knockout-bracket-results";
+import { KnockoutBracketResults, type KnockoutResultRow } from "@/components/results/knockout-bracket-results";
+import { PronosticoCruce } from "@/components/results/pronostico-cruce";
+import { FlapTile } from "@/components/ui/flap-tile";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -101,6 +104,8 @@ interface FinishedMatchDisplay {
   groupLetter: string | null;
   isKnockout: boolean;
   comparison: PairingComparison | null;
+  homeTeamIdReal: number | null;
+  awayTeamIdReal: number | null;
   homeTeam: { name: string; flag_emoji: string };
   awayTeam: { name: string; flag_emoji: string };
   homeScore: number;
@@ -119,6 +124,13 @@ export default function ResultadosPage() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [realGroupStandings, setRealGroupStandings] = useState<Map<string, TeamStanding[]>>(new Map());
   const [knockoutRows, setKnockoutRows] = useState<KnockoutResultRow[]>([]);
+  const [knockoutBracket, setKnockoutBracket] = useState<{
+    byMatchNumber: Map<number, PredictedKnockoutMatch>;
+    stageByMatchNumber: Map<number, string>;
+  }>({ byMatchNumber: new Map(), stageByMatchNumber: new Map() });
+  const [pronosticoTeams, setPronosticoTeams] = useState<
+    Map<number, { name: string; flag_emoji: string }>
+  >(new Map());
   const [bestThirdIds, setBestThirdIds] = useState<Set<number>>(new Set());
   const [totalPuntos, setTotalPuntos] = useState(0);
   const [posicion, setPosicion] = useState(1);
@@ -219,6 +231,10 @@ export default function ResultadosPage() {
         predictions: predForBracket,
         bracketPositions,
       });
+      setKnockoutBracket({ byMatchNumber, stageByMatchNumber });
+      setPronosticoTeams(
+        new Map(teams.map((t) => [t.id, { name: t.name, flag_emoji: t.flag_emoji }]))
+      );
 
       // Build finished match displays
       const finished: FinishedMatchDisplay[] = [];
@@ -274,6 +290,8 @@ export default function ResultadosPage() {
           groupLetter: m.group_letter,
           isKnockout,
           comparison,
+          homeTeamIdReal: m.home_team_id,
+          awayTeamIdReal: m.away_team_id,
           homeTeam: { name: homeTeam.name, flag_emoji: homeTeam.flag_emoji },
           awayTeam: { name: awayTeam.name, flag_emoji: awayTeam.flag_emoji },
           homeScore: m.home_score,
@@ -306,6 +324,8 @@ export default function ResultadosPage() {
             away: away
               ? { name: away.name, flag_emoji: away.flag_emoji }
               : null,
+            home_team_id: m.home_team_id,
+            away_team_id: m.away_team_id,
             home_placeholder: m.home_placeholder,
             away_placeholder: m.away_placeholder,
             venue: venue ? { name: venue.name, city: venue.city } : null,
@@ -335,6 +355,8 @@ export default function ResultadosPage() {
           return {
             matchNumber: m.match_number,
             stage: m.stage,
+            homeTeamId: m.home_team_id,
+            awayTeamId: m.away_team_id,
             home: home ? { name: home.name, flag_emoji: home.flag_emoji } : null,
             away: away ? { name: away.name, flag_emoji: away.flag_emoji } : null,
             homeScore: m.home_score,
@@ -435,7 +457,12 @@ export default function ResultadosPage() {
       {/* Próximos partidos */}
       {!loading && (
         <div className="sticky top-14 z-20 -mx-1 bg-cream/95 px-1 py-1 backdrop-blur">
-          <UpcomingStrip matches={upcoming} />
+          <UpcomingStrip
+            matches={upcoming}
+            bracket={knockoutBracket.byMatchNumber}
+            stageByMatchNumber={knockoutBracket.stageByMatchNumber}
+            teams={pronosticoTeams}
+          />
         </div>
       )}
 
@@ -492,16 +519,28 @@ export default function ResultadosPage() {
                             <Flag emoji={m.homeTeam.flag_emoji} size={22} />
                             <span className="truncate text-sm font-bold text-ink">{m.homeTeam.name}</span>
                           </div>
-                          <span className="shrink-0 font-marcador text-base font-bold text-ink">
-                            {m.homeScore}–{m.awayScore}
-                          </span>
+                          <div className="flex shrink-0 gap-1.5">
+                            <FlapTile value={m.homeScore} size="sm" />
+                            <FlapTile value={m.awayScore} size="sm" />
+                          </div>
                           <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2">
                             <Flag emoji={m.awayTeam.flag_emoji} size={22} />
                             <span className="truncate text-right text-sm font-bold text-ink">{m.awayTeam.name}</span>
                           </div>
                         </div>
                         <div className="mt-2 border-t border-dashed border-border pt-2">
-                          <KnockoutComparisonChip comparison={m.comparison} />
+                          {m.homeTeamIdReal != null && m.awayTeamIdReal != null ? (
+                            <PronosticoCruce
+                              matchNumber={m.match_number}
+                              stage={m.stage}
+                              realHomeTeamId={m.homeTeamIdReal}
+                              realAwayTeamId={m.awayTeamIdReal}
+                              bracket={knockoutBracket.byMatchNumber}
+                              stageByMatchNumber={knockoutBracket.stageByMatchNumber}
+                              teams={pronosticoTeams}
+                              comparison={m.comparison}
+                            />
+                          ) : null}
                         </div>
                       </div>
                     ) : (
@@ -600,7 +639,12 @@ export default function ResultadosPage() {
 
       {/* ── Cuadro tab ── */}
       {activeTab === "cuadro" && (
-        <KnockoutBracketResults rows={knockoutRows} />
+        <KnockoutBracketResults
+          rows={knockoutRows}
+          bracket={knockoutBracket.byMatchNumber}
+          stageByMatchNumber={knockoutBracket.stageByMatchNumber}
+          teams={pronosticoTeams}
+        />
       )}
     </div>
   );

@@ -134,6 +134,63 @@ export interface QualifiedAuditRow {
   qualified: boolean;
 }
 
+export interface QualifiedRoundRow {
+  ruleKey: string;
+  label: string;
+  teamIds: number[];
+  points: number;
+}
+
+const QUALIFY_ROUND_ORDER = [
+  "qualify_r32",
+  "qualify_r16",
+  "qualify_qf",
+  "qualify_sf",
+  "qualify_finalist",
+  "qualify_champion",
+  "qualify_runner_up",
+  "qualify_third",
+  "qualify_fourth",
+];
+
+const QUALIFY_LABELS: Record<string, string> = {
+  qualify_r32: "Dieciseisavos",
+  qualify_r16: "Octavos",
+  qualify_qf: "Cuartos",
+  qualify_sf: "Semifinales",
+  qualify_finalist: "Finalistas",
+  qualify_champion: "Campeón",
+  qualify_runner_up: "Subcampeón",
+  qualify_third: "Tercer puesto",
+  qualify_fourth: "Cuarto puesto",
+};
+
+// Agrupa los eventos `qualify_*` por ronda. Los team ids se extraen de la
+// descripción ("Equipo {id} clasificado a ...") escrita por scoreQualification.
+export function auditQualifiedByRound(
+  events: Array<{ rule_key: string; points: number; description: string | null }>
+): QualifiedRoundRow[] {
+  const byRule = new Map<string, { teamIds: number[]; points: number }>();
+  for (const e of events) {
+    if (!e.rule_key.startsWith("qualify_")) continue;
+    const bucket = byRule.get(e.rule_key) ?? { teamIds: [], points: 0 };
+    const match = /Equipo (\d+)/.exec(e.description ?? "");
+    if (match) bucket.teamIds.push(Number(match[1]));
+    bucket.points += e.points;
+    byRule.set(e.rule_key, bucket);
+  }
+
+  return QUALIFY_ROUND_ORDER.filter((ruleKey) => byRule.has(ruleKey)).map((ruleKey) => {
+    const bucket = byRule.get(ruleKey)!;
+    return {
+      ruleKey,
+      label: QUALIFY_LABELS[ruleKey] ?? ruleKey,
+      teamIds: bucket.teamIds,
+      points: bucket.points,
+    };
+  });
+}
+
 // Which of the user's predicted round-of-32 teams actually qualified.
 export function auditQualified(
   predictedR32TeamIds: number[],

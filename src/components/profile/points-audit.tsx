@@ -6,7 +6,7 @@ import { BREAKDOWN_META, type BreakdownType } from "@/lib/scoring/breakdown";
 import type {
   GroupOrderAudit,
   MatchAuditRow,
-  QualifiedAuditRow,
+  QualifiedRoundRow,
 } from "@/lib/results/points-audit";
 
 export interface TeamLite {
@@ -31,7 +31,7 @@ interface PointsAuditProps {
   teams: Map<number, TeamLite>;
   matchAudit: { rows: MatchAuditRow[]; signTotal: number; exactTotal: number };
   orderAudit: { groups: GroupOrderAudit[]; total: number };
-  qualified: { rows: QualifiedAuditRow[]; hits: number; total: number };
+  qualifiedByRound: QualifiedRoundRow[];
   eliminatorias: EliminatoriaRow[];
   premios: PremioRow[];
 }
@@ -92,7 +92,7 @@ export function PointsAudit({
   teams,
   matchAudit,
   orderAudit,
-  qualified,
+  qualifiedByRound,
   eliminatorias,
   premios,
 }: PointsAuditProps) {
@@ -188,32 +188,37 @@ export function PointsAudit({
         )}
       </Section>
 
-      {/* Clasificados */}
+      {/* Clasificados por ronda */}
       <Section
         type="clasificados"
-        points={qualified.total}
-        count={qualified.rows.length > 0 ? `${qualified.hits}/${qualified.rows.length}` : undefined}
+        points={qualifiedByRound.reduce((s, r) => s + r.points, 0)}
       >
-        {qualified.rows.length === 0 ? (
-          <p className="py-1 text-xs italic text-ink-muted">Sin cuadro de clasificados.</p>
+        {qualifiedByRound.length === 0 ? (
+          <p className="py-1 text-xs italic text-ink-muted">Sin clasificados puntuados todavía.</p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {qualified.rows.map((row) => {
-              const team = teamLabel(teams, row.teamId);
-              return (
-                <span
-                  key={row.teamId}
-                  className={
-                    row.qualified
-                      ? "flex items-center gap-1 rounded-md bg-green/10 px-1.5 py-1 text-[11px] font-semibold text-green"
-                      : "flex items-center gap-1 rounded-md bg-surface-sunken px-1.5 py-1 text-[11px] font-semibold text-ink-faint line-through"
-                  }
-                >
-                  {team.flag && <Flag emoji={team.flag} size={14} />}
-                  {team.name}
-                </span>
-              );
-            })}
+          <div className="space-y-2">
+            {qualifiedByRound.map((round) => (
+              <div key={round.ruleKey}>
+                <div className="mb-0.5 flex items-center justify-between">
+                  <span className="font-marcador text-[11px] uppercase text-ink-muted">{round.label}</span>
+                  <span className="font-marcador text-[11px] font-bold text-ink">+{round.points}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {round.teamIds.map((teamId, i) => {
+                    const team = teamLabel(teams, teamId);
+                    return (
+                      <span
+                        key={`${teamId}-${i}`}
+                        className="flex items-center gap-1 rounded-md bg-green/10 px-1.5 py-1 text-[11px] font-semibold text-green"
+                      >
+                        {team.flag && <Flag emoji={team.flag} size={14} />}
+                        {team.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Section>

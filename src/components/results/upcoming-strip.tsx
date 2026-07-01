@@ -4,26 +4,20 @@ import Link from "next/link";
 import { Flag } from "@/components/ui/flag";
 import { formatShortDay, formatKickoff } from "@/lib/datetime";
 import { stageLabel } from "@/lib/tournament/labels";
+import { PronosticoCruce, type PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
 import type {
   CalendarMatch,
   CalendarTeam,
 } from "@/components/calendar/calendar-match-row";
 
-function TeamLine({
-  team,
-  placeholder,
-}: {
-  team: CalendarTeam | null;
-  placeholder: string | null;
-}) {
+function TeamLine({ team, placeholder }: { team: CalendarTeam | null; placeholder: string | null }) {
   return (
     <div className="flex items-center gap-1.5">
       {team ? (
         <>
           <Flag emoji={team.flag_emoji} size={16} />
-          <span className="truncate text-xs font-bold text-ink">
-            {team.name}
-          </span>
+          <span className="truncate text-xs font-bold text-ink">{team.name}</span>
         </>
       ) : (
         <span className="truncate font-marcador text-[10px] uppercase text-ink-faint">
@@ -36,17 +30,20 @@ function TeamLine({
 
 export function UpcomingStrip({
   matches,
+  bracket,
+  stageByMatchNumber,
+  teams,
   limit = 5,
 }: {
   matches: CalendarMatch[];
+  bracket?: Map<number, PredictedKnockoutMatch>;
+  stageByMatchNumber?: Map<number, string>;
+  teams?: Map<number, PronosticoCruceTeam>;
   limit?: number;
 }) {
   const upcoming = matches
     .filter((m) => !m.is_finished)
-    .sort(
-      (a, b) =>
-        new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
-    )
+    .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
     .slice(0, limit);
 
   if (upcoming.length === 0) return null;
@@ -57,36 +54,60 @@ export function UpcomingStrip({
         Próximos partidos
       </p>
       <div className="flex gap-2 overflow-x-auto px-1 pb-1">
-        {upcoming.map((m) => (
-          <Link
-            key={m.id}
-            href={`/resultados/predicciones?partido=${m.id}`}
-            className="w-[150px] shrink-0 rounded-xl border border-border bg-surface p-2.5"
-          >
-            <p className="font-marcador text-[11px] font-bold uppercase text-ink">
-              {formatShortDay(m.match_date)} · {formatKickoff(m.match_date)}
-            </p>
-            <p className="mt-0.5 font-sans text-[8px] font-bold uppercase tracking-widest text-ink-faint">
-              {stageLabel(m.stage, m.group_letter)}
-            </p>
-            <div className="mt-1.5 space-y-1">
-              <TeamLine team={m.home} placeholder={m.home_placeholder} />
-              <TeamLine team={m.away} placeholder={m.away_placeholder} />
-            </div>
-            {m.prediction && (
-              <div className="mt-2 rounded-lg border border-blue/30 bg-blue/10 px-2 py-1">
-                <p className="font-marcador text-[9px] font-bold uppercase tracking-wider text-blue">
-                  Tu {m.prediction.home}-{m.prediction.away}
-                </p>
-              </div>
-            )}
-            {m.venue && (
-              <p className="mt-1.5 truncate border-t border-dashed border-border pt-1.5 text-[9px] text-ink-muted">
-                {m.venue.city}
+        {upcoming.map((m) => {
+          const isKnockout = m.stage !== "group";
+          const canShowCruce =
+            isKnockout &&
+            bracket &&
+            stageByMatchNumber &&
+            teams &&
+            m.home_team_id !== null &&
+            m.away_team_id !== null;
+          return (
+            <Link
+              key={m.id}
+              href={`/resultados/predicciones?partido=${m.id}`}
+              className="w-[170px] shrink-0 rounded-xl border border-border bg-surface p-2.5"
+            >
+              <p className="font-marcador text-[11px] font-bold uppercase text-ink">
+                {formatShortDay(m.match_date)} · {formatKickoff(m.match_date)}
               </p>
-            )}
-          </Link>
-        ))}
+              <p className="mt-0.5 font-sans text-[8px] font-bold uppercase tracking-widest text-ink-faint">
+                {stageLabel(m.stage, m.group_letter)}
+              </p>
+              <div className="mt-1.5 space-y-1">
+                <TeamLine team={m.home} placeholder={m.home_placeholder} />
+                <TeamLine team={m.away} placeholder={m.away_placeholder} />
+              </div>
+              {canShowCruce ? (
+                <div className="mt-2">
+                  <PronosticoCruce
+                    matchNumber={m.match_number}
+                    stage={m.stage}
+                    realHomeTeamId={m.home_team_id as number}
+                    realAwayTeamId={m.away_team_id as number}
+                    bracket={bracket!}
+                    stageByMatchNumber={stageByMatchNumber!}
+                    teams={teams!}
+                  />
+                </div>
+              ) : (
+                m.prediction && (
+                  <div className="mt-2 rounded-lg border border-blue/30 bg-blue/10 px-2 py-1">
+                    <p className="font-marcador text-[9px] font-bold uppercase tracking-wider text-blue">
+                      Tu {m.prediction.home}-{m.prediction.away}
+                    </p>
+                  </div>
+                )
+              )}
+              {m.venue && (
+                <p className="mt-1.5 truncate border-t border-dashed border-border pt-1.5 text-[9px] text-ink-muted">
+                  {m.venue.city}
+                </p>
+              )}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

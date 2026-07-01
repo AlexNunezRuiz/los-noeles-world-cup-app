@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -188,6 +189,17 @@ export default function MiCuentaPage() {
           )}
         </CardContent>
       </Card>
+
+      <Link
+        href={`/jugador/${profile.id}`}
+        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+      >
+        <div>
+          <p className="font-marcador text-sm font-bold uppercase text-ink">Mis puntuaciones</p>
+          <p className="text-xs text-ink-muted">Ver el desglose completo de mis puntos</p>
+        </div>
+        <span className="font-marcador text-lg text-ink-faint">›</span>
+      </Link>
 
       {/* Sign out */}
       <Button variant="outline" onClick={handleSignOut} className="w-full">

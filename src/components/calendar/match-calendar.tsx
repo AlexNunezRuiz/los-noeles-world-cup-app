@@ -3,8 +3,20 @@
 import { groupByMatchDay, todayKey } from "@/lib/datetime";
 import { CalendarDayGroup } from "./calendar-day-group";
 import type { CalendarMatch } from "./calendar-match-row";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
+import type { PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
 
-export function MatchCalendar({ matches }: { matches: CalendarMatch[] }) {
+export function MatchCalendar({
+  matches,
+  bracket,
+  stageByMatchNumber,
+  teams,
+}: {
+  matches: CalendarMatch[];
+  bracket?: Map<number, PredictedKnockoutMatch>;
+  stageByMatchNumber?: Map<number, string>;
+  teams?: Map<number, PronosticoCruceTeam>;
+}) {
   const groups = groupByMatchDay(matches);
   const today = todayKey();
 
@@ -19,7 +31,7 @@ export function MatchCalendar({ matches }: { matches: CalendarMatch[] }) {
   return (
     <div className="space-y-3">
       {groups.map((g) => (
-        <CalendarDayGroup key={g.key} group={g} isToday={g.key === today} />
+        <CalendarDayGroup key={g.key} group={g} isToday={g.key === today} bracket={bracket} stageByMatchNumber={stageByMatchNumber} teams={teams} />
       ))}
     </div>
   );

@@ -6,6 +6,8 @@ import { FlapTile } from "@/components/ui/flap-tile";
 import { formatKickoff } from "@/lib/datetime";
 import { stageLabel } from "@/lib/tournament/labels";
 import type { CalendarPrediction } from "@/lib/calendar/predictions";
+import { PronosticoCruce, type PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
 
 export interface CalendarTeam {
   name: string;
@@ -23,6 +25,8 @@ export interface CalendarMatch {
   away_score: number | null;
   home: CalendarTeam | null;
   away: CalendarTeam | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
   home_placeholder: string | null;
   away_placeholder: string | null;
   venue: { name: string; city: string } | null;
@@ -69,7 +73,17 @@ function TeamSide({
   );
 }
 
-export function CalendarMatchRow({ match }: { match: CalendarMatch }) {
+export function CalendarMatchRow({
+  match,
+  bracket,
+  stageByMatchNumber,
+  teams,
+}: {
+  match: CalendarMatch;
+  bracket?: Map<number, PredictedKnockoutMatch>;
+  stageByMatchNumber?: Map<number, string>;
+  teams?: Map<number, PronosticoCruceTeam>;
+}) {
   const finished =
     match.is_finished &&
     match.home_score !== null &&
@@ -119,15 +133,34 @@ export function CalendarMatchRow({ match }: { match: CalendarMatch }) {
           {match.venue.name} · {match.venue.city}
         </p>
       )}
-      {match.prediction && (
-        <div className="mt-2 flex items-center justify-between rounded-lg border border-blue/30 bg-blue/10 px-2 py-1.5">
-          <span className="font-marcador text-[10px] font-bold uppercase tracking-wider text-blue">
-            Tu pronostico
-          </span>
-          <span className="font-marcador text-sm font-bold text-ink">
-            {match.prediction.home} - {match.prediction.away}
-          </span>
+      {match.stage !== "group" &&
+      bracket &&
+      stageByMatchNumber &&
+      teams &&
+      match.home_team_id !== null &&
+      match.away_team_id !== null ? (
+        <div className="mt-2">
+          <PronosticoCruce
+            matchNumber={match.match_number}
+            stage={match.stage}
+            realHomeTeamId={match.home_team_id}
+            realAwayTeamId={match.away_team_id}
+            bracket={bracket}
+            stageByMatchNumber={stageByMatchNumber}
+            teams={teams}
+          />
         </div>
+      ) : (
+        match.prediction && (
+          <div className="mt-2 flex items-center justify-between rounded-lg border border-blue/30 bg-blue/10 px-2 py-1.5">
+            <span className="font-marcador text-[10px] font-bold uppercase tracking-wider text-blue">
+              Tu pronostico
+            </span>
+            <span className="font-marcador text-sm font-bold text-ink">
+              {match.prediction.home} - {match.prediction.away}
+            </span>
+          </div>
+        )
       )}
     </Link>
   );

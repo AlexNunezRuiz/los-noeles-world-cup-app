@@ -289,6 +289,20 @@ export default async function PorraPage() {
         </div>
       </div>
 
+      <Link
+        href={`/jugador/${user!.id}`}
+        className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-surface px-4 py-3"
+      >
+        <div className="flex items-center gap-3">
+          <BarChart2 className="h-5 w-5 text-blue" />
+          <div>
+            <p className="font-marcador text-sm font-bold uppercase text-ink">Mis puntuaciones</p>
+            <p className="text-[11px] text-ink-muted">Desglose por signo, orden, clasificados, exacto y premios</p>
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-ink-faint" />
+      </Link>
+
       {isLocked && (
         <div className="rounded-[13px] border border-red/30 bg-red/8 px-4 py-3 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-red flex-shrink-0 mt-0.5" />
