@@ -58,9 +58,9 @@ export default function CalendarioPage() {
   const [loading, setLoading] = useState(true);
   const [stage, setStage] = useState<StageFilter>("todos");
   const [group, setGroup] = useState<string>("todos");
-  const [bracket, setBracket] = useState<Map<number, PredictedKnockoutMatch>>(new Map());
-  const [stageByMatchNumber, setStageByMatchNumber] = useState<Map<number, string>>(new Map());
-  const [pronosticoTeams, setPronosticoTeams] = useState<Map<number, PronosticoCruceTeam>>(new Map());
+  const [bracket, setBracket] = useState<Map<number, PredictedKnockoutMatch> | undefined>(undefined);
+  const [stageByMatchNumber, setStageByMatchNumber] = useState<Map<number, string> | undefined>(undefined);
+  const [pronosticoTeams, setPronosticoTeams] = useState<Map<number, PronosticoCruceTeam> | undefined>(undefined);
 
   const supabase = createClient();
 
