@@ -89,6 +89,7 @@ export function UpcomingStrip({
                     bracket={bracket!}
                     stageByMatchNumber={stageByMatchNumber!}
                     teams={teams!}
+                    label="Tu"
                   />
                 </div>
               ) : (

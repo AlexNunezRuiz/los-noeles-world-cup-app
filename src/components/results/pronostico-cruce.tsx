@@ -24,6 +24,7 @@ export interface PronosticoCruceProps {
   stageByMatchNumber: Map<number, string>;
   teams: Map<number, PronosticoCruceTeam>;
   comparison?: PairingComparison | null;
+  label?: string;
 }
 
 function AcertiBadge({ comparison }: { comparison: PairingComparison | null | undefined }) {
@@ -77,6 +78,7 @@ export function PronosticoCruce({
   stageByMatchNumber,
   teams,
   comparison,
+  label = "Tu pronóstico",
 }: PronosticoCruceProps) {
   const slot = bracket.get(matchNumber);
   const slotHome = slot?.home_team_id != null ? teams.get(slot.home_team_id) : undefined;
@@ -93,8 +95,8 @@ export function PronosticoCruce({
   return (
     <details className="group rounded-lg border border-blue/30 bg-blue/8">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1.5">
-        <span className="font-marcador text-[9px] font-bold uppercase tracking-wider text-blue">
-          Tu pronóstico
+        <span className="shrink-0 font-marcador text-[9px] font-bold uppercase tracking-wider text-blue">
+          {label}
         </span>
         {hasSlot ? (
           <span className="flex flex-1 items-center justify-center gap-1.5 text-xs font-bold text-ink">

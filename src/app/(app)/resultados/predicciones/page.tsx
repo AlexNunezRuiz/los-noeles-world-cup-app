@@ -15,6 +15,8 @@ import {
   type RankedPredictionProfile,
 } from "@/lib/results/prediction-compare";
 import { loadUserBracket } from "@/lib/results/load-user-bracket";
+import { loadAllUserBrackets } from "@/lib/results/load-all-user-brackets";
+import type { BuiltUserBracket } from "@/lib/results/user-bracket";
 import { PronosticoCruce, type PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
 import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
 
@@ -73,6 +75,7 @@ export default function PredictionComparePage() {
   const [bracket, setBracket] = useState<Map<number, PredictedKnockoutMatch> | undefined>(undefined);
   const [stageByMatchNumber, setStageByMatchNumber] = useState<Map<number, string> | undefined>(undefined);
   const [pronosticoTeams, setPronosticoTeams] = useState<Map<number, PronosticoCruceTeam> | undefined>(undefined);
+  const [bracketByUser, setBracketByUser] = useState<Map<string, BuiltUserBracket>>(new Map());
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
@@ -118,6 +121,9 @@ export default function PredictionComparePage() {
       );
       setMatches(loadedMatches);
       setTeams(new Map(((teamRows ?? []) as TeamRow[]).map((team) => [team.id, team])));
+      setPronosticoTeams(
+        new Map(((teamRows ?? []) as TeamRow[]).map((t) => [t.id, { name: t.name, flag_emoji: t.flag_emoji }]))
+      );
       setSelectedMatchId(
         getInitialSelectedMatchId(
           loadedMatches.map((match) => match.id),
@@ -125,18 +131,24 @@ export default function PredictionComparePage() {
         )
       );
 
+      const rawMatches = loadedMatches.map((m) => ({
+        id: m.id,
+        match_number: m.match_number,
+        stage: m.stage,
+        home_placeholder: m.home_placeholder,
+        away_placeholder: m.away_placeholder,
+      }));
+
+      // Cuadro de cada participante (solo tras el cierre) para mostrar qué lleva cada uno.
+      if (locked) {
+        loadAllUserBrackets(supabase, rawMatches).then(setBracketByUser);
+      }
+
       if (uid) {
         const { data: myPreds } = await supabase
           .from("match_predictions")
           .select("match_id, home_score, away_score, penalty_winner")
           .eq("user_id", uid);
-        const rawMatches = loadedMatches.map((m) => ({
-          id: m.id,
-          match_number: m.match_number,
-          stage: m.stage,
-          home_placeholder: m.home_placeholder,
-          away_placeholder: m.away_placeholder,
-        }));
         const built = await loadUserBracket(
           supabase,
           uid,
@@ -145,9 +157,6 @@ export default function PredictionComparePage() {
         );
         setBracket(built.byMatchNumber);
         setStageByMatchNumber(built.stageByMatchNumber);
-        setPronosticoTeams(
-          new Map(((teamRows ?? []) as TeamRow[]).map((t) => [t.id, { name: t.name, flag_emoji: t.flag_emoji }]))
-        );
       }
     }
     load();
@@ -375,6 +384,64 @@ export default function PredictionComparePage() {
           <div className="divide-y divide-border">
             {filteredProfiles.map((profile) => {
               const prediction = predictionsByUser.get(profile.id);
+
+              // Eliminatoria: el cruce que lleva cada jugador + en qué ronda
+              // elimina a cada selección real (desplegable por jugador).
+              if (
+                selectedMatch &&
+                selectedMatch.stage !== "group" &&
+                selectedMatch.home_team_id !== null &&
+                selectedMatch.away_team_id !== null &&
+                pronosticoTeams
+              ) {
+                const ub = bracketByUser.get(profile.id);
+                return (
+                  <div
+                    key={profile.id}
+                    className={`space-y-1.5 px-2 py-2 ${
+                      profile.isCurrentUser ? "rounded-lg border border-blue/40 bg-blue/10" : ""
+                    }`}
+                  >
+                    <Link
+                      href={`/jugador/${profile.id}`}
+                      className="flex min-w-0 items-center gap-2 hover:opacity-80"
+                    >
+                      <span className="w-8 shrink-0 text-center font-marcador text-sm text-ink-muted">
+                        {profile.rank ? `#${profile.rank}` : "-"}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-ink">{profile.display_name}</p>
+                          {profile.isCurrentUser && (
+                            <span className="shrink-0 rounded bg-blue px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                              Tu
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">
+                          {profile.has_paid ? `${profile.totalPoints} pts` : "Pendiente pago"}
+                        </p>
+                      </div>
+                    </Link>
+                    {ub ? (
+                      <PronosticoCruce
+                        matchNumber={selectedMatch.match_number}
+                        stage={selectedMatch.stage}
+                        realHomeTeamId={selectedMatch.home_team_id}
+                        realAwayTeamId={selectedMatch.away_team_id}
+                        bracket={ub.byMatchNumber}
+                        stageByMatchNumber={ub.stageByMatchNumber}
+                        teams={pronosticoTeams}
+                        label="Lleva"
+                      />
+                    ) : (
+                      <p className="px-2 text-xs italic text-ink-faint">Sin pronóstico de eliminatorias</p>
+                    )}
+                  </div>
+                );
+              }
+
+              // Fase de grupos: el resultado directo es lo que lleva cada uno.
               const passLabel =
                 prediction?.home_score === prediction?.away_score && prediction?.penalty_winner
                   ? prediction.penalty_winner === "home"
