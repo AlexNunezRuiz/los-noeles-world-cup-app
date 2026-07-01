@@ -13,7 +13,7 @@ import { buildRealGroupStandings } from "@/lib/results/group-standings";
 import type { TeamStanding } from "@/lib/tournament/standings";
 import { isCompetitionParticipant } from "@/lib/users/participation";
 import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
-import { getAutoScrollDay, sortMatchesByCalendar } from "@/lib/calendar/match-position";
+import { sortMatchesByCalendar } from "@/lib/calendar/match-position";
 import { buildUserBracket } from "@/lib/results/user-bracket";
 import { compareRealMatchToUser, type PairingComparison } from "@/lib/results/knockout-comparison";
 import { getBestThirds } from "@/lib/tournament/standings";
@@ -133,6 +133,7 @@ export default function ResultadosPage() {
   const [bestThirdIds, setBestThirdIds] = useState<Set<number>>(new Set());
   const [totalPuntos, setTotalPuntos] = useState(0);
   const [posicion, setPosicion] = useState(1);
+  const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
@@ -144,6 +145,7 @@ export default function ResultadosPage() {
         data: { user },
       } = await supabase.auth.getUser();
       const uid = user?.id ?? "";
+      setUserId(uid);
 
       // Parallel fetches
       const [teamsRes, venuesRes, matchesRes, predictionsRes, scoresRes, profilesRes, predStandingsRes, bestThirdRes, positionsRes] =
@@ -402,18 +404,11 @@ export default function ResultadosPage() {
     [realGroupStandings]
   );
 
-  useEffect(() => {
-    if (loading || finishedMatches.length === 0) return;
-    const targetDay = getAutoScrollDay(finishedMatches);
-    if (!targetDay) return;
-
-    window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-day="${targetDay}"]`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  }, [finishedMatches, loading]);
+  // Más nuevos arriba, más antiguos abajo (sin scroll automático).
+  const displayedMatches = useMemo(
+    () => [...finishedMatches].reverse(),
+    [finishedMatches]
+  );
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: "partidos", label: "Partidos" },
@@ -428,12 +423,14 @@ export default function ResultadosPage() {
         <h1 className="font-marcador text-3xl uppercase text-ink leading-tight">
           Resultados
         </h1>
-        <a
-          href="/resultados/predicciones"
-          className="mt-1 inline-block text-[10px] font-bold uppercase tracking-widest text-blue"
-        >
-          Ver predicciones de todos ›
-        </a>
+        {userId && (
+          <a
+            href={`/jugador/${userId}`}
+            className="mt-1 inline-block text-[10px] font-bold uppercase tracking-widest text-blue"
+          >
+            Ver mis puntos desglosados ›
+          </a>
+        )}
       </div>
 
       {/* TuJornadaCard */}
@@ -496,9 +493,9 @@ export default function ResultadosPage() {
               <p className="font-sans text-[9px] font-bold uppercase tracking-widest text-ink-faint px-0.5">
                 Jugados
               </p>
-              {finishedMatches.map((m, index) => {
+              {displayedMatches.map((m, index) => {
                 const day = matchDayKey(m.match_date);
-                const previous = finishedMatches[index - 1];
+                const previous = displayedMatches[index - 1];
                 const showDay = !previous || matchDayKey(previous.match_date) !== day;
 
                 return (
