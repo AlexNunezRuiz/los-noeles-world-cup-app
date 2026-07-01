@@ -71,7 +71,6 @@ function EliminationLine({
  */
 export function PronosticoCruce({
   matchNumber,
-  stage,
   realHomeTeamId,
   realAwayTeamId,
   bracket,
