@@ -323,6 +323,8 @@ export default function ResultadosPage() {
             away: away
               ? { name: away.name, flag_emoji: away.flag_emoji }
               : null,
+            home_team_id: m.home_team_id,
+            away_team_id: m.away_team_id,
             home_placeholder: m.home_placeholder,
             away_placeholder: m.away_placeholder,
             venue: venue ? { name: venue.name, city: venue.city } : null,
@@ -454,7 +456,12 @@ export default function ResultadosPage() {
       {/* Próximos partidos */}
       {!loading && (
         <div className="sticky top-14 z-20 -mx-1 bg-cream/95 px-1 py-1 backdrop-blur">
-          <UpcomingStrip matches={upcoming} />
+          <UpcomingStrip
+            matches={upcoming}
+            bracket={knockoutBracket.byMatchNumber}
+            stageByMatchNumber={knockoutBracket.stageByMatchNumber}
+            teams={pronosticoTeams}
+          />
         </div>
       )}
 

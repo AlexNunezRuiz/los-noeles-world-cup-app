@@ -110,6 +110,8 @@ export default function CalendarioPage() {
             away: away
               ? { name: away.name, flag_emoji: away.flag_emoji }
               : null,
+            home_team_id: m.home_team_id,
+            away_team_id: m.away_team_id,
             home_placeholder: m.home_placeholder,
             away_placeholder: m.away_placeholder,
             venue: venue ? { name: venue.name, city: venue.city } : null,

@@ -23,6 +23,8 @@ export interface CalendarMatch {
   away_score: number | null;
   home: CalendarTeam | null;
   away: CalendarTeam | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
   home_placeholder: string | null;
   away_placeholder: string | null;
   venue: { name: string; city: string } | null;
