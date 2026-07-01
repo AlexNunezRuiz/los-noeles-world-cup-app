@@ -2,13 +2,21 @@
 
 import { CalendarMatchRow, type CalendarMatch } from "./calendar-match-row";
 import type { DayGroup } from "@/lib/datetime";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
+import type { PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
 
 export function CalendarDayGroup({
   group,
   isToday,
+  bracket,
+  stageByMatchNumber,
+  teams,
 }: {
   group: DayGroup<CalendarMatch>;
   isToday?: boolean;
+  bracket?: Map<number, PredictedKnockoutMatch>;
+  stageByMatchNumber?: Map<number, string>;
+  teams?: Map<number, PronosticoCruceTeam>;
 }) {
   return (
     <section data-day={group.key}>
@@ -24,7 +32,7 @@ export function CalendarDayGroup({
       </div>
       <div className="mt-1 space-y-2">
         {group.matches.map((m) => (
-          <CalendarMatchRow key={m.id} match={m} />
+          <CalendarMatchRow key={m.id} match={m} bracket={bracket} stageByMatchNumber={stageByMatchNumber} teams={teams} />
         ))}
       </div>
     </section>

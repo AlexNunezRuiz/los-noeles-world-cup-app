@@ -7,6 +7,9 @@ import type { CalendarMatch } from "@/components/calendar/calendar-match-row";
 import { getTeams, getVenues } from "@/lib/data/static-cache";
 import { attachPredictionsToCalendarMatches } from "@/lib/calendar/predictions";
 import { getAutoScrollDay } from "@/lib/calendar/match-position";
+import { loadUserBracket } from "@/lib/results/load-user-bracket";
+import type { PredictedKnockoutMatch } from "@/lib/scoring/qualification";
+import type { PronosticoCruceTeam } from "@/components/results/pronostico-cruce";
 
 const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -55,6 +58,9 @@ export default function CalendarioPage() {
   const [loading, setLoading] = useState(true);
   const [stage, setStage] = useState<StageFilter>("todos");
   const [group, setGroup] = useState<string>("todos");
+  const [bracket, setBracket] = useState<Map<number, PredictedKnockoutMatch>>(new Map());
+  const [stageByMatchNumber, setStageByMatchNumber] = useState<Map<number, string>>(new Map());
+  const [pronosticoTeams, setPronosticoTeams] = useState<Map<number, PronosticoCruceTeam>>(new Map());
 
   const supabase = createClient();
 
@@ -124,6 +130,28 @@ export default function CalendarioPage() {
           (predictionsRes.data ?? []) as PredictionRow[]
         )
       );
+
+      if (uid) {
+        const rawMatches = ((matchesRes.data ?? []) as MatchRow[]).map((m) => ({
+          id: m.id,
+          match_number: m.match_number,
+          stage: m.stage,
+          home_placeholder: m.home_placeholder,
+          away_placeholder: m.away_placeholder,
+        }));
+        const built = await loadUserBracket(
+          supabase,
+          uid,
+          rawMatches,
+          (predictionsRes.data ?? []) as PredictionRow[]
+        );
+        setBracket(built.byMatchNumber);
+        setStageByMatchNumber(built.stageByMatchNumber);
+        setPronosticoTeams(
+          new Map((teamsRes as TeamRow[]).map((t) => [t.id, { name: t.name, flag_emoji: t.flag_emoji }]))
+        );
+      }
+
       setLoading(false);
     }
 
@@ -230,7 +258,12 @@ export default function CalendarioPage() {
           <p className="px-1 font-sans text-[10px] font-bold uppercase tracking-widest text-ink-faint">
             {filtered.length} partidos
           </p>
-          <MatchCalendar matches={filtered} />
+          <MatchCalendar
+            matches={filtered}
+            bracket={bracket}
+            stageByMatchNumber={stageByMatchNumber}
+            teams={pronosticoTeams}
+          />
         </>
       )}
     </div>
