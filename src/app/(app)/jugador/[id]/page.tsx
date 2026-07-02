@@ -731,7 +731,40 @@ export default function JugadorPage() {
     }
   }
 
-  const qualifiedByRound = auditQualifiedByRound(scoreEvents, predictedByRule);
+  // Selecciones realmente eliminadas del torneo (para tacharlas). Las que siguen
+  // vivas pero cuya ronda aún no se ha decidido quedan neutras (ni verde ni gris).
+  const realEliminatedTeamIds = new Set<number>();
+  for (const m of Array.from(matches.values())) {
+    if (m.stage === "group") continue;
+    if (!m.is_finished || m.home_score == null || m.away_score == null) continue;
+    if (m.home_team_id == null || m.away_team_id == null) continue;
+    if (m.home_score > m.away_score) realEliminatedTeamIds.add(m.away_team_id);
+    else if (m.away_score > m.home_score) realEliminatedTeamIds.add(m.home_team_id);
+    else if (m.penalty_winner_team_id != null) {
+      realEliminatedTeamIds.add(
+        m.penalty_winner_team_id === m.home_team_id ? m.away_team_id : m.home_team_id
+      );
+    }
+  }
+  // Si la fase de grupos ya terminó, las que no están en los dieciseisavos reales
+  // quedaron eliminadas en grupos.
+  const groupMatchesAll = Array.from(matches.values()).filter((m) => m.stage === "group");
+  const groupsFinished = groupMatchesAll.length > 0 && groupMatchesAll.every((m) => m.is_finished);
+  if (groupsFinished) {
+    const realR32Teams = new Set<number>();
+    for (const m of Array.from(matches.values())) {
+      if (m.stage !== "round_of_32") continue;
+      if (m.home_team_id != null) realR32Teams.add(m.home_team_id);
+      if (m.away_team_id != null) realR32Teams.add(m.away_team_id);
+    }
+    if (realR32Teams.size > 0) {
+      for (const teamId of Array.from(teams.keys())) {
+        if (!realR32Teams.has(teamId)) realEliminatedTeamIds.add(teamId);
+      }
+    }
+  }
+
+  const qualifiedByRound = auditQualifiedByRound(scoreEvents, predictedByRule, realEliminatedTeamIds);
 
   const eliminatoriasAudit: EliminatoriaRow[] = scoreEvents
     .filter((e) => ruleKeyToBreakdownType(e.rule_key) === "eliminatorias")
