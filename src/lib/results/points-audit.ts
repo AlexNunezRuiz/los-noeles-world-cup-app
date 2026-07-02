@@ -134,11 +134,16 @@ export interface QualifiedAuditRow {
   qualified: boolean;
 }
 
+export interface QualifiedRoundTeam {
+  teamId: number;
+  qualified: boolean;
+}
+
 export interface QualifiedRoundRow {
   ruleKey: string;
   label: string;
-  teamIds: number[];
   points: number;
+  teams: QualifiedRoundTeam[];
 }
 
 const QUALIFY_ROUND_ORDER = [
@@ -165,30 +170,57 @@ const QUALIFY_LABELS: Record<string, string> = {
   qualify_fourth: "Cuarto puesto",
 };
 
-// Agrupa los eventos `qualify_*` por ronda. Los team ids se extraen de la
-// descripción ("Equipo {id} clasificado a ...") escrita por scoreQualification.
+// Desglose de clasificados por ronda. Combina las selecciones que puntuaron
+// (verde, extraídas de los `score_events` "Equipo {id} clasificado a ...") con
+// las que el usuario pronosticó para esa ronda pero no llegaron (gris, vía
+// `predictedByRule`). Los puntos son SIEMPRE los de los eventos (verdes), así
+// que el total coincide con la clasificación aunque se muestren las grises.
 export function auditQualifiedByRound(
-  events: Array<{ rule_key: string; points: number; description: string | null }>
+  events: Array<{ rule_key: string; points: number; description: string | null }>,
+  predictedByRule: Map<string, number[]> = new Map()
 ): QualifiedRoundRow[] {
-  const byRule = new Map<string, { teamIds: number[]; points: number }>();
+  const byRule = new Map<string, { green: number[]; points: number }>();
   for (const e of events) {
     if (!e.rule_key.startsWith("qualify_")) continue;
-    const bucket = byRule.get(e.rule_key) ?? { teamIds: [], points: 0 };
+    const bucket = byRule.get(e.rule_key) ?? { green: [], points: 0 };
     const match = /Equipo (\d+)/.exec(e.description ?? "");
-    if (match) bucket.teamIds.push(Number(match[1]));
+    if (match) bucket.green.push(Number(match[1]));
     bucket.points += e.points;
     byRule.set(e.rule_key, bucket);
   }
 
-  return QUALIFY_ROUND_ORDER.filter((ruleKey) => byRule.has(ruleKey)).map((ruleKey) => {
-    const bucket = byRule.get(ruleKey)!;
-    return {
+  const rows: QualifiedRoundRow[] = [];
+  for (const ruleKey of QUALIFY_ROUND_ORDER) {
+    const bucket = byRule.get(ruleKey);
+    const predicted = predictedByRule.get(ruleKey) ?? [];
+    if (!bucket && predicted.length === 0) continue;
+
+    const greenSet = new Set(bucket?.green ?? []);
+    const seen = new Set<number>();
+    const greens: QualifiedRoundTeam[] = [];
+    const grays: QualifiedRoundTeam[] = [];
+
+    for (const teamId of predicted) {
+      if (seen.has(teamId)) continue;
+      seen.add(teamId);
+      if (greenSet.has(teamId)) greens.push({ teamId, qualified: true });
+      else grays.push({ teamId, qualified: false });
+    }
+    // Selecciones que puntuaron pero no estaban en las pronosticadas (defensivo).
+    for (const teamId of greenSet) {
+      if (seen.has(teamId)) continue;
+      seen.add(teamId);
+      greens.push({ teamId, qualified: true });
+    }
+
+    rows.push({
       ruleKey,
       label: QUALIFY_LABELS[ruleKey] ?? ruleKey,
-      teamIds: bucket.teamIds,
-      points: bucket.points,
-    };
-  });
+      points: bucket?.points ?? 0,
+      teams: [...greens, ...grays],
+    });
+  }
+  return rows;
 }
 
 // Which of the user's predicted round-of-32 teams actually qualified.

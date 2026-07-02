@@ -197,28 +197,40 @@ export function PointsAudit({
           <p className="py-1 text-xs italic text-ink-muted">Sin clasificados puntuados todavía.</p>
         ) : (
           <div className="space-y-2">
-            {qualifiedByRound.map((round) => (
-              <div key={round.ruleKey}>
-                <div className="mb-0.5 flex items-center justify-between">
-                  <span className="font-marcador text-[11px] uppercase text-ink-muted">{round.label}</span>
-                  <span className="font-marcador text-[11px] font-bold text-ink">+{round.points}</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {round.teamIds.map((teamId, i) => {
-                    const team = teamLabel(teams, teamId);
-                    return (
-                      <span
-                        key={`${teamId}-${i}`}
-                        className="flex items-center gap-1 rounded-md bg-green/10 px-1.5 py-1 text-[11px] font-semibold text-green"
-                      >
-                        {team.flag && <Flag emoji={team.flag} size={14} />}
-                        {team.name}
+            {qualifiedByRound.map((round) => {
+              const hits = round.teams.filter((t) => t.qualified).length;
+              return (
+                <div key={round.ruleKey}>
+                  <div className="mb-0.5 flex items-center justify-between">
+                    <span className="font-marcador text-[11px] uppercase text-ink-muted">{round.label}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold text-ink-faint">
+                        {hits}/{round.teams.length}
                       </span>
-                    );
-                  })}
+                      <span className="font-marcador text-[11px] font-bold text-ink">+{round.points}</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {round.teams.map(({ teamId, qualified }, i) => {
+                      const team = teamLabel(teams, teamId);
+                      return (
+                        <span
+                          key={`${teamId}-${i}`}
+                          className={
+                            qualified
+                              ? "flex items-center gap-1 rounded-md bg-green/10 px-1.5 py-1 text-[11px] font-semibold text-green"
+                              : "flex items-center gap-1 rounded-md bg-surface-sunken px-1.5 py-1 text-[11px] font-semibold text-ink-faint line-through"
+                          }
+                        >
+                          {team.flag && <Flag emoji={team.flag} size={14} />}
+                          {team.name}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Section>

@@ -679,7 +679,59 @@ export default function JugadorPage() {
   }
   const orderAudit = auditGroupOrder(actualPositionsByGroup, predictedPositionByGroup, posPoints);
 
-  const qualifiedByRound = auditQualifiedByRound(scoreEvents);
+  // Selecciones que el usuario pronosticó para cada ronda (para pintar en gris
+  // las que no llegaron). Los puntos (verdes) siguen saliendo de score_events.
+  const stageToQualifyRule: Record<string, string> = {
+    round_of_32: "qualify_r32",
+    round_of_16: "qualify_r16",
+    quarter_final: "qualify_qf",
+    semi_final: "qualify_sf",
+    final: "qualify_finalist",
+  };
+  const predictedByRule = new Map<string, number[]>();
+  const addPredicted = (ruleKey: string, teamId: number | undefined | null) => {
+    if (teamId == null) return;
+    const arr = predictedByRule.get(ruleKey) ?? [];
+    if (!arr.includes(teamId)) arr.push(teamId);
+    predictedByRule.set(ruleKey, arr);
+  };
+  for (const m of predictedBracketMatches) {
+    const stageRule = stageToQualifyRule[m.stage];
+    if (stageRule) {
+      addPredicted(stageRule, m.home_team_id);
+      addPredicted(stageRule, m.away_team_id);
+    }
+    if (
+      (m.stage === "final" || m.stage === "third_place") &&
+      m.home_team_id != null &&
+      m.away_team_id != null &&
+      m.home_score != null &&
+      m.away_score != null
+    ) {
+      const winner =
+        m.home_score > m.away_score
+          ? m.home_team_id
+          : m.away_score > m.home_score
+            ? m.away_team_id
+            : m.penalty_winner === "home"
+              ? m.home_team_id
+              : m.penalty_winner === "away"
+                ? m.away_team_id
+                : undefined;
+      if (winner != null) {
+        const loser = winner === m.home_team_id ? m.away_team_id : m.home_team_id;
+        if (m.stage === "final") {
+          addPredicted("qualify_champion", winner);
+          addPredicted("qualify_runner_up", loser);
+        } else {
+          addPredicted("qualify_third", winner);
+          addPredicted("qualify_fourth", loser);
+        }
+      }
+    }
+  }
+
+  const qualifiedByRound = auditQualifiedByRound(scoreEvents, predictedByRule);
 
   const eliminatoriasAudit: EliminatoriaRow[] = scoreEvents
     .filter((e) => ruleKeyToBreakdownType(e.rule_key) === "eliminatorias")

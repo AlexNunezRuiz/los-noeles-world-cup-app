@@ -66,31 +66,47 @@ test("auditQualified counts predicted teams that really qualified", () => {
   assert.equal(total, 2);
 });
 
-test("auditQualifiedByRound groups qualify_* events by round with team ids and points", () => {
+test("auditQualifiedByRound merges scored (green) + predicted-only (gray) per round", () => {
   const events = [
-    { rule_key: "qualify_r32", points: 1, description: "Equipo 10 clasificado a round_of_32" },
-    { rule_key: "qualify_r32", points: 1, description: "Equipo 20 clasificado a round_of_32" },
     { rule_key: "qualify_r16", points: 3, description: "Equipo 10 clasificado a round_of_16" },
-    { rule_key: "qualify_champion", points: 25, description: "Equipo 10 clasificado a final_winner" },
+    { rule_key: "qualify_r16", points: 3, description: "Equipo 20 clasificado a round_of_16" },
     { rule_key: "correct_sign", points: 1, description: "no cuenta" },
   ];
-  const rows = auditQualifiedByRound(events);
+  // 30 lo pronosticó para octavos pero no llegó → gris; 99 pronosticado campeón sin evento → gris.
+  const predicted = new Map<string, number[]>([
+    ["qualify_r16", [10, 20, 30]],
+    ["qualify_champion", [99]],
+  ]);
+  const rows = auditQualifiedByRound(events, predicted);
 
-  // Solo rondas de clasificación, en orden fijo
   assert.deepEqual(
     rows.map((r) => r.ruleKey),
-    ["qualify_r32", "qualify_r16", "qualify_champion"]
+    ["qualify_r16", "qualify_champion"]
   );
-  const r32 = rows.find((r) => r.ruleKey === "qualify_r32")!;
-  assert.deepEqual(r32.teamIds, [10, 20]);
-  assert.equal(r32.points, 2);
-  assert.equal(r32.label, "Dieciseisavos");
+
+  const r16 = rows.find((r) => r.ruleKey === "qualify_r16")!;
+  assert.equal(r16.points, 6);
+  assert.equal(r16.label, "Octavos");
+  // verdes primero, luego grises
+  assert.deepEqual(r16.teams, [
+    { teamId: 10, qualified: true },
+    { teamId: 20, qualified: true },
+    { teamId: 30, qualified: false },
+  ]);
+
   const champ = rows.find((r) => r.ruleKey === "qualify_champion")!;
-  assert.deepEqual(champ.teamIds, [10]);
-  assert.equal(champ.points, 25);
-  assert.equal(champ.label, "Campeón");
+  assert.equal(champ.points, 0);
+  assert.deepEqual(champ.teams, [{ teamId: 99, qualified: false }]);
 });
 
-test("auditQualifiedByRound returns [] when no qualify events", () => {
+test("auditQualifiedByRound incluye una selección verde aunque falte en las pronosticadas", () => {
+  const events = [{ rule_key: "qualify_qf", points: 6, description: "Equipo 7 clasificado a quarter_final" }];
+  const rows = auditQualifiedByRound(events, new Map());
+  const qf = rows.find((r) => r.ruleKey === "qualify_qf")!;
+  assert.deepEqual(qf.teams, [{ teamId: 7, qualified: true }]);
+  assert.equal(qf.points, 6);
+});
+
+test("auditQualifiedByRound returns [] when no qualify events and no predicted", () => {
   assert.deepEqual(auditQualifiedByRound([{ rule_key: "correct_sign", points: 1, description: "x" }]), []);
 });
