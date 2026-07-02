@@ -136,7 +136,10 @@ export interface QualifiedAuditRow {
 
 export interface QualifiedRoundTeam {
   teamId: number;
-  qualified: boolean;
+  // "qualified": llegó a la ronda (puntuó, verde).
+  // "eliminated": pronosticada para la ronda pero ya está fuera del torneo (gris tachada).
+  // "pending": pronosticada y todavía viva; la ronda aún no se ha decidido (neutro).
+  status: "qualified" | "eliminated" | "pending";
 }
 
 export interface QualifiedRoundRow {
@@ -177,7 +180,8 @@ const QUALIFY_LABELS: Record<string, string> = {
 // que el total coincide con la clasificación aunque se muestren las grises.
 export function auditQualifiedByRound(
   events: Array<{ rule_key: string; points: number; description: string | null }>,
-  predictedByRule: Map<string, number[]> = new Map()
+  predictedByRule: Map<string, number[]> = new Map(),
+  eliminatedTeamIds: Set<number> = new Set()
 ): QualifiedRoundRow[] {
   const byRule = new Map<string, { green: number[]; points: number }>();
   for (const e of events) {
@@ -197,27 +201,29 @@ export function auditQualifiedByRound(
 
     const greenSet = new Set(bucket?.green ?? []);
     const seen = new Set<number>();
-    const greens: QualifiedRoundTeam[] = [];
-    const grays: QualifiedRoundTeam[] = [];
+    const qualified: QualifiedRoundTeam[] = [];
+    const pending: QualifiedRoundTeam[] = [];
+    const eliminated: QualifiedRoundTeam[] = [];
 
     for (const teamId of predicted) {
       if (seen.has(teamId)) continue;
       seen.add(teamId);
-      if (greenSet.has(teamId)) greens.push({ teamId, qualified: true });
-      else grays.push({ teamId, qualified: false });
+      if (greenSet.has(teamId)) qualified.push({ teamId, status: "qualified" });
+      else if (eliminatedTeamIds.has(teamId)) eliminated.push({ teamId, status: "eliminated" });
+      else pending.push({ teamId, status: "pending" });
     }
     // Selecciones que puntuaron pero no estaban en las pronosticadas (defensivo).
     for (const teamId of greenSet) {
       if (seen.has(teamId)) continue;
       seen.add(teamId);
-      greens.push({ teamId, qualified: true });
+      qualified.push({ teamId, status: "qualified" });
     }
 
     rows.push({
       ruleKey,
       label: QUALIFY_LABELS[ruleKey] ?? ruleKey,
       points: bucket?.points ?? 0,
-      teams: [...greens, ...grays],
+      teams: [...qualified, ...pending, ...eliminated],
     });
   }
   return rows;

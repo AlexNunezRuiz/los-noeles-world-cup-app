@@ -198,7 +198,7 @@ export function PointsAudit({
         ) : (
           <div className="space-y-2">
             {qualifiedByRound.map((round) => {
-              const hits = round.teams.filter((t) => t.qualified).length;
+              const hits = round.teams.filter((t) => t.status === "qualified").length;
               return (
                 <div key={round.ruleKey}>
                   <div className="mb-0.5 flex items-center justify-between">
@@ -211,16 +211,18 @@ export function PointsAudit({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {round.teams.map(({ teamId, qualified }, i) => {
+                    {round.teams.map(({ teamId, status }, i) => {
                       const team = teamLabel(teams, teamId);
+                      const cls =
+                        status === "qualified"
+                          ? "bg-green/10 text-green"
+                          : status === "eliminated"
+                            ? "bg-surface-sunken text-ink-faint line-through"
+                            : "border border-border text-ink-muted";
                       return (
                         <span
                           key={`${teamId}-${i}`}
-                          className={
-                            qualified
-                              ? "flex items-center gap-1 rounded-md bg-green/10 px-1.5 py-1 text-[11px] font-semibold text-green"
-                              : "flex items-center gap-1 rounded-md bg-surface-sunken px-1.5 py-1 text-[11px] font-semibold text-ink-faint line-through"
-                          }
+                          className={`flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold ${cls}`}
                         >
                           {team.flag && <Flag emoji={team.flag} size={14} />}
                           {team.name}
