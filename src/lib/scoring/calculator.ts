@@ -126,7 +126,17 @@ export async function recalculateAllScores(supabase: SupabaseClient): Promise<{ 
       const batchSize = 100;
       for (let i = 0; i < allEvents.length; i += batchSize) {
         const batch = allEvents.slice(i, i + batchSize);
-        const { error: insertEventsError } = await supabase.from("score_events").insert(batch);
+        // `upsert` con `ignoreDuplicates` (ON CONFLICT DO NOTHING) sobre el índice
+        // único `score_events_dedup_uniq`. Este recálculo se dispara desde el
+        // cliente y no es atómico; si dos pasadas se solapan, sin esto se
+        // acumulaban filas duplicadas (inflando el desglose). Ahora es
+        // idempotente: un evento idéntico repetido se ignora en vez de duplicarse.
+        const { error: insertEventsError } = await supabase
+          .from("score_events")
+          .upsert(batch, {
+            onConflict: "user_id,rule_key,match_id,description",
+            ignoreDuplicates: true,
+          });
         assertNoSupabaseError(insertEventsError, "Error guardando eventos de puntuacion");
       }
     }
