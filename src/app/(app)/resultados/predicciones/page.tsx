@@ -319,15 +319,33 @@ export default function PredictionComparePage() {
       {selectedMatch && (
         <div className="rounded-xl border border-border bg-surface p-4">
           <div className="mb-3 flex items-center justify-center gap-3">
-            <span className="flex min-w-0 items-center gap-2 text-right text-sm font-bold text-ink">
-              {homeTeam && <Flag emoji={homeTeam.flag_emoji} size={20} />}
-              {homeName}
-            </span>
+            {selectedMatch.home_team_id ? (
+              <Link
+                href={`/equipos/${selectedMatch.home_team_id}`}
+                className="flex min-w-0 items-center gap-2 text-right text-sm font-bold text-ink hover:text-red"
+              >
+                {homeTeam && <Flag emoji={homeTeam.flag_emoji} size={20} />}
+                {homeName}
+              </Link>
+            ) : (
+              <span className="flex min-w-0 items-center gap-2 text-right text-sm font-bold text-ink">
+                {homeName}
+              </span>
+            )}
             <span className="font-marcador text-xs text-ink-muted">VS</span>
-            <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-ink">
-              {awayTeam && <Flag emoji={awayTeam.flag_emoji} size={20} />}
-              {awayName}
-            </span>
+            {selectedMatch.away_team_id ? (
+              <Link
+                href={`/equipos/${selectedMatch.away_team_id}`}
+                className="flex min-w-0 items-center gap-2 text-sm font-bold text-ink hover:text-red"
+              >
+                {awayTeam && <Flag emoji={awayTeam.flag_emoji} size={20} />}
+                {awayName}
+              </Link>
+            ) : (
+              <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-ink">
+                {awayName}
+              </span>
+            )}
           </div>
 
           {currentUserProfile && selectedMatch && selectedMatch.stage !== "group" &&

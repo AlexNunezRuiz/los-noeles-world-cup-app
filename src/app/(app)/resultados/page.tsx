@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { TuJornadaCard } from "@/components/results/tu-jornada-card";
 import { MatchResultCard } from "@/components/results/match-result-card";
@@ -601,10 +602,15 @@ export default function ResultadosPage() {
                         {standing.position}
                       </span>
                       <div className="flex min-w-0 items-center gap-2">
-                        {team && <Flag emoji={team.flag_emoji} size={18} />}
-                        <span className="truncate text-sm font-semibold text-ink">
-                          {team?.name ?? "Equipo"}
-                        </span>
+                        <Link
+                          href={`/equipos/${standing.team_id}`}
+                          className="flex min-w-0 items-center gap-2 hover:text-red"
+                        >
+                          {team && <Flag emoji={team.flag_emoji} size={18} />}
+                          <span className="truncate text-sm font-semibold text-ink">
+                            {team?.name ?? "Equipo"}
+                          </span>
+                        </Link>
                         {standing.position === 1 && (
                           <span className="shrink-0 rounded bg-green/15 px-1 text-[9px] font-bold uppercase text-green">1º</span>
                         )}
