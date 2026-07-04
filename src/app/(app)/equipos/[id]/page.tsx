@@ -20,6 +20,7 @@ import {
 } from "@/lib/results/team-progression";
 import {
   sortProfilesByCurrentRanking,
+  filterRankedPredictionProfiles,
   type ProfileForRanking,
   type ScoreForRanking,
   type RankedPredictionProfile,
@@ -122,6 +123,7 @@ export default function EquipoPage() {
   const [rankedProfiles, setRankedProfiles] = useState<RankedPredictionProfile[]>([]);
   const [bracketByUser, setBracketByUser] = useState<Map<string, BuiltUserBracket>>(new Map());
   const [bracketsLoaded, setBracketsLoaded] = useState(false);
+  const [reachQuery, setReachQuery] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
@@ -228,6 +230,16 @@ export default function EquipoPage() {
     [rankedReaches]
   );
 
+  const visibleReaches = useMemo<RankedReach[]>(() => {
+    if (!reachQuery.trim()) return rankedReaches;
+    const matches = filterRankedPredictionProfiles(
+      rankedReaches.map((r) => r.profile),
+      reachQuery
+    );
+    const ids = new Set(matches.map((p) => p.id));
+    return rankedReaches.filter((r) => ids.has(r.profile.id));
+  }, [rankedReaches, reachQuery]);
+
   if (!team) {
     return (
       <div className="space-y-4 pt-1">
@@ -282,8 +294,22 @@ export default function EquipoPage() {
                   : `${championCount} la ven campeona`}
               </p>
             )}
+            <div className="px-4 pt-3">
+              <input
+                type="search"
+                value={reachQuery}
+                onChange={(e) => setReachQuery(e.target.value)}
+                placeholder="Buscar participante…"
+                className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-blue/60 focus:outline-none focus:ring-2 focus:ring-blue/20"
+              />
+            </div>
+            {visibleReaches.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-ink-muted">
+                Ningún participante coincide con “{reachQuery.trim()}”.
+              </p>
+            ) : (
             <div className="divide-y divide-border">
-              {rankedReaches.map(({ profile, reach }) => {
+              {visibleReaches.map(({ profile, reach }) => {
                 const display = reachDisplay(reach);
                 return (
                   <Link
@@ -315,6 +341,7 @@ export default function EquipoPage() {
                 );
               })}
             </div>
+            )}
           </>
         )}
       </div>
