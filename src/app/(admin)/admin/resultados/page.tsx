@@ -35,8 +35,8 @@ interface Match {
   match_number: number;
   stage: string;
   group_letter: string;
-  home_team_id: number;
-  away_team_id: number;
+  home_team_id: number | null;
+  away_team_id: number | null;
   home_placeholder: string;
   away_placeholder: string;
   match_date: string | null;
@@ -85,7 +85,7 @@ export default function AdminResultadosPage() {
     });
   }, [matches]);
 
-  const teamsMap = new Map(teams.map((t) => [t.id, t]));
+  const teamsMap = new Map<number | null, Team>(teams.map((t) => [t.id, t]));
 
   const matchLabel = (match: Match) => {
     const home = teamsMap.get(match.home_team_id);
@@ -169,6 +169,29 @@ export default function AdminResultadosPage() {
         return next;
       })
     );
+  };
+
+  // Recalcula los slots del cuadro real que dependen de resultados de
+  // eliminatorias, partiendo del estado actual con `updatedMatch` aplicado.
+  // Sobrescribe equipos obsoletos (correcciones) y limpia slots cuyo resultado
+  // origen ya no existe (borrados).
+  const cascadeBracketFrom = async (updatedMatch: Match) => {
+    const nextMatches: ActualBracketMatch[] = matches.map((m) => {
+      const base = m.id === updatedMatch.id ? updatedMatch : m;
+      return {
+        match_number: base.match_number,
+        stage: base.stage,
+        home_team_id: base.home_team_id,
+        away_team_id: base.away_team_id,
+        home_score: base.home_score,
+        away_score: base.away_score,
+        penalty_winner_team_id: base.penalty_winner_team_id,
+        is_finished: base.is_finished,
+        home_placeholder: base.home_placeholder,
+        away_placeholder: base.away_placeholder,
+      };
+    });
+    await persistSlotAssignments(cascadeKnockoutWinners(nextMatches, bracketPositions));
   };
 
   const handleGenerateBracket = async () => {
@@ -286,22 +309,7 @@ export default function AdminResultadosPage() {
       );
       toast({ title: `P${match.match_number} resultado guardado` });
       if (updatedMatch.stage !== "group") {
-        const nextMatches: ActualBracketMatch[] = matches.map((m) => {
-          const base = m.id === match.id ? { ...m, ...updates } : m;
-          return {
-            match_number: base.match_number,
-            stage: base.stage,
-            home_team_id: base.home_team_id,
-            away_team_id: base.away_team_id,
-            home_score: base.home_score,
-            away_score: base.away_score,
-            penalty_winner_team_id: base.penalty_winner_team_id,
-            is_finished: base.is_finished,
-            home_placeholder: base.home_placeholder,
-            away_placeholder: base.away_placeholder,
-          };
-        });
-        await persistSlotAssignments(cascadeKnockoutWinners(nextMatches, bracketPositions));
+        await cascadeBracketFrom(updatedMatch);
       }
       await runRecalculationBeforeNotifications<ScoreEvent>({
         recalculate: () => recalculateAllScores(supabase),
@@ -363,6 +371,12 @@ export default function AdminResultadosPage() {
       [match.id]: { home: "", away: "", penalty: "" },
     }));
     toast({ title: `P${match.match_number} resultado eliminado` });
+
+    // Al borrar un resultado de eliminatorias hay que vaciar los slots que
+    // dependían de él (si no, el ganador antiguo sigue puntuando clasificados).
+    if (match.stage !== "group") {
+      await cascadeBracketFrom(updatedMatch);
+    }
 
     await runRecalculationBeforeNotifications<ScoreEvent>({
       recalculate: () => recalculateAllScores(supabase),

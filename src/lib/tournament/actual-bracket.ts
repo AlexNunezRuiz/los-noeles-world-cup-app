@@ -4,7 +4,8 @@ import { getBestThirds, type TeamStanding } from "./standings";
 export interface SlotAssignment {
   match_number: number;
   slot: "home" | "away";
-  team_id: number;
+  // null limpia el slot (p.ej. al borrar el resultado del partido origen).
+  team_id: number | null;
 }
 
 export interface ActualBracketMatch {
@@ -81,7 +82,13 @@ export function cascadeKnockoutWinners(
     meta.set(m.match_number, m);
   }
 
-  const assignments: SlotAssignment[] = [];
+  // Cada slot alimentado por match_winner/match_loser es una función pura del
+  // resultado del partido origen: sincronizamos (en vez de solo rellenar
+  // huecos) para que corregir un resultado sobrescriba el equipo obsoleto y
+  // borrar un resultado limpie los slots aguas abajo. Antes solo se rellenaban
+  // huecos vacíos y una corrección (ARG-SUI de cuartos) dejaba la semifinal
+  // con el ganador antiguo, puntuando mal los clasificados.
+  const assignments = new Map<string, SlotAssignment>();
   let changed = true;
   while (changed) {
     changed = false;
@@ -89,35 +96,40 @@ export function cascadeKnockoutWinners(
       if (bp.source_type !== "match_winner" && bp.source_type !== "match_loser") continue;
       if (bp.source_match_number === undefined) continue;
 
-      const targetCurrent = bp.slot === "home" ? home.get(bp.match_number) : away.get(bp.match_number);
-      if (targetCurrent != null) continue;
-
       const src = meta.get(bp.source_match_number);
-      if (!src || !src.is_finished) continue;
       const srcHome = home.get(bp.source_match_number);
       const srcAway = away.get(bp.source_match_number);
-      if (srcHome == null || srcAway == null) continue;
-      if (src.home_score == null || src.away_score == null) continue;
 
-      const penalty_winner: "home" | "away" | undefined =
-        src.penalty_winner_team_id == null
-          ? undefined
-          : src.penalty_winner_team_id === srcHome
+      let resolved: number | null = null;
+      if (src?.is_finished && srcHome != null && srcAway != null && src.home_score != null && src.away_score != null) {
+        // Si el penalty_winner_team_id no coincide con ninguno de los equipos
+        // actuales (dato inconsistente tras una corrección), queda sin resolver
+        // en vez de avanzar al equipo equivocado.
+        const penalty_winner: "home" | "away" | undefined =
+          src.penalty_winner_team_id === srcHome
             ? "home"
-            : "away";
+            : src.penalty_winner_team_id === srcAway
+              ? "away"
+              : undefined;
 
-      const resolved =
-        bp.source_type === "match_winner"
-          ? getMatchWinner({ home_score: src.home_score, away_score: src.away_score, penalty_winner }, srcHome, srcAway)
-          : getMatchLoser({ home_score: src.home_score, away_score: src.away_score, penalty_winner }, srcHome, srcAway);
-      if (resolved === undefined) continue;
+        const result = { home_score: src.home_score, away_score: src.away_score, penalty_winner };
+        resolved =
+          (bp.source_type === "match_winner"
+            ? getMatchWinner(result, srcHome, srcAway)
+            : getMatchLoser(result, srcHome, srcAway)) ?? null;
+      }
+
+      const current = (bp.slot === "home" ? home.get(bp.match_number) : away.get(bp.match_number)) ?? null;
+      if (current === resolved) continue;
 
       if (bp.slot === "home") home.set(bp.match_number, resolved);
       else away.set(bp.match_number, resolved);
-      assignments.push({ match_number: bp.match_number, slot: bp.slot, team_id: resolved });
+      // Clave por slot: si una pasada posterior re-resuelve el mismo slot, la
+      // última asignación gana en vez de emitir duplicados.
+      assignments.set(`${bp.match_number}:${bp.slot}`, { match_number: bp.match_number, slot: bp.slot, team_id: resolved });
       changed = true;
     }
   }
 
-  return assignments;
+  return Array.from(assignments.values());
 }

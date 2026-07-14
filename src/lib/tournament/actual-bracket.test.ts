@@ -95,7 +95,27 @@ test("cascadeKnockoutWinners respeta el ganador por penaltis", () => {
   assert.deepEqual(assignments, [{ match_number: 89, slot: "home", team_id: 4 }]);
 });
 
-test("cascadeKnockoutWinners no pisa un slot ya fijado", () => {
+test("cascadeKnockoutWinners corrige un slot obsoleto cuando cambia el ganador del partido origen", () => {
+  // Caso real: P100 ARG 1-1 SUI se guardó con SUI por penaltis y la semifinal
+  // quedó con SUI; al corregir el ganador a ARG, el slot debe sobrescribirse.
+  const matches = [
+    {
+      match_number: 73,
+      stage: "round_of_32",
+      home_team_id: 1,
+      away_team_id: 4,
+      home_score: 1,
+      away_score: 1,
+      penalty_winner_team_id: 1,
+      is_finished: true,
+    },
+    { match_number: 89, stage: "round_of_16", home_team_id: 4, away_team_id: null, is_finished: false },
+  ];
+  const assignments = cascadeKnockoutWinners(matches, positions);
+  assert.deepEqual(assignments, [{ match_number: 89, slot: "home", team_id: 1 }]);
+});
+
+test("cascadeKnockoutWinners no re-emite un slot que ya tiene el equipo correcto", () => {
   const matches = [
     {
       match_number: 73,
@@ -107,8 +127,65 @@ test("cascadeKnockoutWinners no pisa un slot ya fijado", () => {
       penalty_winner_team_id: null,
       is_finished: true,
     },
-    { match_number: 89, stage: "round_of_16", home_team_id: 7, away_team_id: null, is_finished: false },
+    { match_number: 89, stage: "round_of_16", home_team_id: 1, away_team_id: null, is_finished: false },
   ];
   const assignments = cascadeKnockoutWinners(matches, positions);
   assert.equal(assignments.length, 0);
+});
+
+test("cascadeKnockoutWinners limpia el slot cuando el resultado origen se borra", () => {
+  const matches = [
+    {
+      match_number: 73,
+      stage: "round_of_32",
+      home_team_id: 1,
+      away_team_id: 4,
+      home_score: null,
+      away_score: null,
+      penalty_winner_team_id: null,
+      is_finished: false,
+    },
+    { match_number: 89, stage: "round_of_16", home_team_id: 1, away_team_id: null, is_finished: false },
+  ];
+  const assignments = cascadeKnockoutWinners(matches, positions);
+  assert.deepEqual(assignments, [{ match_number: 89, slot: "home", team_id: null }]);
+});
+
+test("cascadeKnockoutWinners propaga la corrección a rondas posteriores en cascada", () => {
+  const deepPositions = [
+    ...positions,
+    { match_number: 97, slot: "home" as const, source_type: "match_winner", source_match_number: 89 },
+  ];
+  const matches = [
+    {
+      match_number: 73,
+      stage: "round_of_32",
+      home_team_id: 1,
+      away_team_id: 4,
+      home_score: 1,
+      away_score: 1,
+      penalty_winner_team_id: 1,
+      is_finished: true,
+    },
+    // Octavos con resultado ya guardado sobre el equipo equivocado (4):
+    {
+      match_number: 89,
+      stage: "round_of_16",
+      home_team_id: 4,
+      away_team_id: 9,
+      home_score: 2,
+      away_score: 0,
+      penalty_winner_team_id: null,
+      is_finished: true,
+    },
+    { match_number: 97, stage: "quarter_final", home_team_id: 4, away_team_id: null, is_finished: false },
+  ];
+  const assignments = cascadeKnockoutWinners(matches, deepPositions);
+  assert.deepEqual(
+    assignments.sort((a, b) => a.match_number - b.match_number),
+    [
+      { match_number: 89, slot: "home", team_id: 1 },
+      { match_number: 97, slot: "home", team_id: 1 },
+    ]
+  );
 });
