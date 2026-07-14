@@ -59,34 +59,10 @@ test("subcampeon y cuarto puesto exigen que el equipo sea perdedor previsto del 
   assert.equal(didPredictTeamLoseStage(matches, predictedMatches, "third_place", 3), false);
 });
 
-function fakeSupabase(matches: unknown[]) {
-  return {
-    from(table: string) {
-      assert.equal(table, "matches");
-
-      return {
-        select() {
-          return this;
-        },
-        neq() {
-          return this;
-        },
-        then<TResult1 = { data: unknown[] }, TResult2 = never>(
-          onfulfilled?: ((value: { data: unknown[] }) => TResult1 | PromiseLike<TResult1>) | null,
-          onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
-        ) {
-          return Promise.resolve({ data: matches }).then(onfulfilled, onrejected);
-        },
-      };
-    },
-  };
-}
-
-test("los puntos por clasificacion de ronda no apuntan a un partido inexistente", async () => {
-  const events = await scoreQualification(
-    fakeSupabase([
+test("los puntos por clasificacion de ronda no apuntan a un partido inexistente", () => {
+  const events = scoreQualification(
+    [
       {
-        id: 73,
         match_number: 73,
         stage: "round_of_32",
         home_team_id: 1,
@@ -96,7 +72,7 @@ test("los puntos por clasificacion de ronda no apuntan a un partido inexistente"
         penalty_winner_team_id: null,
         is_finished: false,
       },
-    ]) as never,
+    ],
     new Map([["qualify_r32", 1]]),
     new Map([
       [
@@ -111,11 +87,10 @@ test("los puntos por clasificacion de ronda no apuntan a un partido inexistente"
   assert.equal(events[0]?.match_id, null);
 });
 
-test("no puntua clasificados a dieciseisavos hasta que todos los cruces esten definidos", async () => {
-  const events = await scoreQualification(
-    fakeSupabase([
+test("no puntua clasificados a dieciseisavos hasta que todos los cruces esten definidos", () => {
+  const events = scoreQualification(
+    [
       {
-        id: 73,
         match_number: 73,
         stage: "round_of_32",
         home_team_id: 1,
@@ -126,7 +101,6 @@ test("no puntua clasificados a dieciseisavos hasta que todos los cruces esten de
         is_finished: false,
       },
       {
-        id: 74,
         match_number: 74,
         stage: "round_of_32",
         home_team_id: 3,
@@ -136,7 +110,7 @@ test("no puntua clasificados a dieciseisavos hasta que todos los cruces esten de
         penalty_winner_team_id: null,
         is_finished: false,
       },
-    ]) as never,
+    ],
     new Map([["qualify_r32", 1]]),
     new Map([
       [

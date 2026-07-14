@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 interface ScoreEvent {
   user_id: string;
   match_id: number | null;
@@ -29,21 +27,17 @@ type QualificationMatch = {
   is_finished?: boolean | null;
 };
 
-export async function scoreQualification(
-  supabase: SupabaseClient,
+// Pura: recibe las eliminatorias ya cargadas (el recálculo consulta `matches`
+// una sola vez y la reutiliza en todos los scorers).
+export function scoreQualification(
+  matches: QualificationMatch[],
   rules: Map<string, number>,
   predictedMatchesByUser: Map<string, Map<number, PredictedKnockoutMatch>>
-): Promise<ScoreEvent[]> {
+): ScoreEvent[] {
   const events: ScoreEvent[] = [];
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("id, match_number, stage, home_team_id, away_team_id, home_score, away_score, penalty_winner_team_id, is_finished")
-    .neq("stage", "group");
-
-  if (!matches) return events;
 
   for (const stage of ["round_of_32", "round_of_16", "quarter_final", "semi_final", "final"]) {
-    const stageMatches = (matches as QualificationMatch[]).filter((match) => match.stage === stage);
+    const stageMatches = matches.filter((match) => match.stage === stage);
     if (stage === "round_of_32" && !areAllStageMatchesPopulated(stageMatches)) {
       continue;
     }
@@ -58,7 +52,7 @@ export async function scoreQualification(
 
   const final = matches.find((match) => match.stage === "final" && match.is_finished);
   const thirdPlace = matches.find((match) => match.stage === "third_place" && match.is_finished);
-  if (final?.home_team_id && final.away_team_id && final.home_score !== null && final.away_score !== null) {
+  if (final?.home_team_id && final.away_team_id && final.home_score != null && final.away_score != null) {
     const winnerId =
       final.home_score > final.away_score
         ? final.home_team_id
@@ -71,7 +65,7 @@ export async function scoreQualification(
       events.push(...scoreQualificationStage("final_loser", [loserId], rules, matches, predictedMatchesByUser, "final", "loser"));
     }
   }
-  if (thirdPlace?.home_team_id && thirdPlace.away_team_id && thirdPlace.home_score !== null && thirdPlace.away_score !== null) {
+  if (thirdPlace?.home_team_id && thirdPlace.away_team_id && thirdPlace.home_score != null && thirdPlace.away_score != null) {
     const winnerId =
       thirdPlace.home_score > thirdPlace.away_score
         ? thirdPlace.home_team_id

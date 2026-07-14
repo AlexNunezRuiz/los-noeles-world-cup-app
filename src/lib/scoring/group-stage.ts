@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 interface ScoreEvent {
   user_id: string;
   match_id: number | null;
@@ -8,20 +6,29 @@ interface ScoreEvent {
   description: string;
 }
 
-export async function scoreGroupStageMatch(
-  supabase: SupabaseClient,
+export interface MatchPredictionRow {
+  user_id: string;
+  match_id: number;
+  home_score: number;
+  away_score: number;
+}
+
+export interface PredictedStandingRow {
+  user_id: string;
+  group_letter: string;
+  team_id: number;
+  position: number;
+}
+
+// Puras: reciben las predicciones ya cargadas (el recálculo trae las tablas
+// completas una sola vez) en lugar de consultar Supabase partido a partido.
+
+export function scoreGroupStageMatch(
   match: { id: number; home_team_id: number; away_team_id: number; home_score: number; away_score: number; group_letter: string },
+  predictions: MatchPredictionRow[],
   rules: Map<string, number>
-): Promise<ScoreEvent[]> {
+): ScoreEvent[] {
   const events: ScoreEvent[] = [];
-
-  // Get all predictions for this match
-  const { data: predictions } = await supabase
-    .from("match_predictions")
-    .select("*")
-    .eq("match_id", match.id);
-
-  if (!predictions) return events;
 
   for (const pred of predictions) {
     // Determine actual result sign (1=home win, X=draw, 2=away win)
@@ -56,24 +63,17 @@ export async function scoreGroupStageMatch(
   return events;
 }
 
-export async function scoreGroupPositions(
-  supabase: SupabaseClient,
+export function scoreGroupPositions(
   groupLetter: string,
   actualPositions: Array<{ team_id: number; position: number }>,
-  rules: Map<string, number>
-): Promise<ScoreEvent[]> {
+  rules: Map<string, number>,
+  predictedStandings: PredictedStandingRow[]
+): ScoreEvent[] {
   const events: ScoreEvent[] = [];
 
-  const { data: allPredicted } = await supabase
-    .from("predicted_group_standings")
-    .select("*")
-    .eq("group_letter", groupLetter);
-
-  if (!allPredicted) return events;
-
   // Group by user
-  const byUser = new Map<string, Array<{ user_id: string; team_id: number; position: number }>>();
-  for (const p of allPredicted) {
+  const byUser = new Map<string, PredictedStandingRow[]>();
+  for (const p of predictedStandings) {
     const list = byUser.get(p.user_id) || [];
     list.push(p);
     byUser.set(p.user_id, list);
@@ -81,7 +81,7 @@ export async function scoreGroupPositions(
 
   for (const [userId, userPreds] of Array.from(byUser.entries())) {
     for (const actual of actualPositions) {
-      const predicted = userPreds.find((up: { team_id: number }) => up.team_id === actual.team_id);
+      const predicted = userPreds.find((up) => up.team_id === actual.team_id);
       if (!predicted || predicted.position !== actual.position) continue;
 
       let ruleKey: string;
