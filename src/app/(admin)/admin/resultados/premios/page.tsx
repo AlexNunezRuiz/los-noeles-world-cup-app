@@ -147,7 +147,7 @@ export default function AdminPremiosPage() {
               {label}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             {hasPlayers ? (
               <PlayerCombobox
                 options={players.map((p) => {
@@ -183,6 +183,25 @@ export default function AdminPremiosPage() {
                 />
               </div>
             )}
+            {(() => {
+              const award = awards[type];
+              if (!award?.player_id && !award?.player_name) {
+                return <p className="text-xs text-ink-faint">Sin ganador seleccionado.</p>;
+              }
+              const player = players.find((p) => p.id === award.player_id);
+              const team = player && (Array.isArray(player.teams) ? player.teams[0] : player.teams);
+              return (
+                <p className="text-sm text-ink-muted">
+                  Seleccionado:{" "}
+                  <span className="font-medium text-ink">{player?.name ?? award.player_name}</span>
+                  {team && (
+                    <span className="ml-1 text-xs">
+                      {team.flag_emoji} {team.name}
+                    </span>
+                  )}
+                </p>
+              );
+            })()}
           </CardContent>
         </Card>
       ))}

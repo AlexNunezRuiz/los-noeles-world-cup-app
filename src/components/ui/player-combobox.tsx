@@ -41,10 +41,18 @@ export function PlayerCombobox({
       .toLowerCase();
   }
 
+  const selectedName = value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
+  // The outside-click listener registers once, so it reads the selected name
+  // through a ref: closing over selectedName directly would freeze the value
+  // from the first render and blank out selections made afterwards.
+  const selectedNameRef = useRef(selectedName);
+  useEffect(() => {
+    selectedNameRef.current = selectedName;
+  }, [selectedName]);
+
   // Keep query in sync when external value changes
   useEffect(() => {
-    const name = value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
-    setQuery(name);
+    setQuery(selectedNameRef.current);
   }, [value, options]);
 
   // Close on tap/click outside the container
@@ -53,8 +61,7 @@ export function PlayerCombobox({
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
         // Reset query to the currently selected value
-        const name = value !== null ? (options.find((o) => o.id === value)?.name ?? "") : "";
-        setQuery(name);
+        setQuery(selectedNameRef.current);
       }
     }
     document.addEventListener("mousedown", handleOutside);
@@ -63,9 +70,6 @@ export function PlayerCombobox({
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("touchstart", handleOutside);
     };
-    // value/options intentionally omitted: stale closure is acceptable here,
-    // the useEffect above keeps query in sync after any external value change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered =
